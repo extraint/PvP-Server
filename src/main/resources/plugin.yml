@@ -1,0 +1,28 @@
+name: MintPvP
+version: '${project.version}'
+main: dev.mintpvp.MintPvP
+api-version: '26.3'
+authors: [MintPvP]
+description: ᴍɪɴᴛ ᴘᴠᴘ - a fresh mint-green PvP experience.
+commands:
+  mintpvp:
+    description: Main Mint PvP command.
+    aliases: [mint, mpvp]
+    usage: /<command> [help|reload]
+  stats:
+    description: View PvP stats.
+    usage: /<command> [player]
+  leaderboard:
+    description: View the top players.
+    aliases: [lb, top]
+    usage: /<command> [kills|kd|streak]
+  kit:
+    description: Re-equip the Mint PvP kit (only outside of combat).
+    usage: /<command>
+permissions:
+  mintpvp.admin:
+    description: Reload and administer Mint PvP.
+    default: op
+  mintpvp.bypass.combat:
+    description: Ignore combat tag command blocking.
+    default: op

@@ -1,0 +1,37 @@
+# ᴍɪɴᴛ ᴘᴠᴘ configuration
+# Colours use hex (#RRGGBB). Text sent by the plugin is rendered in small caps.
+
+theme:
+  primary: "#98F5C0"    # light mint
+  secondary: "#5FD8A0"  # deeper mint
+  accent: "#E6FFF0"     # near-white mint
+  muted: "#7FA896"      # grey-green
+
+server-name: "Mint PvP"
+
+combat:
+  tag-seconds: 15
+  block-commands: true
+  allowed-commands: ["msg", "r", "stats", "leaderboard"]
+  kill-on-logout: true
+
+kit:
+  give-on-join: true
+  give-on-respawn: true
+  # Material names. Armor is auto-equipped.
+  helmet: IRON_HELMET
+  chestplate: IRON_CHESTPLATE
+  leggings: IRON_LEGGINGS
+  boots: IRON_BOOTS
+  items:
+    - "IRON_SWORD:1"
+    - "BOW:1"
+    - "ARROW:32"
+    - "GOLDEN_APPLE:4"
+    - "COOKED_BEEF:32"
+
+gameplay:
+  keep-inventory: true      # nothing drops on death; kit is restored
+  heal-killer: 4.0          # hearts' worth of HP (in half-hearts) healed on kill
+  instant-respawn: true
+  streak-announce-every: 5  # broadcast every N-kill streak
