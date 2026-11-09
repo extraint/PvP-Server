@@ -13,6 +13,7 @@ import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockIgniteEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
+import org.bukkit.event.entity.CreatureSpawnEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.player.PlayerBucketEmptyEvent;
 import org.bukkit.event.player.PlayerCommandPreprocessEvent;
@@ -84,19 +85,43 @@ public final class DuelListener implements Listener {
         if (d == null) return;
         var from = e.getFrom();
         var to = e.getTo();
-        if (!d.arena.contains(to)) {
-            if (d.arena.contains(from)) {
+        if (!d.arena.containsXZ(to)) {
+            if (d.arena.containsXZ(from)) {
                 e.setTo(from.clone().setDirection(to.getDirection()));
             } else {
-                // somehow already outside (e.g. big knockback): pull back to their spawn
-                p.teleport(p.getUniqueId().equals(d.a.getUniqueId()) ? d.arena.spawn1 : d.arena.spawn2);
+                returnToSpawn(p, d);
             }
             p.sendActionBar(plugin.theme().text("you can't leave the arena", plugin.theme().secondary()));
+            return;
+        }
+        if (to.getY() < d.arena.minY()) {
+            // fell off a ledge / into a ravine below the arena floor
+            returnToSpawn(p, d);
+            p.sendActionBar(plugin.theme().text("out of bounds - back to your spawn", plugin.theme().secondary()));
+            return;
+        }
+        if (to.getY() > d.arena.maxY()) {
+            e.setTo(from.clone().setDirection(to.getDirection()));
+            p.sendActionBar(plugin.theme().text("height limit reached", plugin.theme().secondary()));
             return;
         }
         if (d.state == State.COUNTDOWN && (from.getX() != to.getX() || from.getZ() != to.getZ())) {
             e.setTo(from.clone().setDirection(to.getDirection()));
         }
+    }
+
+    private void returnToSpawn(Player p, Duel d) {
+        p.teleport(p.getUniqueId().equals(d.a.getUniqueId()) ? d.arena.spawn1 : d.arena.spawn2);
+        p.setFallDistance(0);
+        p.setVelocity(new org.bukkit.util.Vector(0, 0, 0));
+    }
+
+    /** No mobs spawn inside an arena while a duel is running there. */
+    @EventHandler(ignoreCancelled = true)
+    public void onMobSpawn(CreatureSpawnEvent e) {
+        if (e.getSpawnReason() == CreatureSpawnEvent.SpawnReason.CUSTOM) return;
+        if (!plugin.getConfig().getBoolean("duel.clear-mobs", true)) return;
+        if (plugin.arenas().activeAt(e.getLocation()).isPresent()) e.setCancelled(true);
     }
 
     /** No teleporting in or out of a duel except by this plugin. */

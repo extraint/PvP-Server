@@ -20,6 +20,8 @@ public final class ArenaManager {
         public Location center;
         /** Half-width of the square border in blocks; 0 = use config default. */
         public int radius;
+        /** Vertical half-range around the centre's Y in blocks; 0 = use config default. */
+        public int height;
         public boolean inUse;
 
         Arena(String name) {
@@ -35,19 +37,40 @@ public final class ArenaManager {
             if (center != null) return center;
             if (!spawnsSet()) return null;
             return new Location(spawn1.getWorld(),
-                    (spawn1.getX() + spawn2.getX()) / 2, spawn1.getY(), (spawn1.getZ() + spawn2.getZ()) / 2);
+                    (spawn1.getX() + spawn2.getX()) / 2, (spawn1.getY() + spawn2.getY()) / 2,
+                    (spawn1.getZ() + spawn2.getZ()) / 2);
         }
 
         public int radius() {
             return radius > 0 ? radius : Math.max(5, plugin.getConfig().getInt("duel.default-arena-radius", 40));
         }
 
+        public int height() {
+            return height > 0 ? height : Math.max(3, plugin.getConfig().getInt("duel.default-arena-height", 25));
+        }
+
+        public double minY() { return center().getY() - height(); }
+
+        public double maxY() { return center().getY() + height(); }
+
         /** Is this location inside the arena border (horizontally)? */
-        public boolean contains(Location l) {
+        public boolean containsXZ(Location l) {
             Location c = center();
             if (c == null || l.getWorld() == null || !l.getWorld().equals(c.getWorld())) return false;
             int r = radius();
             return Math.abs(l.getX() - c.getX()) <= r && Math.abs(l.getZ() - c.getZ()) <= r;
+        }
+
+        /** Inside the arena in all three dimensions. */
+        public boolean contains(Location l) {
+            return containsXZ(l) && l.getY() >= minY() && l.getY() <= maxY();
+        }
+
+        /** Bounding box of the whole arena volume. */
+        public org.bukkit.util.BoundingBox box() {
+            Location c = center();
+            return new org.bukkit.util.BoundingBox(c.getX() - radius(), minY(), c.getZ() - radius(),
+                    c.getX() + radius(), maxY(), c.getZ() + radius());
         }
 
         /** Both spawns set and inside the border. */
@@ -77,6 +100,7 @@ public final class ArenaManager {
             a.spawn2 = sec.getLocation(name + ".spawn2");
             a.center = sec.getLocation(name + ".center");
             a.radius = sec.getInt(name + ".radius");
+            a.height = sec.getInt(name + ".height");
             arenas.put(name.toLowerCase(Locale.ROOT), a);
         }
     }
@@ -88,6 +112,7 @@ public final class ArenaManager {
             y.set("arenas." + a.name + ".spawn2", a.spawn2);
             y.set("arenas." + a.name + ".center", a.center);
             y.set("arenas." + a.name + ".radius", a.radius);
+            y.set("arenas." + a.name + ".height", a.height);
         }
         try {
             plugin.getDataFolder().mkdirs();
@@ -120,6 +145,11 @@ public final class ArenaManager {
 
     public Collection<Arena> all() {
         return arenas.values();
+    }
+
+    /** The in-use arena whose volume contains this location, if any. */
+    public Optional<Arena> activeAt(Location l) {
+        return arenas.values().stream().filter(a -> a.inUse && a.ready() && a.contains(l)).findFirst();
     }
 
     public Optional<Arena> randomFree() {

@@ -29,7 +29,7 @@ public final class DuelManager {
         public final Player a, b;
         public State state = State.COUNTDOWN;
         final Map<UUID, Saved> saved = new HashMap<>();
-        BukkitTask countdown, timeout;
+        BukkitTask countdown, timeout, sweep;
 
         Duel(Arena arena, Player a, Player b) {
             this.arena = arena;
@@ -172,6 +172,11 @@ public final class DuelManager {
             p.setWorldBorder(wb);
         }
 
+        if (plugin.getConfig().getBoolean("duel.clear-mobs", true)) {
+            clearMobs(arena);
+            duel.sweep = Bukkit.getScheduler().runTaskTimer(plugin, () -> clearMobs(arena), 40L, 40L);
+        }
+
         int seconds = Math.max(1, plugin.getConfig().getInt("duel.countdown-seconds", 5));
         Theme t = plugin.theme();
         int[] left = {seconds};
@@ -199,11 +204,28 @@ public final class DuelManager {
         }, 0L, 20L);
     }
 
+    /**
+     * Removes mobs from the arena volume. Players, tamed pets and name-tagged
+     * mobs are left alone; removal is silent (no drops or xp).
+     */
+    public void clearMobs(Arena arena) {
+        var center = arena.center();
+        if (center == null || center.getWorld() == null) return;
+        center.getWorld().getNearbyEntities(arena.box(), e ->
+                e instanceof org.bukkit.entity.LivingEntity
+                        && !(e instanceof Player)
+                        && !(e instanceof org.bukkit.entity.ArmorStand)
+                        && !(e instanceof org.bukkit.entity.Tameable t && t.isTamed())
+                        && e.customName() == null)
+                .forEach(org.bukkit.entity.Entity::remove);
+    }
+
     /** End a duel. winner == null means a draw. */
     public void end(Duel duel, Player winner) {
         if (byPlayer.get(duel.a.getUniqueId()) != duel && byPlayer.get(duel.b.getUniqueId()) != duel) return;
         if (duel.countdown != null) duel.countdown.cancel();
         if (duel.timeout != null) duel.timeout.cancel();
+        if (duel.sweep != null) duel.sweep.cancel();
         byPlayer.remove(duel.a.getUniqueId());
         byPlayer.remove(duel.b.getUniqueId());
         duel.arena.inUse = false;

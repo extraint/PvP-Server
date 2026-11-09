@@ -40,6 +40,8 @@ duel:
   countdown-seconds: 5
   request-expire-seconds: 30
   default-arena-radius: 40    # half-width (blocks) of the square border; override with /arena setradius
+  default-arena-height: 25    # blocks above AND below the arena centre's Y (floor/ceiling)
+  clear-mobs: true            # remove mobs from the arena at start and keep it clear during the duel
   protect-terrain: true       # arenas are wilderness: no breaking/placing/fire during duels
   max-duration-seconds: 300   # duel ends in a draw after this long
   allowed-commands: ["duel", "msg", "r"]

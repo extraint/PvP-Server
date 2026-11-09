@@ -28,6 +28,7 @@ Admins set up arenas, then players challenge each other:
 /arena setspawn2 <name>
 /arena setcenter <name>     # optional; defaults to the midpoint of the two spawns
 /arena setradius <name> <blocks>   # border half-width, default 40 (80x80 area)
+/arena setheight <name> <blocks>   # floor/ceiling distance from the centre Y, default 25
 /arena list | delete <name> | tp <name>
 
 /duel <player> [arena]      # clickable accept/deny; random free arena if none given
@@ -44,3 +45,12 @@ Duelists see a per-player world border, can't walk, get knocked, or teleport out
 it, and can't break/place blocks or start fires (`duel.protect-terrain`), so the
 wilderness is left untouched. An arena only counts as ready when both spawns are
 inside its border.
+
+### Mobs & height
+- **Mobs:** at duel start every mob inside the arena volume is removed silently
+  (tamed pets and name-tagged mobs are left alone), new spawns inside an active
+  arena are cancelled, and a 2-second sweep catches mobs wandering in
+  (`duel.clear-mobs`).
+- **Height:** the arena is a box, not just a square. Players can't go above the
+  ceiling, and falling below the floor sends them back to their spawn. Both are
+  `setheight` blocks above/below the arena centre's Y.
