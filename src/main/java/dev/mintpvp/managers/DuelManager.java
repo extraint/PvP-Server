@@ -10,6 +10,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.Sound;
+import org.bukkit.WorldBorder;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
@@ -162,6 +163,15 @@ public final class DuelManager {
         a.teleport(arena.spawn1);
         b.teleport(arena.spawn2);
 
+        // visible per-player border so duelists can see the arena limits
+        for (Player p : List.of(a, b)) {
+            WorldBorder wb = Bukkit.createWorldBorder();
+            wb.setCenter(arena.center());
+            wb.setSize(arena.radius() * 2.0);
+            wb.setWarningDistance(5);
+            p.setWorldBorder(wb);
+        }
+
         int seconds = Math.max(1, plugin.getConfig().getInt("duel.countdown-seconds", 5));
         Theme t = plugin.theme();
         int[] left = {seconds};
@@ -213,6 +223,7 @@ public final class DuelManager {
     }
 
     private void restore(Player p, Saved s) {
+        p.setWorldBorder(null);
         if (s == null) return;
         p.getActivePotionEffects().forEach(e -> p.removePotionEffect(e.getType()));
         p.getInventory().setContents(s.contents());

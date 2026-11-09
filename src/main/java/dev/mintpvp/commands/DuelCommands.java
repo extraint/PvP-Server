@@ -64,7 +64,8 @@ public final class DuelCommands implements CommandExecutor, TabCompleter {
         Theme t = plugin.theme();
         if (!p.hasPermission("mintpvp.admin")) { p.sendMessage(t.error("no permission.")); return; }
         if (args.length == 0) {
-            p.sendMessage(t.line("/arena create|delete|setspawn1|setspawn2|tp <name>", "manage arenas"));
+            p.sendMessage(t.line("/arena create|delete|setspawn1|setspawn2|setcenter|tp <name>", "manage arenas"));
+            p.sendMessage(t.line("/arena setradius <name> <blocks>", "border half-width (square)"));
             p.sendMessage(t.line("/arena list", "list arenas"));
             return;
         }
@@ -72,7 +73,10 @@ public final class DuelCommands implements CommandExecutor, TabCompleter {
         if (sub.equals("list")) {
             p.sendMessage(t.info("arenas (" + plugin.arenas().all().size() + ")"));
             for (Arena a : plugin.arenas().all()) {
-                String status = !a.ready() ? "incomplete" : a.inUse ? "in use" : "ready";
+                String status = !a.spawnsSet() ? "spawns not set"
+                        : !a.ready() ? "spawns outside border (raise radius)"
+                        : a.inUse ? "in use" : "ready";
+                status += " - radius " + a.radius();
                 p.sendMessage(t.line(a.name, status));
             }
             return;
@@ -93,7 +97,27 @@ public final class DuelCommands implements CommandExecutor, TabCompleter {
                 if (a == null) { p.sendMessage(t.error("no such arena.")); return; }
                 if (sub.equals("setspawn1")) a.spawn1 = p.getLocation(); else a.spawn2 = p.getLocation();
                 plugin.arenas().save();
-                p.sendMessage(t.info(sub + " set for " + a.name + (a.ready() ? " - arena ready!" : ".")));
+                p.sendMessage(t.info(sub + " set for " + a.name + (a.ready() ? " - arena ready!"
+                        : a.spawnsSet() ? " - spawn is outside the border; use /arena setcenter or setradius." : ".")));
+            }
+            case "setcenter" -> {
+                Arena a = plugin.arenas().get(name);
+                if (a == null) { p.sendMessage(t.error("no such arena.")); return; }
+                a.center = p.getLocation();
+                plugin.arenas().save();
+                p.sendMessage(t.info("centre set for " + a.name + " (radius " + a.radius() + ")."));
+            }
+            case "setradius" -> {
+                Arena a = plugin.arenas().get(name);
+                if (a == null) { p.sendMessage(t.error("no such arena.")); return; }
+                int r;
+                try { r = Integer.parseInt(args.length > 2 ? args[2] : ""); }
+                catch (NumberFormatException ex) { p.sendMessage(t.error("usage: /arena setradius <name> <blocks>")); return; }
+                if (r < 5 || r > 500) { p.sendMessage(t.error("radius must be 5-500.")); return; }
+                a.radius = r;
+                plugin.arenas().save();
+                p.sendMessage(t.info("radius set to " + r + " (" + (r * 2) + "x" + (r * 2) + " area)."
+                        + (a.ready() ? "" : " spawns are still outside the border!")));
             }
             case "tp" -> {
                 Arena a = plugin.arenas().get(name);
@@ -109,7 +133,7 @@ public final class DuelCommands implements CommandExecutor, TabCompleter {
         List<String> out = new ArrayList<>();
         boolean arena = cmd.getName().equalsIgnoreCase("arena");
         if (args.length == 1) {
-            if (arena) out.addAll(List.of("create", "delete", "setspawn1", "setspawn2", "list", "tp"));
+            if (arena) out.addAll(List.of("create", "delete", "setspawn1", "setspawn2", "setcenter", "setradius", "list", "tp"));
             else {
                 out.addAll(List.of("accept", "deny", "forfeit"));
                 Bukkit.getOnlinePlayers().forEach(pl -> out.add(pl.getName()));

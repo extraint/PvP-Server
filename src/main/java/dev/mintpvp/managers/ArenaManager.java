@@ -12,17 +12,47 @@ import java.util.*;
 /** Admin-defined duel arenas, stored in arenas.yml. Each has two spawn points. */
 public final class ArenaManager {
 
-    public static final class Arena {
+    /** An arena is a square region (centre + radius) with two spawn points. */
+    public final class Arena {
         public final String name;
         public Location spawn1, spawn2;
+        /** Optional explicit centre; defaults to the midpoint of the spawns. */
+        public Location center;
+        /** Half-width of the square border in blocks; 0 = use config default. */
+        public int radius;
         public boolean inUse;
 
         Arena(String name) {
             this.name = name;
         }
 
+        public boolean spawnsSet() {
+            return spawn1 != null && spawn2 != null && spawn1.getWorld() != null
+                    && spawn1.getWorld().equals(spawn2.getWorld());
+        }
+
+        public Location center() {
+            if (center != null) return center;
+            if (!spawnsSet()) return null;
+            return new Location(spawn1.getWorld(),
+                    (spawn1.getX() + spawn2.getX()) / 2, spawn1.getY(), (spawn1.getZ() + spawn2.getZ()) / 2);
+        }
+
+        public int radius() {
+            return radius > 0 ? radius : Math.max(5, plugin.getConfig().getInt("duel.default-arena-radius", 40));
+        }
+
+        /** Is this location inside the arena border (horizontally)? */
+        public boolean contains(Location l) {
+            Location c = center();
+            if (c == null || l.getWorld() == null || !l.getWorld().equals(c.getWorld())) return false;
+            int r = radius();
+            return Math.abs(l.getX() - c.getX()) <= r && Math.abs(l.getZ() - c.getZ()) <= r;
+        }
+
+        /** Both spawns set and inside the border. */
         public boolean ready() {
-            return spawn1 != null && spawn2 != null;
+            return spawnsSet() && contains(spawn1) && contains(spawn2);
         }
     }
 
@@ -45,6 +75,8 @@ public final class ArenaManager {
             Arena a = new Arena(name);
             a.spawn1 = sec.getLocation(name + ".spawn1");
             a.spawn2 = sec.getLocation(name + ".spawn2");
+            a.center = sec.getLocation(name + ".center");
+            a.radius = sec.getInt(name + ".radius");
             arenas.put(name.toLowerCase(Locale.ROOT), a);
         }
     }
@@ -54,6 +86,8 @@ public final class ArenaManager {
         for (Arena a : arenas.values()) {
             y.set("arenas." + a.name + ".spawn1", a.spawn1);
             y.set("arenas." + a.name + ".spawn2", a.spawn2);
+            y.set("arenas." + a.name + ".center", a.center);
+            y.set("arenas." + a.name + ".radius", a.radius);
         }
         try {
             plugin.getDataFolder().mkdirs();

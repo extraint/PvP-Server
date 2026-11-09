@@ -26,6 +26,8 @@ Admins set up arenas, then players challenge each other:
 /arena create <name>        # then stand at each spawn point:
 /arena setspawn1 <name>
 /arena setspawn2 <name>
+/arena setcenter <name>     # optional; defaults to the midpoint of the two spawns
+/arena setradius <name> <blocks>   # border half-width, default 40 (80x80 area)
 /arena list | delete <name> | tp <name>
 
 /duel <player> [arena]      # clickable accept/deny; random free arena if none given
@@ -35,3 +37,10 @@ Admins set up arenas, then players challenge each other:
 Duels save and restore your location, inventory, health, XP and effects, run a
 freeze countdown, and end in a draw after `duel.max-duration-seconds`. Duel
 wins/losses show in `/stats`. Settings live under `duel:` in `config.yml`.
+
+### Borders (wilderness arenas)
+Arenas are just natural terrain, so each one is a square region (centre + radius).
+Duelists see a per-player world border, can't walk, get knocked, or teleport out of
+it, and can't break/place blocks or start fires (`duel.protect-terrain`), so the
+wilderness is left untouched. An arena only counts as ready when both spawns are
+inside its border.

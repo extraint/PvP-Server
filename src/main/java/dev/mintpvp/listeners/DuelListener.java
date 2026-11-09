@@ -10,7 +10,11 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
+import org.bukkit.event.block.BlockBreakEvent;
+import org.bukkit.event.block.BlockIgniteEvent;
+import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
+import org.bukkit.event.player.PlayerBucketEmptyEvent;
 import org.bukkit.event.player.PlayerCommandPreprocessEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
@@ -72,26 +76,62 @@ public final class DuelListener implements Listener {
         plugin.duels().end(d, d.opponentOf(p));
     }
 
+    /** Enforces the arena border and the countdown freeze. */
     @EventHandler(ignoreCancelled = true)
     public void onMove(PlayerMoveEvent e) {
-        Duel d = plugin.duels().duelOf(e.getPlayer().getUniqueId());
-        if (d == null || d.state != State.COUNTDOWN) return;
+        Player p = e.getPlayer();
+        Duel d = plugin.duels().duelOf(p.getUniqueId());
+        if (d == null) return;
         var from = e.getFrom();
         var to = e.getTo();
-        if (from.getX() != to.getX() || from.getZ() != to.getZ()) {
+        if (!d.arena.contains(to)) {
+            if (d.arena.contains(from)) {
+                e.setTo(from.clone().setDirection(to.getDirection()));
+            } else {
+                // somehow already outside (e.g. big knockback): pull back to their spawn
+                p.teleport(p.getUniqueId().equals(d.a.getUniqueId()) ? d.arena.spawn1 : d.arena.spawn2);
+            }
+            p.sendActionBar(plugin.theme().text("you can't leave the arena", plugin.theme().secondary()));
+            return;
+        }
+        if (d.state == State.COUNTDOWN && (from.getX() != to.getX() || from.getZ() != to.getZ())) {
             e.setTo(from.clone().setDirection(to.getDirection()));
         }
     }
 
-    /** No teleporting out of a duel (pearls, plugin teleports), except our own. */
+    /** No teleporting in or out of a duel except by this plugin. */
     @EventHandler(ignoreCancelled = true)
     public void onTeleport(PlayerTeleportEvent e) {
-        Duel d = plugin.duels().duelOf(e.getPlayer().getUniqueId());
-        if (d == null) return;
-        if (e.getCause() == PlayerTeleportEvent.TeleportCause.ENDER_PEARL
-                || e.getCause() == PlayerTeleportEvent.TeleportCause.COMMAND) {
+        if (plugin.duels().inDuel(e.getPlayer().getUniqueId())
+                && e.getCause() != PlayerTeleportEvent.TeleportCause.PLUGIN) {
             e.setCancelled(true);
         }
+    }
+
+    // Arenas are natural wilderness: don't let duels wreck the terrain.
+    private boolean protectedTerrain(Player p) {
+        return p != null && plugin.duels().inDuel(p.getUniqueId())
+                && plugin.getConfig().getBoolean("duel.protect-terrain", true);
+    }
+
+    @EventHandler(ignoreCancelled = true)
+    public void onBreak(BlockBreakEvent e) {
+        if (protectedTerrain(e.getPlayer())) e.setCancelled(true);
+    }
+
+    @EventHandler(ignoreCancelled = true)
+    public void onPlace(BlockPlaceEvent e) {
+        if (protectedTerrain(e.getPlayer())) e.setCancelled(true);
+    }
+
+    @EventHandler(ignoreCancelled = true)
+    public void onBucket(PlayerBucketEmptyEvent e) {
+        if (protectedTerrain(e.getPlayer())) e.setCancelled(true);
+    }
+
+    @EventHandler(ignoreCancelled = true)
+    public void onIgnite(BlockIgniteEvent e) {
+        if (protectedTerrain(e.getPlayer())) e.setCancelled(true);
     }
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
