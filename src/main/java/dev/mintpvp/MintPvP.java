@@ -1,6 +1,10 @@
 package dev.mintpvp;
 
+import dev.mintpvp.commands.DuelCommands;
 import dev.mintpvp.commands.MintCommands;
+import dev.mintpvp.listeners.DuelListener;
+import dev.mintpvp.managers.ArenaManager;
+import dev.mintpvp.managers.DuelManager;
 import dev.mintpvp.listeners.CombatListener;
 import dev.mintpvp.listeners.PlayerListener;
 import dev.mintpvp.managers.CombatManager;
@@ -17,6 +21,8 @@ public final class MintPvP extends JavaPlugin {
     private StatsManager stats;
     private KitManager kits;
     private ScoreboardManager boards;
+    private ArenaManager arenas;
+    private DuelManager duels;
 
     @Override
     public void onEnable() {
@@ -26,9 +32,12 @@ public final class MintPvP extends JavaPlugin {
         stats = new StatsManager(this);
         kits = new KitManager(this);
         boards = new ScoreboardManager(this);
+        arenas = new ArenaManager(this);
+        duels = new DuelManager(this);
 
         getServer().getPluginManager().registerEvents(new CombatListener(this), this);
         getServer().getPluginManager().registerEvents(new PlayerListener(this), this);
+        getServer().getPluginManager().registerEvents(new DuelListener(this), this);
 
         MintCommands commands = new MintCommands(this);
         for (String name : new String[] {"mintpvp", "stats", "leaderboard", "kit"}) {
@@ -36,6 +45,15 @@ public final class MintPvP extends JavaPlugin {
             if (cmd != null) {
                 cmd.setExecutor(commands);
                 cmd.setTabCompleter(commands);
+            }
+        }
+
+        DuelCommands duelCommands = new DuelCommands(this);
+        for (String name : new String[] {"duel", "arena"}) {
+            var cmd = getCommand(name);
+            if (cmd != null) {
+                cmd.setExecutor(duelCommands);
+                cmd.setTabCompleter(duelCommands);
             }
         }
 
@@ -47,6 +65,7 @@ public final class MintPvP extends JavaPlugin {
 
     @Override
     public void onDisable() {
+        if (duels != null) duels.shutdown();
         if (boards != null) boards.stop();
         if (stats != null) stats.save();
     }
@@ -62,4 +81,6 @@ public final class MintPvP extends JavaPlugin {
     public StatsManager stats() { return stats; }
     public KitManager kits() { return kits; }
     public ScoreboardManager boards() { return boards; }
+    public ArenaManager arenas() { return arenas; }
+    public DuelManager duels() { return duels; }
 }

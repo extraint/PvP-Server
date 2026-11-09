@@ -19,10 +19,19 @@ commands:
   kit:
     description: Re-equip the Mint PvP kit (only outside of combat).
     usage: /<command>
+  duel:
+    description: Challenge a player to a duel.
+    usage: /<command> <player> [arena] | accept [player] | deny [player] | forfeit
+  arena:
+    description: Manage duel arenas.
+    usage: /<command> <create|delete|setspawn1|setspawn2|list|tp> [name]
 permissions:
   mintpvp.admin:
     description: Reload and administer Mint PvP.
     default: op
+  mintpvp.duel:
+    description: Send and accept duels.
+    default: true
   mintpvp.bypass.combat:
     description: Ignore combat tag command blocking.
     default: op

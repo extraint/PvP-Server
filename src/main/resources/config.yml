@@ -35,3 +35,9 @@ gameplay:
   heal-killer: 4.0          # hearts' worth of HP (in half-hearts) healed on kill
   instant-respawn: true
   streak-announce-every: 5  # broadcast every N-kill streak
+
+duel:
+  countdown-seconds: 5
+  request-expire-seconds: 30
+  max-duration-seconds: 300   # duel ends in a draw after this long
+  allowed-commands: ["duel", "msg", "r"]

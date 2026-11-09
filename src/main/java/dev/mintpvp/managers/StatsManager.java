@@ -11,7 +11,7 @@ import java.util.*;
 public final class StatsManager {
 
     public static final class Stats {
-        public int kills, deaths, streak, bestStreak;
+        public int kills, deaths, streak, bestStreak, duelWins, duelLosses;
 
         public double kd() {
             return deaths == 0 ? kills : (double) kills / deaths;
@@ -41,6 +41,8 @@ public final class StatsManager {
                 s.kills = section.getInt(key + ".kills");
                 s.deaths = section.getInt(key + ".deaths");
                 s.bestStreak = section.getInt(key + ".best-streak");
+                s.duelWins = section.getInt(key + ".duel-wins");
+                s.duelLosses = section.getInt(key + ".duel-losses");
                 stats.put(id, s);
                 names.put(id, section.getString(key + ".name", "unknown"));
             } catch (IllegalArgumentException ignored) {
@@ -57,6 +59,8 @@ public final class StatsManager {
             y.set(p + ".kills", s.kills);
             y.set(p + ".deaths", s.deaths);
             y.set(p + ".best-streak", s.bestStreak);
+            y.set(p + ".duel-wins", s.duelWins);
+            y.set(p + ".duel-losses", s.duelLosses);
         });
         try {
             plugin.getDataFolder().mkdirs();
@@ -92,6 +96,11 @@ public final class StatsManager {
         k.bestStreak = Math.max(k.bestStreak, k.streak);
         recordDeath(victim);
         return k.streak;
+    }
+
+    public void recordDuel(UUID winner, UUID loser) {
+        get(winner).duelWins++;
+        get(loser).duelLosses++;
     }
 
     public void recordDeath(UUID victim) {

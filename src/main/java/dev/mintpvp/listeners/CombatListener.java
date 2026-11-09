@@ -35,6 +35,7 @@ public final class CombatListener implements Listener {
         if (e.getDamager() instanceof Player p) attacker = p;
         else if (e.getDamager() instanceof Projectile proj && proj.getShooter() instanceof Player p) attacker = p;
         if (attacker == null || attacker.equals(victim)) return;
+        if (plugin.duels().inDuel(victim.getUniqueId()) || plugin.duels().inDuel(attacker.getUniqueId())) return;
 
         Theme t = plugin.theme();
         if (plugin.combat().tag(victim.getUniqueId())) {

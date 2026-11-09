@@ -49,7 +49,11 @@ public final class MintCommands implements CommandExecutor, TabCompleter {
         s.sendMessage(t.line("/stats [player]", "view stats"));
         s.sendMessage(t.line("/leaderboard [kills|kd|streak]", "top players"));
         s.sendMessage(t.line("/kit", "re-equip your kit (out of combat)"));
-        if (s.hasPermission("mintpvp.admin")) s.sendMessage(t.line("/mintpvp reload", "reload config"));
+        s.sendMessage(t.line("/duel <player> [arena]", "challenge a player"));
+        if (s.hasPermission("mintpvp.admin")) {
+            s.sendMessage(t.line("/mintpvp reload", "reload config"));
+            s.sendMessage(t.line("/arena", "manage duel arenas"));
+        }
     }
 
     private void stats(CommandSender s, String[] args) {
@@ -77,6 +81,7 @@ public final class MintCommands implements CommandExecutor, TabCompleter {
         s.sendMessage(t.line("deaths", String.valueOf(st.deaths)));
         s.sendMessage(t.line("k/d", String.format(Locale.ROOT, "%.2f", st.kd())));
         s.sendMessage(t.line("best streak", String.valueOf(st.bestStreak)));
+        s.sendMessage(t.line("duels", st.duelWins + "w / " + st.duelLosses + "l"));
     }
 
     private void leaderboard(CommandSender s, String[] args) {
