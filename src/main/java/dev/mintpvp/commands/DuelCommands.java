@@ -30,8 +30,11 @@ public final class DuelCommands implements CommandExecutor, TabCompleter {
             sender.sendMessage(t.error("players only."));
             return true;
         }
-        if (cmd.getName().equalsIgnoreCase("arena")) arena(p, args);
-        else duel(p, args);
+        switch (cmd.getName().toLowerCase(Locale.ROOT)) {
+            case "arena" -> arena(p, args);
+            case "spectate" -> spectate(p, args);
+            default -> duel(p, args);
+        }
         return true;
     }
 
@@ -43,6 +46,7 @@ public final class DuelCommands implements CommandExecutor, TabCompleter {
             p.sendMessage(t.line("/duel <player> [arena]", "challenge a player"));
             p.sendMessage(t.line("/duel accept|deny [player]", "answer a request"));
             p.sendMessage(t.line("/duel forfeit", "leave your duel (you lose)"));
+            p.sendMessage(t.line("/spectate [player|arena|leave]", "watch a duel"));
             return;
         }
         switch (args[0].toLowerCase(Locale.ROOT)) {
@@ -58,6 +62,32 @@ public final class DuelCommands implements CommandExecutor, TabCompleter {
                 plugin.duels().request(p, target, args.length > 1 ? args[1] : null);
             }
         }
+    }
+
+    private void spectate(Player p, String[] args) {
+        Theme t = plugin.theme();
+        if (!p.hasPermission("mintpvp.spectate")) { p.sendMessage(t.error("no permission.")); return; }
+        if (args.length == 0) {
+            if (plugin.duels().isSpectating(p.getUniqueId())) {
+                plugin.duels().stopSpectating(p);
+                p.sendMessage(t.info("stopped spectating."));
+                return;
+            }
+            var duels = plugin.duels().activeDuels();
+            p.sendMessage(t.info("running duels (" + duels.size() + ")"));
+            for (var d : duels) {
+                p.sendMessage(t.line(d.a.getName() + " vs " + d.b.getName(),
+                        d.arena.name + " - " + d.spectators.size() + " watching"));
+            }
+            p.sendMessage(t.line("/spectate <player|arena>", "watch a duel"));
+            return;
+        }
+        if (args[0].equalsIgnoreCase("leave")) {
+            p.sendMessage(plugin.duels().stopSpectating(p)
+                    ? t.info("stopped spectating.") : t.error("you're not spectating."));
+            return;
+        }
+        plugin.duels().spectate(p, args[0]);
     }
 
     private void arena(Player p, String[] args) {
@@ -145,6 +175,18 @@ public final class DuelCommands implements CommandExecutor, TabCompleter {
     public List<String> onTabComplete(CommandSender s, Command cmd, String label, String[] args) {
         List<String> out = new ArrayList<>();
         boolean arena = cmd.getName().equalsIgnoreCase("arena");
+        if (cmd.getName().equalsIgnoreCase("spectate")) {
+            if (args.length == 1) {
+                out.add("leave");
+                plugin.duels().activeDuels().forEach(d -> {
+                    out.add(d.a.getName());
+                    out.add(d.b.getName());
+                    out.add(d.arena.name);
+                });
+            }
+            String pre = args[args.length - 1].toLowerCase(Locale.ROOT);
+            return out.stream().filter(o -> o.toLowerCase(Locale.ROOT).startsWith(pre)).toList();
+        }
         if (args.length == 1) {
             if (arena) out.addAll(List.of("create", "delete", "setspawn1", "setspawn2", "setcenter", "setradius", "setheight", "list", "tp"));
             else {

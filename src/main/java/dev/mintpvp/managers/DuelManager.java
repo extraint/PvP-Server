@@ -29,6 +29,7 @@ public final class DuelManager {
         public final Player a, b;
         public State state = State.COUNTDOWN;
         final Map<UUID, Saved> saved = new HashMap<>();
+        public final Set<UUID> spectators = new LinkedHashSet<>();
         BukkitTask countdown, timeout, sweep;
 
         Duel(Arena arena, Player a, Player b) {
@@ -46,11 +47,15 @@ public final class DuelManager {
                          int food, float saturation, int level, float exp,
                          Collection<PotionEffect> effects) {}
 
+    private record SpecSaved(Location loc, GameMode mode) {}
+
     private record Request(UUID from, String arena, long expires) {}
 
     private final MintPvP plugin;
     private final Map<UUID, Request> requests = new HashMap<>(); // keyed by target
     private final Map<UUID, Duel> byPlayer = new HashMap<>();
+    private final Map<UUID, Duel> spectating = new HashMap<>();
+    private final Map<UUID, SpecSaved> specSaved = new HashMap<>();
 
     public DuelManager(MintPvP plugin) {
         this.plugin = plugin;
@@ -64,12 +69,22 @@ public final class DuelManager {
         return byPlayer.get(id);
     }
 
+    public boolean isSpectating(UUID id) {
+        return spectating.containsKey(id);
+    }
+
+    public Duel spectatedDuel(UUID id) {
+        return spectating.get(id);
+    }
+
     // ---- requests -------------------------------------------------------
 
     public void request(Player from, Player to, String arenaName) {
         Theme t = plugin.theme();
         if (from.equals(to)) { from.sendMessage(t.error("you can't duel yourself.")); return; }
         if (inDuel(from.getUniqueId())) { from.sendMessage(t.error("you're already in a duel.")); return; }
+        if (isSpectating(from.getUniqueId())) { from.sendMessage(t.error("stop spectating first (/spectate leave).")); return; }
+        if (isSpectating(to.getUniqueId())) { from.sendMessage(t.error("that player is spectating a duel.")); return; }
         if (inDuel(to.getUniqueId())) { from.sendMessage(t.error("that player is already in a duel.")); return; }
         if (plugin.combat().isTagged(from.getUniqueId())) { from.sendMessage(t.error("you can't duel while in combat.")); return; }
         if (plugin.combat().isTagged(to.getUniqueId())) { from.sendMessage(t.error("that player is in combat.")); return; }
@@ -116,6 +131,7 @@ public final class DuelManager {
         requests.remove(target.getUniqueId());
 
         if (inDuel(from.getUniqueId()) || inDuel(target.getUniqueId())
+                || isSpectating(from.getUniqueId()) || isSpectating(target.getUniqueId())
                 || plugin.combat().isTagged(from.getUniqueId()) || plugin.combat().isTagged(target.getUniqueId())) {
             target.sendMessage(t.error("the duel can't start right now."));
             return;
@@ -164,12 +180,17 @@ public final class DuelManager {
         b.teleport(arena.spawn2);
 
         // visible per-player border so duelists can see the arena limits
-        for (Player p : List.of(a, b)) {
-            WorldBorder wb = Bukkit.createWorldBorder();
-            wb.setCenter(arena.center());
-            wb.setSize(arena.radius() * 2.0);
-            wb.setWarningDistance(5);
-            p.setWorldBorder(wb);
+        applyBorder(a, arena);
+        applyBorder(b, arena);
+
+        if (plugin.getConfig().getBoolean("duel.announce-start", true)) {
+            Theme t = plugin.theme();
+            Bukkit.broadcast(t.info(t.raw(a.getName(), t.primary())
+                    .append(t.text(" vs ", t.muted()))
+                    .append(t.raw(b.getName(), t.primary()))
+                    .append(t.text(" is starting on " + arena.name + " ", t.accent()))
+                    .append(t.text("[watch]", t.secondary())
+                            .clickEvent(ClickEvent.runCommand("/spectate " + a.getName())))));
         }
 
         if (plugin.getConfig().getBoolean("duel.clear-mobs", true)) {
@@ -204,6 +225,70 @@ public final class DuelManager {
         }, 0L, 20L);
     }
 
+    private void applyBorder(Player p, Arena arena) {
+        WorldBorder wb = Bukkit.createWorldBorder();
+        wb.setCenter(arena.center());
+        wb.setSize(arena.radius() * 2.0);
+        wb.setWarningDistance(5);
+        p.setWorldBorder(wb);
+    }
+
+    // ---- spectating -----------------------------------------------------
+
+    /** Finds a running duel by a duelist's name or by arena name. */
+    public Duel find(String query) {
+        Player pl = Bukkit.getPlayerExact(query);
+        if (pl != null && byPlayer.containsKey(pl.getUniqueId())) return byPlayer.get(pl.getUniqueId());
+        return new HashSet<>(byPlayer.values()).stream()
+                .filter(d -> d.arena.name.equalsIgnoreCase(query)).findFirst().orElse(null);
+    }
+
+    public Collection<Duel> activeDuels() {
+        return new HashSet<>(byPlayer.values());
+    }
+
+    public void spectate(Player sp, String query) {
+        Theme t = plugin.theme();
+        UUID id = sp.getUniqueId();
+        if (!plugin.getConfig().getBoolean("duel.allow-spectators", true)) { sp.sendMessage(t.error("spectating is disabled.")); return; }
+        if (inDuel(id)) { sp.sendMessage(t.error("you're in a duel.")); return; }
+        if (isSpectating(id)) { sp.sendMessage(t.error("you're already spectating (/spectate leave).")); return; }
+        if (plugin.combat().isTagged(id)) { sp.sendMessage(t.error("you can't spectate while in combat.")); return; }
+        Duel d = find(query);
+        if (d == null) { sp.sendMessage(t.error("no running duel found for that player or arena.")); return; }
+        int max = plugin.getConfig().getInt("duel.max-spectators", 20);
+        if (max > 0 && d.spectators.size() >= max) { sp.sendMessage(t.error("that duel has too many spectators.")); return; }
+
+        specSaved.put(id, new SpecSaved(sp.getLocation(), sp.getGameMode()));
+        d.spectators.add(id);
+        spectating.put(id, d);
+        applyBorder(sp, d.arena);
+        sp.setGameMode(GameMode.SPECTATOR);
+        sp.teleport(d.a.getLocation());
+        sp.sendMessage(t.info(t.text("now spectating ", t.accent())
+                .append(t.raw(d.a.getName() + " vs " + d.b.getName(), t.primary()))
+                .append(t.text(". /spectate leave to stop.", t.accent()))));
+    }
+
+    /** @return false if the player wasn't spectating. */
+    public boolean stopSpectating(Player sp) {
+        Duel d = spectating.get(sp.getUniqueId());
+        if (d == null) return false;
+        removeSpectator(d, sp.getUniqueId());
+        return true;
+    }
+
+    private void removeSpectator(Duel d, UUID id) {
+        d.spectators.remove(id);
+        spectating.remove(id);
+        SpecSaved s = specSaved.remove(id);
+        Player sp = Bukkit.getPlayer(id);
+        if (sp == null || s == null) return;
+        sp.setWorldBorder(null);
+        sp.setGameMode(s.mode());
+        sp.teleport(s.loc());
+    }
+
     /**
      * Removes mobs from the arena volume. Players, tamed pets and name-tagged
      * mobs are left alone; removal is silent (no drops or xp).
@@ -229,6 +314,12 @@ public final class DuelManager {
         byPlayer.remove(duel.a.getUniqueId());
         byPlayer.remove(duel.b.getUniqueId());
         duel.arena.inUse = false;
+
+        for (UUID sid : new ArrayList<>(duel.spectators)) {
+            Player sp = Bukkit.getPlayer(sid);
+            if (sp != null) sp.sendMessage(plugin.theme().info("the duel has ended."));
+            removeSpectator(duel, sid);
+        }
 
         Theme t = plugin.theme();
         if (winner != null) {

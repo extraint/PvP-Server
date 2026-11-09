@@ -81,6 +81,15 @@ public final class DuelListener implements Listener {
     @EventHandler(ignoreCancelled = true)
     public void onMove(PlayerMoveEvent e) {
         Player p = e.getPlayer();
+        Duel sd = plugin.duels().spectatedDuel(p.getUniqueId());
+        if (sd != null) {
+            // spectators fly freely but stay inside the arena volume
+            if (!sd.arena.contains(e.getTo())) {
+                if (sd.arena.contains(e.getFrom())) e.setTo(e.getFrom().clone().setDirection(e.getTo().getDirection()));
+                else p.teleport(sd.arena.center());
+            }
+            return;
+        }
         Duel d = plugin.duels().duelOf(p.getUniqueId());
         if (d == null) return;
         var from = e.getFrom();
@@ -127,6 +136,14 @@ public final class DuelListener implements Listener {
     /** No teleporting in or out of a duel except by this plugin. */
     @EventHandler(ignoreCancelled = true)
     public void onTeleport(PlayerTeleportEvent e) {
+        Duel sd = plugin.duels().spectatedDuel(e.getPlayer().getUniqueId());
+        if (sd != null) {
+            var cause = e.getCause();
+            boolean ok = cause == PlayerTeleportEvent.TeleportCause.PLUGIN
+                    || (cause == PlayerTeleportEvent.TeleportCause.SPECTATE && sd.arena.contains(e.getTo()));
+            if (!ok) e.setCancelled(true);
+            return;
+        }
         if (plugin.duels().inDuel(e.getPlayer().getUniqueId())
                 && e.getCause() != PlayerTeleportEvent.TeleportCause.PLUGIN) {
             e.setCancelled(true);
@@ -162,16 +179,21 @@ public final class DuelListener implements Listener {
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onCommand(PlayerCommandPreprocessEvent e) {
         Player p = e.getPlayer();
-        if (!plugin.duels().inDuel(p.getUniqueId()) || p.hasPermission("mintpvp.admin")) return;
+        boolean spectating = plugin.duels().isSpectating(p.getUniqueId());
+        if (!(plugin.duels().inDuel(p.getUniqueId()) || spectating) || p.hasPermission("mintpvp.admin")) return;
         String label = e.getMessage().substring(1).split(" ")[0].toLowerCase(Locale.ROOT);
         List<String> allowed = plugin.getConfig().getStringList("duel.allowed-commands");
         if (allowed.stream().anyMatch(a -> a.equalsIgnoreCase(label))) return;
+        if (spectating && (label.equals("spectate") || label.equals("spec") || label.equals("watch"))) return;
         e.setCancelled(true);
-        p.sendMessage(plugin.theme().error("you can't use that during a duel. (/duel forfeit to leave)"));
+        p.sendMessage(plugin.theme().error(spectating
+                ? "you can't use that while spectating. (/spectate leave)"
+                : "you can't use that during a duel. (/duel forfeit to leave)"));
     }
 
     @EventHandler
     public void onQuit(PlayerQuitEvent e) {
+        plugin.duels().stopSpectating(e.getPlayer());
         plugin.duels().forfeit(e.getPlayer());
     }
 }

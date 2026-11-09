@@ -22,6 +22,10 @@ commands:
   duel:
     description: Challenge a player to a duel.
     usage: /<command> <player> [arena] | accept [player] | deny [player] | forfeit
+  spectate:
+    description: Watch a running duel.
+    aliases: [spec, watch]
+    usage: /<command> [player|arena|leave]
   arena:
     description: Manage duel arenas.
     usage: /<command> <create|delete|setspawn1|setspawn2|list|tp> [name]
@@ -29,6 +33,9 @@ permissions:
   mintpvp.admin:
     description: Reload and administer Mint PvP.
     default: op
+  mintpvp.spectate:
+    description: Spectate duels.
+    default: true
   mintpvp.duel:
     description: Send and accept duels.
     default: true

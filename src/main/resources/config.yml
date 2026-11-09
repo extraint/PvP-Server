@@ -42,6 +42,9 @@ duel:
   default-arena-radius: 40    # half-width (blocks) of the square border; override with /arena setradius
   default-arena-height: 25    # blocks above AND below the arena centre's Y (floor/ceiling)
   clear-mobs: true            # remove mobs from the arena at start and keep it clear during the duel
+  allow-spectators: true
+  max-spectators: 20          # per duel; 0 = unlimited
+  announce-start: true        # broadcast a clickable [watch] when a duel starts
   protect-terrain: true       # arenas are wilderness: no breaking/placing/fire during duels
   max-duration-seconds: 300   # duel ends in a draw after this long
   allowed-commands: ["duel", "msg", "r"]

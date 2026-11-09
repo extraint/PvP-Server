@@ -54,3 +54,15 @@ inside its border.
 - **Height:** the arena is a box, not just a square. Players can't go above the
   ceiling, and falling below the floor sends them back to their spawn. Both are
   `setheight` blocks above/below the arena centre's Y.
+
+### Spectating
+```
+/spectate                    # list running duels (or leave, if you're spectating)
+/spectate <player|arena>     # watch a duel
+/spectate leave
+```
+Spectators fly in spectator mode inside the arena volume, see the same border, and
+can only use `/spectate` and the allowed duel commands. When the duel ends (or they
+quit) they're returned to their old location and game mode. Starting a duel
+broadcasts a clickable **[watch]**. Settings: `duel.allow-spectators`,
+`duel.max-spectators`, `duel.announce-start`. Permission: `mintpvp.spectate`.
