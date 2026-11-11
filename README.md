@@ -96,8 +96,10 @@ admin changed the kit) falls back to the default.
 Matches pair the closest ratings inside a window that starts at ±100 and widens by 50
 every 10 s of waiting (max ±800). Results use standard Elo with `ranked.k-factor` (32);
 a win is always at least +1, ratings never go below 0, quitting mid-duel is a loss, and a
-server shutdown voids the match. Tiers: bronze, silver (900), gold (1100), platinum (1300),
-diamond (1500), mint master (1700). `/leaderboard [elo|wins|kills|kd|streak]` or the GUI.
+server shutdown voids the match. Tiers (by Elo): LT5 (0), HT5 (850), LT4 (1000, where everyone starts), HT4 (1150), LT3 (1300),
+HT3 (1450), LT2 (1600), HT2 (1750), LT1 (1900), HT1 (2050). They're defined in
+`util/Tier.java` if you want to move the cut-offs.
+`/leaderboard [elo|wins|kills|kd|streak]` or the GUI.
 
 ## Spawn & lobby
 ```
