@@ -77,7 +77,7 @@ public final class QueueManager {
         if (plugin.combat().isTagged(id)) { p.sendMessage(t.error("you can't queue while in combat.")); return false; }
         if (queued.containsKey(id)) { p.sendMessage(t.error("you're already queued. use /queue leave first.")); return false; }
         if (plugin.arenas().all().stream().noneMatch(a -> a.ready())) {
-            p.sendMessage(t.error("no arenas are set up yet."));
+            p.sendMessage(t.error(plugin.duels().noArenaReason()));
             return false;
         }
         queued.put(id, new Entry(id, kit, type, System.currentTimeMillis()));

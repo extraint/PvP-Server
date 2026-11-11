@@ -30,6 +30,7 @@ Admins set up arenas, then players challenge each other:
 /arena setcenter <name>     # optional; defaults to the midpoint of the two spawns
 /arena setradius <name> <blocks>   # border half-width, default 40 (80x80 area)
 /arena setheight <name> <blocks>   # floor/ceiling distance from the centre Y, default 25
+/arena check <name>         # explains exactly what's wrong with an arena (also works from the console)
 /arena list | delete <name> | tp <name>
 
 /duel <player> [arena]      # clickable accept/deny; random free arena if none given
@@ -118,3 +119,11 @@ Lobby players take no damage or hunger and can't build, drop or move items
 
 > `kit.give-on-join` / `kit.give-on-respawn` are **off** by default because giving a kit
 > replaces the player's inventory. Duels always save and restore inventories.
+
+### Arena troubleshooting
+`/arena list` shows every arena's status and `/arena check <name>` says what's wrong
+(spawn missing, world not loaded, different worlds...). If a duel fails to start, the
+error is printed in the console and both players are put back where they were. The border
+always grows to include both spawns, so a spawn can't end up outside its own arena. Arenas
+are stored by world name, so an arena in a world that isn't loaded yet is skipped (not lost)
+until that world loads.

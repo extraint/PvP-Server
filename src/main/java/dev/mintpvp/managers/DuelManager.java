@@ -100,10 +100,11 @@ public final class DuelManager {
         String chosen = null;
         if (arenaName != null) {
             Arena a = plugin.arenas().get(arenaName);
-            if (a == null || !a.ready()) { from.sendMessage(t.error("that arena doesn't exist or isn't set up.")); return; }
+            if (a == null) { from.sendMessage(t.error("that arena doesn't exist.")); return; }
+            if (!a.ready()) { from.sendMessage(t.error("that arena can't be used: " + a.problem() + ".")); return; }
             chosen = a.name;
         } else if (plugin.arenas().randomFree().isEmpty()) {
-            from.sendMessage(t.error("no arenas are available right now."));
+            from.sendMessage(t.error(noArenaReason()));
             return;
         }
 
@@ -119,6 +120,15 @@ public final class DuelManager {
         to.sendMessage(t.info(t.raw(from.getName(), t.primary())
                 .append(t.text(" challenged you to a " + kit.display + " duel" + (chosen != null ? " on " + chosen : "") + "! ", t.accent()))
                 .append(accept).append(Component.text(" ")).append(deny)));
+    }
+
+    /** Explains why no arena can be used (none set up, all busy, or all broken). */
+    public String noArenaReason() {
+        if (plugin.arenas().all().isEmpty()) return "there are no arenas yet - an admin needs to /arena create one.";
+        boolean anyReady = plugin.arenas().all().stream().anyMatch(a -> a.ready());
+        if (anyReady) return "all arenas are busy right now - try again in a moment.";
+        var first = plugin.arenas().all().iterator().next();
+        return "no arena is set up correctly: " + first.name + " - " + first.problem() + ". (/arena check)";
     }
 
     private Request validRequest(Player target, String fromName) {
@@ -193,7 +203,26 @@ public final class DuelManager {
         return t.info(c);
     }
 
+    /** Starts a duel; if anything goes wrong the players are put back and the arena is freed. */
     private void start(Player a, Player b, Arena arena, Kit kit, boolean ranked) {
+        try {
+            begin(a, b, arena, kit, ranked);
+        } catch (RuntimeException ex) {
+            plugin.getLogger().log(java.util.logging.Level.SEVERE, "Duel failed to start on arena " + arena.name, ex);
+            Duel d = byPlayer.get(a.getUniqueId());
+            if (d != null) end(d, null, false); else arena.inUse = false;
+            Theme t = plugin.theme();
+            for (Player p : List.of(a, b)) p.sendMessage(t.error("the duel couldn't start - an admin can see the error in the console."));
+        }
+    }
+
+    private void fail(Duel duel, RuntimeException ex) {
+        plugin.getLogger().log(java.util.logging.Level.SEVERE, "Duel error on arena " + duel.arena.name, ex);
+        end(duel, null, false);
+        for (Player p : List.of(duel.a, duel.b)) p.sendMessage(plugin.theme().error("the duel hit an error and was cancelled."));
+    }
+
+    private void begin(Player a, Player b, Arena arena, Kit kit, boolean ranked) {
         Duel duel = new Duel(arena, kit, ranked, a, b);
         plugin.queue().leave(a.getUniqueId());
         plugin.queue().leave(b.getUniqueId());
@@ -214,8 +243,8 @@ public final class DuelManager {
             p.setExp(0);
             plugin.kits().give(p, kit);
         }
-        a.teleport(arena.spawn1);
-        b.teleport(arena.spawn2);
+        a.teleport(arena.spawn1());
+        b.teleport(arena.spawn2());
 
         // visible per-player border so duelists can see the arena limits
         applyBorder(a, arena);
@@ -239,7 +268,7 @@ public final class DuelManager {
         int seconds = Math.max(1, plugin.getConfig().getInt("duel.countdown-seconds", 5));
         Theme t = plugin.theme();
         int[] left = {seconds};
-        duel.countdown = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
+        duel.countdown = Bukkit.getScheduler().runTaskTimer(plugin, () -> { try {
             if (left[0] > 0) {
                 for (Player p : List.of(a, b)) {
                     p.showTitle(Title.title(t.raw(String.valueOf(left[0]), t.primary()),
@@ -260,7 +289,7 @@ public final class DuelManager {
             if (max > 0) {
                 duel.timeout = Bukkit.getScheduler().runTaskLater(plugin, () -> end(duel, null), max * 20L);
             }
-        }, 0L, 20L);
+        } catch (RuntimeException ex) { duel.countdown.cancel(); fail(duel, ex); } }, 0L, 20L);
     }
 
     private void applyBorder(Player p, Arena arena) {

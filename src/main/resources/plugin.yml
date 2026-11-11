@@ -44,7 +44,7 @@ commands:
     usage: /<command> [player|arena|leave]
   arena:
     description: Manage duel arenas.
-    usage: /<command> <create|delete|setspawn1|setspawn2|list|tp> [name]
+    usage: /<command> <create|delete|setspawn1|setspawn2|setcenter|setradius|setheight|check|list|tp> [name]
 permissions:
   mintpvp.admin:
     description: Reload and administer Mint PvP.

@@ -120,7 +120,7 @@ public final class DuelListener implements Listener {
     }
 
     private void returnToSpawn(Player p, Duel d) {
-        p.teleport(p.getUniqueId().equals(d.a.getUniqueId()) ? d.arena.spawn1 : d.arena.spawn2);
+        p.teleport(p.getUniqueId().equals(d.a.getUniqueId()) ? d.arena.spawn1() : d.arena.spawn2());
         p.setFallDistance(0);
         p.setVelocity(new org.bukkit.util.Vector(0, 0, 0));
     }

@@ -28,7 +28,14 @@ public final class DuelCommands implements CommandExecutor, TabCompleter {
     public boolean onCommand(CommandSender sender, Command cmd, String label, String[] args) {
         Theme t = plugin.theme();
         if (!(sender instanceof Player p)) {
-            sender.sendMessage(t.error("players only."));
+            // the read-only arena commands also work from the console
+            if (cmd.getName().equalsIgnoreCase("arena") && args.length > 0 && args[0].equalsIgnoreCase("list")) {
+                listArenas(sender);
+            } else if (cmd.getName().equalsIgnoreCase("arena") && args.length > 1 && args[0].equalsIgnoreCase("check")) {
+                checkArena(sender, args[1]);
+            } else {
+                sender.sendMessage(t.error("players only (console can use /arena list and /arena check <name>)."));
+            }
             return true;
         }
         switch (cmd.getName().toLowerCase(Locale.ROOT)) {
@@ -97,35 +104,57 @@ public final class DuelCommands implements CommandExecutor, TabCompleter {
         plugin.duels().spectate(p, args[0]);
     }
 
+    private void listArenas(CommandSender s) {
+        Theme t = plugin.theme();
+        s.sendMessage(t.info("arenas (" + plugin.arenas().all().size() + ")"));
+        for (Arena a : plugin.arenas().all()) {
+            String status = a.problem() != null ? a.problem() : a.inUse ? "in use" : "ready";
+            s.sendMessage(t.line(a.name, status + (a.ready() ? " - " + (a.radius() * 2) + "x" + (a.radius() * 2)
+                    + ", height \u00b1" + a.height() : "")));
+        }
+    }
+
+    private void checkArena(CommandSender s, String name) {
+        Theme t = plugin.theme();
+        Arena a = plugin.arenas().get(name);
+        if (a == null) { s.sendMessage(t.error("no such arena.")); return; }
+        s.sendMessage(t.info("arena " + a.name));
+        s.sendMessage(t.line("spawn 1", a.describeSpawn1()));
+        s.sendMessage(t.line("spawn 2", a.describeSpawn2()));
+        if (a.ready()) {
+            var c = a.center();
+            s.sendMessage(t.line("centre", Math.round(c.getX()) + " " + Math.round(c.getY()) + " " + Math.round(c.getZ())));
+            s.sendMessage(t.line("border", "radius " + a.radius() + ", height \u00b1" + a.height()
+                    + " (configured " + (a.radius > 0 ? a.radius : "default") + " / " + (a.height > 0 ? a.height : "default") + ")"));
+            s.sendMessage(t.line("status", a.inUse ? "in use" : "ready"));
+        } else {
+            s.sendMessage(t.error("not usable: " + a.problem()));
+        }
+    }
+
     private void arena(Player p, String[] args) {
         Theme t = plugin.theme();
         if (!p.hasPermission("mintpvp.admin")) { p.sendMessage(t.error("no permission.")); return; }
         if (args.length == 0) {
-            p.sendMessage(t.usage("/arena create|delete|setspawn1|setspawn2|setcenter|tp <name>", "manage arenas"));
+            p.sendMessage(t.usage("/arena create|delete|setspawn1|setspawn2|setcenter|check|tp <name>", "manage arenas"));
             p.sendMessage(t.usage("/arena setheight <name> <blocks>", "floor/ceiling distance from the centre"));
             p.sendMessage(t.usage("/arena setradius <name> <blocks>", "border half-width (square)"));
-            p.sendMessage(t.usage("/arena list", "list arenas"));
+            p.sendMessage(t.usage("/arena list", "list arenas and their status"));
             return;
         }
         String sub = args[0].toLowerCase(Locale.ROOT);
         if (sub.equals("list")) {
-            p.sendMessage(t.info("arenas (" + plugin.arenas().all().size() + ")"));
-            for (Arena a : plugin.arenas().all()) {
-                String status = !a.spawnsSet() ? "spawns not set"
-                        : !a.ready() ? "spawns outside arena (raise radius/height)"
-                        : a.inUse ? "in use" : "ready";
-                status += " - radius " + a.radius() + ", height \u00b1" + a.height();
-                p.sendMessage(t.line(a.name, status));
-            }
+            listArenas(p);
             return;
         }
         if (args.length < 2) { p.sendMessage(t.error("specify an arena name.")); return; }
         String name = args[1];
         switch (sub) {
+            case "check" -> checkArena(p, name);
             case "create" -> {
                 if (!name.matches("[A-Za-z0-9_-]{1,24}")) { p.sendMessage(t.error("use letters, numbers, - or _ (max 24).")); return; }
                 p.sendMessage(plugin.arenas().create(name) != null
-                        ? t.info("arena created. now stand at each spawn and run /arena setspawn1|setspawn2 " + name)
+                        ? t.info("arena created. now stand at each spawn and run /arena setspawn1 " + name + " and /arena setspawn2 " + name)
                         : t.error("that arena already exists."));
             }
             case "delete" -> p.sendMessage(plugin.arenas().delete(name)
@@ -133,17 +162,19 @@ public final class DuelCommands implements CommandExecutor, TabCompleter {
             case "setspawn1", "setspawn2" -> {
                 Arena a = plugin.arenas().get(name);
                 if (a == null) { p.sendMessage(t.error("no such arena.")); return; }
-                if (sub.equals("setspawn1")) a.spawn1 = p.getLocation(); else a.spawn2 = p.getLocation();
+                if (sub.equals("setspawn1")) a.setSpawn1(p.getLocation()); else a.setSpawn2(p.getLocation());
                 plugin.arenas().save();
-                p.sendMessage(t.info(sub + " set for " + a.name + (a.ready() ? " - arena ready!"
-                        : a.spawnsSet() ? " - spawn is outside the border; use /arena setcenter or setradius." : ".")));
+                p.sendMessage(a.ready()
+                        ? t.info(sub + " set - arena " + a.name + " is ready (border grows to fit both spawns: "
+                                + (a.radius() * 2) + "x" + (a.radius() * 2) + ").")
+                        : t.info(sub + " set for " + a.name + ". still needed: " + a.problem() + "."));
             }
             case "setcenter" -> {
                 Arena a = plugin.arenas().get(name);
                 if (a == null) { p.sendMessage(t.error("no such arena.")); return; }
-                a.center = p.getLocation();
+                a.setCenter(p.getLocation());
                 plugin.arenas().save();
-                p.sendMessage(t.info("centre set for " + a.name + " (radius " + a.radius() + ")."));
+                p.sendMessage(t.info("centre set for " + a.name + (a.ready() ? " (radius " + a.radius() + ")." : ".")));
             }
             case "setradius" -> {
                 Arena a = plugin.arenas().get(name);
@@ -154,8 +185,7 @@ public final class DuelCommands implements CommandExecutor, TabCompleter {
                 if (r < 5 || r > 500) { p.sendMessage(t.error("radius must be 5-500.")); return; }
                 a.radius = r;
                 plugin.arenas().save();
-                p.sendMessage(t.info("radius set to " + r + " (" + (r * 2) + "x" + (r * 2) + " area)."
-                        + (a.ready() ? "" : " spawns are still outside the border!")));
+                p.sendMessage(t.info("radius set to " + r + " (the border still grows if a spawn is further out)."));
             }
             case "setheight" -> {
                 Arena a = plugin.arenas().get(name);
@@ -166,13 +196,13 @@ public final class DuelCommands implements CommandExecutor, TabCompleter {
                 if (h < 3 || h > 200) { p.sendMessage(t.error("height must be 3-200.")); return; }
                 a.height = h;
                 plugin.arenas().save();
-                p.sendMessage(t.info("height limit set to \u00b1" + h + " blocks around the centre."
-                        + (a.ready() ? "" : " spawns are still outside the arena!")));
+                p.sendMessage(t.info("height limit set to \u00b1" + h + " blocks around the centre."));
             }
             case "tp" -> {
                 Arena a = plugin.arenas().get(name);
-                if (a == null || a.spawn1 == null) { p.sendMessage(t.error("no such arena or spawn not set.")); return; }
-                p.teleport(a.spawn1);
+                var spawn = a == null ? null : a.spawn1();
+                if (spawn == null) { p.sendMessage(t.error("no such arena, or spawn 1 isn't set / its world isn't loaded.")); return; }
+                p.teleport(spawn);
             }
             default -> p.sendMessage(t.error("unknown subcommand."));
         }
@@ -195,7 +225,7 @@ public final class DuelCommands implements CommandExecutor, TabCompleter {
             return out.stream().filter(o -> o.toLowerCase(Locale.ROOT).startsWith(pre)).toList();
         }
         if (args.length == 1) {
-            if (arena) out.addAll(List.of("create", "delete", "setspawn1", "setspawn2", "setcenter", "setradius", "setheight", "list", "tp"));
+            if (arena) out.addAll(List.of("create", "delete", "setspawn1", "setspawn2", "setcenter", "setradius", "setheight", "check", "list", "tp"));
             else {
                 out.addAll(List.of("accept", "deny", "forfeit"));
                 Bukkit.getOnlinePlayers().forEach(pl -> out.add(pl.getName()));
