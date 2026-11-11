@@ -32,7 +32,11 @@ public final class PlayerListener implements Listener {
                 t.text(t.serverName(), t.primary()),
                 t.text("fight fresh.", t.secondary())));
 
-        if (plugin.getConfig().getBoolean("kit.give-on-join", true)) {
+        if (plugin.getConfig().getBoolean("spawn.teleport-on-join", true) && plugin.spawn().isSet()) {
+            p.teleport(plugin.spawn().get());
+        }
+        plugin.lobby().give(p);
+        if (plugin.getConfig().getBoolean("kit.give-on-join", false)) {
             plugin.kits().give(p);
         }
         plugin.boards().update(p);

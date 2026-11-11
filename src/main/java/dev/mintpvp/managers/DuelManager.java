@@ -28,15 +28,17 @@ public final class DuelManager {
     public static final class Duel {
         public final Arena arena;
         public final Kit kit;
+        public final boolean ranked;
         public final Player a, b;
         public State state = State.COUNTDOWN;
         final Map<UUID, Saved> saved = new HashMap<>();
         public final Set<UUID> spectators = new LinkedHashSet<>();
         BukkitTask countdown, timeout, sweep;
 
-        Duel(Arena arena, Kit kit, Player a, Player b) {
+        Duel(Arena arena, Kit kit, boolean ranked, Player a, Player b) {
             this.arena = arena;
             this.kit = kit;
+            this.ranked = ranked;
             this.a = a;
             this.b = b;
         }
@@ -155,17 +157,17 @@ public final class DuelManager {
             from.sendMessage(t.error("that kit no longer exists."));
             return;
         }
-        start(from, target, arena, kit);
+        start(from, target, arena, kit, false);
     }
 
     /** Starts a queue match on a random free arena. @return false if no arena is free. */
-    public boolean startMatch(Player a, Player b, Kit kit) {
+    public boolean startMatch(Player a, Player b, Kit kit, boolean ranked) {
         Arena arena = plugin.arenas().randomFree().orElse(null);
         if (arena == null) return false;
         Theme t = plugin.theme();
-        a.sendMessage(t.info(t.text("match found! opponent: ", t.accent()).append(t.raw(b.getName(), t.primary()))));
-        b.sendMessage(t.info(t.text("match found! opponent: ", t.accent()).append(t.raw(a.getName(), t.primary()))));
-        start(a, b, arena, kit);
+        a.sendMessage(found(b, ranked));
+        b.sendMessage(found(a, ranked));
+        start(a, b, arena, kit, ranked);
         return true;
     }
 
@@ -181,8 +183,18 @@ public final class DuelManager {
 
     // ---- lifecycle ------------------------------------------------------
 
-    private void start(Player a, Player b, Arena arena, Kit kit) {
-        Duel duel = new Duel(arena, kit, a, b);
+    private Component found(Player opponent, boolean ranked) {
+        Theme t = plugin.theme();
+        Component c = t.text("match found! opponent: ", t.accent()).append(t.raw(opponent.getName(), t.primary()));
+        if (ranked) {
+            int elo = plugin.stats().get(opponent.getUniqueId()).elo;
+            c = c.append(t.text(" (" + elo + " elo · " + dev.mintpvp.util.Tier.of(elo).label + ")", t.muted()));
+        }
+        return t.info(c);
+    }
+
+    private void start(Player a, Player b, Arena arena, Kit kit, boolean ranked) {
+        Duel duel = new Duel(arena, kit, ranked, a, b);
         plugin.queue().leave(a.getUniqueId());
         plugin.queue().leave(b.getUniqueId());
         arena.inUse = true;
@@ -214,7 +226,7 @@ public final class DuelManager {
             Bukkit.broadcast(t.info(t.raw(a.getName(), t.primary())
                     .append(t.text(" vs ", t.muted()))
                     .append(t.raw(b.getName(), t.primary()))
-                    .append(t.text(" is starting (" + kit.display + ") on " + arena.name + " ", t.accent()))
+                    .append(t.text(" is starting (" + (ranked ? "ranked " : "") + kit.display + ") on " + arena.name + " ", t.accent()))
                     .append(t.text("[watch]", t.secondary())
                             .clickEvent(ClickEvent.runCommand("/spectate " + a.getName())))));
         }
@@ -334,6 +346,11 @@ public final class DuelManager {
 
     /** End a duel. winner == null means a draw. */
     public void end(Duel duel, Player winner) {
+        end(duel, winner, true);
+    }
+
+    /** @param count false voids the result (server shutdown): no ranked rating change. */
+    private void end(Duel duel, Player winner, boolean count) {
         if (byPlayer.get(duel.a.getUniqueId()) != duel && byPlayer.get(duel.b.getUniqueId()) != duel) return;
         if (duel.countdown != null) duel.countdown.cancel();
         if (duel.timeout != null) duel.timeout.cancel();
@@ -355,11 +372,29 @@ public final class DuelManager {
             Bukkit.broadcast(t.info(t.raw(winner.getName(), t.primary())
                     .append(t.text(" defeated ", t.accent()))
                     .append(t.raw(loser.getName(), t.secondary()))
-                    .append(t.text(" in a duel!", t.accent()))));
+                    .append(t.text(duel.ranked ? " in a ranked duel!" : " in a duel!", t.accent()))));
+            if (duel.ranked && count) rankedResult(duel, winner, false);
         } else {
             for (Player p : List.of(duel.a, duel.b)) p.sendMessage(t.info("the duel ended in a draw."));
+            if (duel.ranked && count) rankedResult(duel, duel.a, true);
         }
         for (Player p : List.of(duel.a, duel.b)) restore(p, duel.saved.get(p.getUniqueId()));
+    }
+
+    /** Applies the Elo change and tells both players. */
+    private void rankedResult(Duel duel, Player first, boolean draw) {
+        Player second = duel.opponentOf(first);
+        int k = plugin.getConfig().getInt("ranked.k-factor", 32);
+        int[] d = plugin.stats().recordRanked(first.getUniqueId(), second.getUniqueId(), draw, k);
+        eloMessage(first, d[0]);
+        eloMessage(second, d[1]);
+    }
+
+    private void eloMessage(Player p, int delta) {
+        Theme t = plugin.theme();
+        int elo = plugin.stats().get(p.getUniqueId()).elo;
+        p.sendMessage(t.info(t.text("elo " + (delta >= 0 ? "+" : "") + delta + " → " + elo, t.accent())
+                .append(t.text(" · " + dev.mintpvp.util.Tier.of(elo).label, t.muted()))));
     }
 
     private void restore(Player p, Saved s) {
@@ -386,6 +421,6 @@ public final class DuelManager {
     }
 
     public void shutdown() {
-        new HashSet<>(byPlayer.values()).forEach(d -> end(d, null));
+        new HashSet<>(byPlayer.values()).forEach(d -> end(d, null, false));
     }
 }

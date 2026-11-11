@@ -41,3 +41,23 @@ duel:
   protect-terrain: true       # arenas are wilderness: no breaking/placing/fire during duels
   max-duration-seconds: 300   # duel ends in a draw after this long
   allowed-commands: ["duel", "msg", "r"]
+
+ranked:
+  enabled: true
+  k-factor: 32                 # how many points a result is worth (higher = bigger swings)
+  window-base: 100             # starting allowed Elo difference between matched players
+  window-step: 50              # the window widens by this much...
+  window-interval-seconds: 10  # ...every this many seconds spent waiting
+  window-max: 800
+
+spawn:
+  teleport-on-join: true       # needs /setspawn first
+  teleport-on-respawn: true
+
+lobby:
+  # Gives the hotbar menu (iron sword = queue, etc.) on join and respawn.
+  # WARNING: this REPLACES the player's inventory. Turn it off on a survival/SMP world.
+  give-items: true
+  # Lobby players (not in a duel) take no damage or hunger and can't build/drop/move items.
+  # Players with mintpvp.build (ops by default) are exempt from the build restrictions.
+  protect: true

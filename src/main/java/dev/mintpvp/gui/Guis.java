@@ -6,6 +6,7 @@ import dev.mintpvp.managers.KitManager.Kit;
 import dev.mintpvp.managers.QueueManager;
 import dev.mintpvp.util.Items;
 import dev.mintpvp.util.Theme;
+import dev.mintpvp.util.Tier;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
@@ -84,27 +85,36 @@ public final class Guis {
         new PagedGui(plugin, t.title("spectate"), entries, back, "no duels running").open(p);
     }
 
-    /** Pick a kit, then join the unranked queue for it (clicking your own queue leaves it). */
-    public static void queueKits(MintPvP plugin, Player p, Runnable back) {
+    /** Pick a kit, then join that queue (clicking your own queue leaves it). */
+    public static void queueKits(MintPvP plugin, Player p, QueueManager.Type type, Runnable back) {
         Theme t = plugin.theme();
-        pickKit(plugin, p, "queue", back, kit -> {
+        boolean ranked = type == QueueManager.Type.RANKED;
+        if (ranked && !plugin.queue().rankedEnabled()) {
+            p.sendMessage(t.error("ranked is disabled right now."));
+            return;
+        }
+        pickKit(plugin, p, ranked ? "ranked queue" : "queue", back, kit -> {
             QueueManager q = plugin.queue();
             List<Component> lore = new ArrayList<>();
-            lore.add(t.text(q.count(kit, QueueManager.Type.UNRANKED) + " in queue", t.accent()));
+            lore.add(t.text(q.count(kit, type) + " in queue", t.accent()));
+            if (ranked) {
+                int elo = plugin.stats().get(p.getUniqueId()).elo;
+                lore.add(t.text("your elo: " + elo + " · " + Tier.of(elo).label, t.muted()));
+            }
             lore.add(Component.empty());
             var mine = q.entryOf(p.getUniqueId());
-            boolean here = mine != null && mine.kit() == kit;
+            boolean here = mine != null && mine.kit() == kit && mine.type() == type;
             lore.add(t.text(here ? "click to leave the queue" : "click to join", t.secondary()));
             return lore;
         }, kit -> {
             p.closeInventory();
             var mine = plugin.queue().entryOf(p.getUniqueId());
-            if (mine != null && mine.kit() == kit) {
+            if (mine != null && mine.kit() == kit && mine.type() == type) {
                 plugin.queue().leave(p.getUniqueId());
                 p.sendMessage(t.info("you left the queue."));
             } else {
                 if (mine != null) plugin.queue().leave(p.getUniqueId());
-                plugin.queue().join(p, kit, QueueManager.Type.UNRANKED);
+                plugin.queue().join(p, kit, type);
             }
         });
     }

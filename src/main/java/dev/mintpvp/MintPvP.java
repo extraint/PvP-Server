@@ -4,6 +4,10 @@ import dev.mintpvp.commands.DuelCommands;
 import dev.mintpvp.commands.KitCommands;
 import dev.mintpvp.commands.MintCommands;
 import dev.mintpvp.commands.QueueCommands;
+import dev.mintpvp.commands.SpawnCommands;
+import dev.mintpvp.listeners.LobbyListener;
+import dev.mintpvp.managers.LobbyManager;
+import dev.mintpvp.managers.SpawnManager;
 import dev.mintpvp.gui.GuiManager;
 import dev.mintpvp.listeners.DuelListener;
 import dev.mintpvp.managers.ArenaManager;
@@ -28,6 +32,8 @@ public final class MintPvP extends JavaPlugin {
     private ArenaManager arenas;
     private DuelManager duels;
     private QueueManager queue;
+    private SpawnManager spawn;
+    private LobbyManager lobby;
     private GuiManager guis;
 
     @Override
@@ -41,11 +47,14 @@ public final class MintPvP extends JavaPlugin {
         arenas = new ArenaManager(this);
         duels = new DuelManager(this);
         queue = new QueueManager(this);
+        spawn = new SpawnManager(this);
+        lobby = new LobbyManager(this);
         guis = new GuiManager(this);
 
         getServer().getPluginManager().registerEvents(new CombatListener(this), this);
         getServer().getPluginManager().registerEvents(new PlayerListener(this), this);
         getServer().getPluginManager().registerEvents(new DuelListener(this), this);
+        getServer().getPluginManager().registerEvents(new LobbyListener(this), this);
 
         MintCommands commands = new MintCommands(this);
         for (String name : new String[] {"mintpvp", "stats", "leaderboard"}) {
@@ -80,6 +89,12 @@ public final class MintPvP extends JavaPlugin {
             }
         }
 
+        SpawnCommands spawnCommands = new SpawnCommands(this);
+        for (String name : new String[] {"spawn", "setspawn"}) {
+            var cmd = getCommand(name);
+            if (cmd != null) cmd.setExecutor(spawnCommands);
+        }
+
         boards.start();
         queue.start();
         // autosave stats every 5 minutes
@@ -111,4 +126,6 @@ public final class MintPvP extends JavaPlugin {
     public ArenaManager arenas() { return arenas; }
     public DuelManager duels() { return duels; }
     public QueueManager queue() { return queue; }
+    public SpawnManager spawn() { return spawn; }
+    public LobbyManager lobby() { return lobby; }
 }

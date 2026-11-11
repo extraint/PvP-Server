@@ -15,15 +15,22 @@ commands:
   leaderboard:
     description: View the top players.
     aliases: [lb, top]
-    usage: /<command> [kills|kd|streak]
+    usage: /<command> [elo|wins|kills|kd|streak]
   kit:
     description: Edit your kit layouts (admins can also manage kits).
     aliases: [kits, layout]
     usage: /<command> [layout <kit>] | create|delete|seticon|update|edit|list|admin
+  spawn:
+    description: Teleport to the lobby spawn.
+    aliases: [lobby, hub]
+    usage: /<command>
+  setspawn:
+    description: Set the lobby / world spawn to your location.
+    usage: /<command>
   queue:
     description: Join the random duel queue.
     aliases: [q]
-    usage: /<command> [kit|leave]
+    usage: /<command> [kit|leave|ranked [kit]|unranked [kit]]
   menu:
     description: Open the duels menu.
     aliases: [duels, play]
@@ -41,6 +48,9 @@ commands:
 permissions:
   mintpvp.admin:
     description: Reload and administer Mint PvP.
+    default: op
+  mintpvp.build:
+    description: Build, break and drop items in the lobby.
     default: op
   mintpvp.spectate:
     description: Spectate duels.

@@ -37,7 +37,7 @@ public final class QueueCommands implements CommandExecutor, TabCompleter {
             return true;
         }
         if (args.length == 0) {
-            Guis.queueKits(plugin, p, null);
+            Guis.queueKits(plugin, p, QueueManager.Type.UNRANKED, null);
             return true;
         }
         if (args[0].equalsIgnoreCase("leave")) {
@@ -45,8 +45,16 @@ public final class QueueCommands implements CommandExecutor, TabCompleter {
                     ? t.info("you left the queue.") : t.error("you're not in a queue."));
             return true;
         }
-        if (args[0].equalsIgnoreCase("ranked")) {
-            p.sendMessage(t.info("ranked is coming soon!"));
+        boolean ranked = args[0].equalsIgnoreCase("ranked");
+        if (ranked || args[0].equalsIgnoreCase("unranked")) {
+            QueueManager.Type type = ranked ? QueueManager.Type.RANKED : QueueManager.Type.UNRANKED;
+            if (args.length < 2) {
+                Guis.queueKits(plugin, p, type, null);
+                return true;
+            }
+            Kit k = plugin.kits().get(args[1]);
+            if (k == null) { p.sendMessage(t.error("that kit doesn't exist.")); return true; }
+            plugin.queue().join(p, k, type);
             return true;
         }
         Kit kit = plugin.kits().get(args[0]);
@@ -62,7 +70,10 @@ public final class QueueCommands implements CommandExecutor, TabCompleter {
     public List<String> onTabComplete(CommandSender s, Command cmd, String label, String[] args) {
         List<String> out = new ArrayList<>();
         if (cmd.getName().equalsIgnoreCase("queue") && args.length == 1) {
-            out.add("leave");
+            out.addAll(List.of("leave", "ranked", "unranked"));
+            plugin.kits().all().forEach(k -> out.add(k.id));
+        } else if (cmd.getName().equalsIgnoreCase("queue") && args.length == 2
+                && (args[0].equalsIgnoreCase("ranked") || args[0].equalsIgnoreCase("unranked"))) {
             plugin.kits().all().forEach(k -> out.add(k.id));
         }
         String pre = args.length == 0 ? "" : args[args.length - 1].toLowerCase(Locale.ROOT);

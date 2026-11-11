@@ -10,25 +10,13 @@ import org.bukkit.scheduler.BukkitTask;
 import java.util.*;
 
 /**
- * Random matchmaking queue, one queue per kit.
- * {@link Type#RANKED} is reserved: the type exists so ranked (Elo) queues can be
- * added later without reshaping the API, but it can't be joined yet.
+ * Random matchmaking, one queue per kit and type.
+ * Unranked pairs the two longest-waiting players. Ranked pairs players whose Elo
+ * is within a window that starts narrow and widens the longer they wait.
  */
 public final class QueueManager {
 
-    public enum Type {
-        UNRANKED(true), RANKED(false);
-
-        private final boolean available;
-
-        Type(boolean available) {
-            this.available = available;
-        }
-
-        public boolean available() {
-            return available;
-        }
-    }
+    public enum Type { UNRANKED, RANKED }
 
     public record Entry(UUID id, Kit kit, Type type, long since) {}
 
@@ -49,6 +37,10 @@ public final class QueueManager {
         queued.clear();
     }
 
+    public boolean rankedEnabled() {
+        return plugin.getConfig().getBoolean("ranked.enabled", true);
+    }
+
     public Entry entryOf(UUID id) {
         return queued.get(id);
     }
@@ -65,10 +57,21 @@ public final class QueueManager {
         return queued.size();
     }
 
+    /** Allowed Elo difference for a ranked entry, widening with wait time. */
+    public int window(Entry e) {
+        var c = plugin.getConfig();
+        int base = c.getInt("ranked.window-base", 100);
+        int step = c.getInt("ranked.window-step", 50);
+        int interval = Math.max(1, c.getInt("ranked.window-interval-seconds", 10));
+        int max = Math.max(base, c.getInt("ranked.window-max", 800));
+        long waited = (System.currentTimeMillis() - e.since()) / 1000;
+        return (int) Math.min(max, base + step * (waited / interval));
+    }
+
     public boolean join(Player p, Kit kit, Type type) {
         Theme t = plugin.theme();
         UUID id = p.getUniqueId();
-        if (!type.available()) { p.sendMessage(t.error("ranked queues are coming soon.")); return false; }
+        if (type == Type.RANKED && !rankedEnabled()) { p.sendMessage(t.error("ranked is disabled right now.")); return false; }
         if (plugin.duels().inDuel(id)) { p.sendMessage(t.error("you're already in a duel.")); return false; }
         if (plugin.duels().isSpectating(id)) { p.sendMessage(t.error("stop spectating first (/spectate leave).")); return false; }
         if (plugin.combat().isTagged(id)) { p.sendMessage(t.error("you can't queue while in combat.")); return false; }
@@ -78,6 +81,7 @@ public final class QueueManager {
             return false;
         }
         queued.put(id, new Entry(id, kit, type, System.currentTimeMillis()));
+        plugin.lobby().refresh(p);
         p.sendMessage(t.info(t.text("you joined the ", t.accent())
                 .append(t.text(type.name().toLowerCase(Locale.ROOT) + " ", t.secondary()))
                 .append(t.text(kit.display, t.primary()))
@@ -87,11 +91,16 @@ public final class QueueManager {
     }
 
     public boolean leave(UUID id) {
-        return queued.remove(id) != null;
+        boolean removed = queued.remove(id) != null;
+        if (removed) {
+            Player p = Bukkit.getPlayer(id);
+            if (p != null) plugin.lobby().refresh(p);
+        }
+        return removed;
     }
 
     public void leaveKit(Kit kit) {
-        queued.values().removeIf(e -> e.kit() == kit);
+        for (UUID id : queued.values().stream().filter(e -> e.kit() == kit).map(Entry::id).toList()) leave(id);
     }
 
     private boolean eligible(Player p) {
@@ -109,16 +118,39 @@ public final class QueueManager {
     }
 
     private void match(Kit kit, Type type) {
-        List<Player> ready = new ArrayList<>();
+        List<Player> pool = new ArrayList<>();
         for (Entry e : queued.values()) {
             if (e.kit() != kit || e.type() != type) continue;
             Player p = Bukkit.getPlayer(e.id());
-            if (eligible(p)) ready.add(p);
+            if (eligible(p)) pool.add(p);
         }
-        while (ready.size() >= 2) {
-            Player a = ready.remove(0);
-            Player b = ready.remove(0);
-            if (!plugin.duels().startMatch(a, b, kit)) return; // no free arena: try again next tick
+        boolean ranked = type == Type.RANKED;
+        while (pool.size() >= 2) {
+            Player a = pool.get(0);
+            Player b = null;
+            if (!ranked) {
+                b = pool.get(1);
+            } else {
+                // closest Elo within either player's (wait-widened) window
+                int eloA = plugin.stats().get(a.getUniqueId()).elo;
+                int bestDiff = Integer.MAX_VALUE;
+                for (int i = 1; i < pool.size(); i++) {
+                    Player c = pool.get(i);
+                    int diff = Math.abs(eloA - plugin.stats().get(c.getUniqueId()).elo);
+                    int allowed = Math.max(window(queued.get(a.getUniqueId())), window(queued.get(c.getUniqueId())));
+                    if (diff <= allowed && diff < bestDiff) {
+                        b = c;
+                        bestDiff = diff;
+                    }
+                }
+            }
+            if (b == null) { // nobody close enough for the longest waiter yet
+                pool.remove(0);
+                continue;
+            }
+            pool.remove(a);
+            pool.remove(b);
+            if (!plugin.duels().startMatch(a, b, kit, ranked)) return; // no free arena: retry next tick
         }
     }
 }

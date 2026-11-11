@@ -3,6 +3,8 @@ package dev.mintpvp.util;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.Material;
+import org.bukkit.NamespacedKey;
+import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
@@ -14,6 +16,8 @@ import java.util.Map;
 
 /** Small fluent item builder for GUI icons, plus item helpers. */
 public final class Items {
+
+    private static final NamespacedKey TAG = NamespacedKey.fromString("mintpvp:item");
 
     private final ItemStack item;
     private final ItemMeta meta;
@@ -57,6 +61,18 @@ public final class Items {
     public Items glow() {
         meta.setEnchantmentGlintOverride(true);
         return this;
+    }
+
+    /** Marks the item so listeners can recognise it (lobby menu items). */
+    public Items tag(String id) {
+        meta.getPersistentDataContainer().set(TAG, PersistentDataType.STRING, id);
+        return this;
+    }
+
+    /** The tag set with {@link #tag}, or null for ordinary items. */
+    public static String tagOf(ItemStack i) {
+        if (isEmpty(i) || !i.hasItemMeta()) return null;
+        return i.getItemMeta().getPersistentDataContainer().get(TAG, PersistentDataType.STRING);
     }
 
     public Items amount(int n) {

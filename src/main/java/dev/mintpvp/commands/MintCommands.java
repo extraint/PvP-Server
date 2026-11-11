@@ -46,7 +46,7 @@ public final class MintCommands implements CommandExecutor, TabCompleter {
         }
         s.sendMessage(t.info(t.serverName() + " v" + plugin.getPluginMeta().getVersion()));
         s.sendMessage(t.usage("/stats [player]", "view stats"));
-        s.sendMessage(t.usage("/leaderboard [kills|kd|streak]", "top players"));
+        s.sendMessage(t.usage("/leaderboard [elo|wins|kills|kd|streak]", "top players"));
         s.sendMessage(t.usage("/menu", "open the duels menu"));
         s.sendMessage(t.usage("/queue [kit|leave]", "join a random match"));
         s.sendMessage(t.usage("/duel [player] [kit]", "challenge a player"));
@@ -82,19 +82,23 @@ public final class MintCommands implements CommandExecutor, TabCompleter {
         s.sendMessage(t.line("deaths", String.valueOf(st.deaths)));
         s.sendMessage(t.line("k/d", String.format(Locale.ROOT, "%.2f", st.kd())));
         s.sendMessage(t.line("best streak", String.valueOf(st.bestStreak)));
+        s.sendMessage(t.line("elo", st.elo + " · " + dev.mintpvp.util.Tier.of(st.elo).label));
+        s.sendMessage(t.line("ranked", st.rankedWins + "w / " + st.rankedLosses + "l"));
         s.sendMessage(t.line("duels", st.duelWins + "w / " + st.duelLosses + "l"));
     }
 
     private void leaderboard(CommandSender s, String[] args) {
         Theme t = plugin.theme();
-        String mode = args.length > 0 ? args[0].toLowerCase(Locale.ROOT) : "kills";
+        String mode = args.length > 0 ? args[0].toLowerCase(Locale.ROOT) : "elo";
         Comparator<StatsManager.Stats> by;
         switch (mode) {
             case "kd" -> by = Comparator.comparingDouble(StatsManager.Stats::kd);
             case "streak" -> by = Comparator.comparingInt(st -> st.bestStreak);
+            case "kills" -> by = Comparator.comparingInt(st -> st.kills);
+            case "wins" -> by = Comparator.comparingInt(st -> st.duelWins);
             default -> {
-                mode = "kills";
-                by = Comparator.comparingInt(st -> st.kills);
+                mode = "elo";
+                by = Comparator.comparingInt(st -> st.elo);
             }
         }
         s.sendMessage(t.info("top 10 - " + mode));
@@ -104,7 +108,9 @@ public final class MintCommands implements CommandExecutor, TabCompleter {
             String value = switch (mode) {
                 case "kd" -> String.format(Locale.ROOT, "%.2f", st.kd());
                 case "streak" -> String.valueOf(st.bestStreak);
-                default -> String.valueOf(st.kills);
+                case "kills" -> String.valueOf(st.kills);
+                case "wins" -> String.valueOf(st.duelWins);
+                default -> st.elo + " (" + dev.mintpvp.util.Tier.of(st.elo).label + ")";
             };
             s.sendMessage(t.raw("#" + rank++ + " ", t.secondary())
                     .append(t.raw(plugin.stats().nameOf(entry.getKey()), t.primary()))
@@ -118,7 +124,7 @@ public final class MintCommands implements CommandExecutor, TabCompleter {
         String prefix = args[0].toLowerCase(Locale.ROOT);
         List<String> options = switch (cmd.getName().toLowerCase(Locale.ROOT)) {
             case "mintpvp" -> s.hasPermission("mintpvp.admin") ? List.of("help", "reload") : List.of("help");
-            case "leaderboard" -> List.of("kills", "kd", "streak");
+            case "leaderboard" -> List.of("elo", "wins", "kills", "kd", "streak");
             case "stats" -> Bukkit.getOnlinePlayers().stream().map(Player::getName).toList();
             default -> List.of();
         };

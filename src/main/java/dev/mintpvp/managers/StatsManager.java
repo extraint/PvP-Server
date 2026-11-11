@@ -11,12 +11,15 @@ import java.util.*;
 public final class StatsManager {
 
     public static final class Stats {
-        public int kills, deaths, streak, bestStreak, duelWins, duelLosses;
+        public int kills, deaths, streak, bestStreak, duelWins, duelLosses, rankedWins, rankedLosses;
+        public int elo = START_ELO;
 
         public double kd() {
             return deaths == 0 ? kills : (double) kills / deaths;
         }
     }
+
+    public static final int START_ELO = 1000;
 
     private final MintPvP plugin;
     private final File file;
@@ -43,6 +46,9 @@ public final class StatsManager {
                 s.bestStreak = section.getInt(key + ".best-streak");
                 s.duelWins = section.getInt(key + ".duel-wins");
                 s.duelLosses = section.getInt(key + ".duel-losses");
+                s.elo = section.getInt(key + ".elo", START_ELO);
+                s.rankedWins = section.getInt(key + ".ranked-wins");
+                s.rankedLosses = section.getInt(key + ".ranked-losses");
                 stats.put(id, s);
                 names.put(id, section.getString(key + ".name", "unknown"));
             } catch (IllegalArgumentException ignored) {
@@ -61,6 +67,9 @@ public final class StatsManager {
             y.set(p + ".best-streak", s.bestStreak);
             y.set(p + ".duel-wins", s.duelWins);
             y.set(p + ".duel-losses", s.duelLosses);
+            y.set(p + ".elo", s.elo);
+            y.set(p + ".ranked-wins", s.rankedWins);
+            y.set(p + ".ranked-losses", s.rankedLosses);
         });
         try {
             plugin.getDataFolder().mkdirs();
@@ -101,6 +110,27 @@ public final class StatsManager {
     public void recordDuel(UUID winner, UUID loser) {
         get(winner).duelWins++;
         get(loser).duelLosses++;
+    }
+
+    /**
+     * Applies an Elo result. A win is always worth at least +1; ratings never drop below 0.
+     * @param draw true for a draw (a and b are then interchangeable)
+     * @return the actual rating changes {a, b}
+     */
+    public int[] recordRanked(UUID a, UUID b, boolean draw, int k) {
+        Stats sa = get(a), sb = get(b);
+        double expectedA = 1.0 / (1.0 + Math.pow(10, (sb.elo - sa.elo) / 400.0));
+        double scoreA = draw ? 0.5 : 1.0;
+        int delta = (int) Math.round(k * (scoreA - expectedA));
+        if (!draw && delta < 1) delta = 1;
+        int oldA = sa.elo, oldB = sb.elo;
+        sa.elo = Math.max(0, sa.elo + delta);
+        sb.elo = Math.max(0, sb.elo - delta);
+        if (!draw) {
+            sa.rankedWins++;
+            sb.rankedLosses++;
+        }
+        return new int[] {sa.elo - oldA, sb.elo - oldB};
     }
 
     public void recordDeath(UUID victim) {

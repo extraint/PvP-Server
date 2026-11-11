@@ -48,8 +48,13 @@ public final class ScoreboardManager {
         var q = plugin.queue().entryOf(id);
         if (q != null && !plugin.combat().isTagged(id)) {
             long sec = (System.currentTimeMillis() - q.since()) / 1000;
-            p.sendActionBar(t.text("queued · " + q.kit().display + " · ", t.secondary())
-                    .append(Component.text(String.format("%d:%02d", sec / 60, sec % 60), t.accent())));
+            Component bar = t.text("queued · " + (q.type() == dev.mintpvp.managers.QueueManager.Type.RANKED ? "ranked · " : "")
+                    + q.kit().display + " · ", t.secondary())
+                    .append(Component.text(String.format("%d:%02d", sec / 60, sec % 60), t.accent()));
+            if (q.type() == dev.mintpvp.managers.QueueManager.Type.RANKED) {
+                bar = bar.append(t.text(" · ±" + plugin.queue().window(q) + " elo", t.muted()));
+            }
+            p.sendActionBar(bar);
         }
         if (plugin.combat().isTagged(id)) {
             p.sendActionBar(t.text("in combat ", t.secondary())
@@ -69,6 +74,7 @@ public final class ScoreboardManager {
 
         List<Component> lines = List.of(
                 Component.text(" "),
+                t.line("elo", s.elo + " · " + dev.mintpvp.util.Tier.of(s.elo).label),
                 t.line("kills", String.valueOf(s.kills)),
                 t.line("deaths", String.valueOf(s.deaths)),
                 t.line("k/d", String.format(Locale.ROOT, "%.2f", s.kd())),

@@ -90,7 +90,29 @@ their inventory. Items can only be moved, never added or removed - on save the l
 must contain exactly the kit's items, and a layout that no longer matches (because an
 admin changed the kit) falls back to the default.
 
-**Ranked:** the queue type exists but is disabled; the hub shows it as "coming soon".
+
+## Ranked (Elo)
+`/queue ranked [kit]` or the diamond sword. Everyone starts at **1000 elo** (silver).
+Matches pair the closest ratings inside a window that starts at ±100 and widens by 50
+every 10 s of waiting (max ±800). Results use standard Elo with `ranked.k-factor` (32);
+a win is always at least +1, ratings never go below 0, quitting mid-duel is a loss, and a
+server shutdown voids the match. Tiers: bronze, silver (900), gold (1100), platinum (1300),
+diamond (1500), mint master (1700). `/leaderboard [elo|wins|kills|kd|streak]` or the GUI.
+
+## Spawn & lobby
+```
+/setspawn     # admin: sets the lobby spawn AND the world spawn
+/spawn        # (aliases /lobby, /hub) back to spawn, not during duels or combat
+```
+Players are sent to spawn on join and respawn, and get a hotbar menu (right-click):
+iron sword = unranked queue, diamond sword = ranked queue, bow = challenge,
+nether star = menu, book = stats, ender chest = kit layout, gold = leaderboard,
+ender eye = spectate. While queued the sword turns into a **leave queue** button.
+Lobby players take no damage or hunger and can't build, drop or move items
+(`mintpvp.build` exempts ops). Config: `lobby.give-items`, `lobby.protect`, `spawn.*`.
+
+> `lobby.give-items` **replaces the player's inventory** on join/respawn - turn it off on a
+> survival world.
 
 > `kit.give-on-join` / `kit.give-on-respawn` are **off** by default because giving a kit
 > replaces the player's inventory. Duels always save and restore inventories.
