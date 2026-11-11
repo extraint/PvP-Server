@@ -17,11 +17,20 @@ commands:
     aliases: [lb, top]
     usage: /<command> [kills|kd|streak]
   kit:
-    description: Re-equip the Mint PvP kit (only outside of combat).
+    description: Edit your kit layouts (admins can also manage kits).
+    aliases: [kits, layout]
+    usage: /<command> [layout <kit>] | create|delete|seticon|update|edit|list|admin
+  queue:
+    description: Join the random duel queue.
+    aliases: [q]
+    usage: /<command> [kit|leave]
+  menu:
+    description: Open the duels menu.
+    aliases: [duels, play]
     usage: /<command>
   duel:
     description: Challenge a player to a duel.
-    usage: /<command> <player> [arena] | accept [player] | deny [player] | forfeit
+    usage: /<command> [player] [kit] [arena] | accept [player] | deny [player] | forfeit
   spectate:
     description: Watch a running duel.
     aliases: [spec, watch]

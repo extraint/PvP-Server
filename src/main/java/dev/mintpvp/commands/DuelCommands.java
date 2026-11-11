@@ -1,6 +1,7 @@
 package dev.mintpvp.commands;
 
 import dev.mintpvp.MintPvP;
+import dev.mintpvp.gui.Guis;
 import dev.mintpvp.managers.ArenaManager.Arena;
 import dev.mintpvp.util.Theme;
 import org.bukkit.Bukkit;
@@ -42,16 +43,19 @@ public final class DuelCommands implements CommandExecutor, TabCompleter {
         Theme t = plugin.theme();
         if (!p.hasPermission("mintpvp.duel")) { p.sendMessage(t.error("no permission.")); return; }
         if (args.length == 0) {
-            p.sendMessage(t.info("usage:"));
-            p.sendMessage(t.line("/duel <player> [arena]", "challenge a player"));
-            p.sendMessage(t.line("/duel accept|deny [player]", "answer a request"));
-            p.sendMessage(t.line("/duel forfeit", "leave your duel (you lose)"));
-            p.sendMessage(t.line("/spectate [player|arena|leave]", "watch a duel"));
+            Guis.challenge(plugin, p, null);
             return;
         }
         switch (args[0].toLowerCase(Locale.ROOT)) {
             case "accept" -> plugin.duels().accept(p, args.length > 1 ? args[1] : null);
             case "deny" -> plugin.duels().deny(p, args.length > 1 ? args[1] : null);
+            case "help" -> {
+                p.sendMessage(t.usage("/duel", "open the challenge menu"));
+                p.sendMessage(t.usage("/duel <player> [kit] [arena]", "challenge a player"));
+                p.sendMessage(t.usage("/duel accept|deny [player]", "answer a request"));
+                p.sendMessage(t.usage("/duel forfeit", "leave your duel (you lose)"));
+                p.sendMessage(t.usage("/spectate [player|arena|leave]", "watch a duel"));
+            }
             case "forfeit" -> {
                 if (!plugin.duels().inDuel(p.getUniqueId())) p.sendMessage(t.error("you're not in a duel."));
                 else plugin.duels().forfeit(p);
@@ -59,7 +63,9 @@ public final class DuelCommands implements CommandExecutor, TabCompleter {
             default -> {
                 Player target = Bukkit.getPlayerExact(args[0]);
                 if (target == null) { p.sendMessage(t.error("player not found.")); return; }
-                plugin.duels().request(p, target, args.length > 1 ? args[1] : null);
+                String kit = args.length > 1 ? args[1] : null;
+                if (kit != null && plugin.kits().get(kit) == null) { p.sendMessage(t.error("that kit doesn't exist.")); return; }
+                plugin.duels().request(p, target, kit, args.length > 2 ? args[2] : null);
             }
         }
     }
@@ -76,10 +82,11 @@ public final class DuelCommands implements CommandExecutor, TabCompleter {
             var duels = plugin.duels().activeDuels();
             p.sendMessage(t.info("running duels (" + duels.size() + ")"));
             for (var d : duels) {
-                p.sendMessage(t.line(d.a.getName() + " vs " + d.b.getName(),
-                        d.arena.name + " - " + d.spectators.size() + " watching"));
+                p.sendMessage(t.raw(d.a.getName() + " vs " + d.b.getName(), t.secondary())
+                        .append(t.text(": " + d.kit.display + " on " + d.arena.name + " - "
+                                + d.spectators.size() + " watching", t.accent())));
             }
-            p.sendMessage(t.line("/spectate <player|arena>", "watch a duel"));
+            p.sendMessage(t.usage("/spectate <player|arena>", "watch a duel"));
             return;
         }
         if (args[0].equalsIgnoreCase("leave")) {
@@ -94,10 +101,10 @@ public final class DuelCommands implements CommandExecutor, TabCompleter {
         Theme t = plugin.theme();
         if (!p.hasPermission("mintpvp.admin")) { p.sendMessage(t.error("no permission.")); return; }
         if (args.length == 0) {
-            p.sendMessage(t.line("/arena create|delete|setspawn1|setspawn2|setcenter|tp <name>", "manage arenas"));
-            p.sendMessage(t.line("/arena setheight <name> <blocks>", "floor/ceiling distance from the centre"));
-            p.sendMessage(t.line("/arena setradius <name> <blocks>", "border half-width (square)"));
-            p.sendMessage(t.line("/arena list", "list arenas"));
+            p.sendMessage(t.usage("/arena create|delete|setspawn1|setspawn2|setcenter|tp <name>", "manage arenas"));
+            p.sendMessage(t.usage("/arena setheight <name> <blocks>", "floor/ceiling distance from the centre"));
+            p.sendMessage(t.usage("/arena setradius <name> <blocks>", "border half-width (square)"));
+            p.sendMessage(t.usage("/arena list", "list arenas"));
             return;
         }
         String sub = args[0].toLowerCase(Locale.ROOT);
@@ -197,7 +204,9 @@ public final class DuelCommands implements CommandExecutor, TabCompleter {
             if (arena) plugin.arenas().all().forEach(a -> out.add(a.name));
             else if (args[0].equalsIgnoreCase("accept") || args[0].equalsIgnoreCase("deny")) {
                 Bukkit.getOnlinePlayers().forEach(pl -> out.add(pl.getName()));
-            } else plugin.arenas().all().forEach(a -> out.add(a.name));
+            } else plugin.kits().all().forEach(k -> out.add(k.id));
+        } else if (args.length == 3 && !arena) {
+            plugin.arenas().all().forEach(a -> out.add(a.name));
         }
         String prefix = args[args.length - 1].toLowerCase(Locale.ROOT);
         return out.stream().filter(o -> o.toLowerCase(Locale.ROOT).startsWith(prefix)).toList();

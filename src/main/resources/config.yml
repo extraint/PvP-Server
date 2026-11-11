@@ -16,19 +16,12 @@ combat:
   kill-on-logout: true
 
 kit:
-  give-on-join: true
-  give-on-respawn: true
-  # Material names. Armor is auto-equipped.
-  helmet: IRON_HELMET
-  chestplate: IRON_CHESTPLATE
-  leggings: IRON_LEGGINGS
-  boots: IRON_BOOTS
-  items:
-    - "IRON_SWORD:1"
-    - "BOW:1"
-    - "ARROW:32"
-    - "GOLDEN_APPLE:4"
-    - "COOKED_BEEF:32"
+  default: classic          # kit used for join/respawn kits and as the fallback
+  # Kits themselves are created in-game (/kit create <name>) and stored in kits.yml.
+  # Keep these off on a server where players have real inventories (e.g. an SMP):
+  # giving a kit REPLACES the player's inventory.
+  give-on-join: false
+  give-on-respawn: false
 
 gameplay:
   keep-inventory: true      # nothing drops on death; kit is restored

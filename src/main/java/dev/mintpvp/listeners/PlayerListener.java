@@ -27,7 +27,7 @@ public final class PlayerListener implements Listener {
         e.joinMessage(t.raw("+ ", t.primary()).append(t.raw(p.getName(), t.accent())));
         p.sendMessage(t.info("welcome to " + t.serverName() + ", ")
                 .append(t.raw(p.getName(), t.primary()))
-                .append(t.text("! type /stats or /leaderboard.", t.accent())));
+                .append(t.text("! use /menu to queue, challenge or edit your kit.", t.accent())));
         p.showTitle(net.kyori.adventure.title.Title.title(
                 t.text(t.serverName(), t.primary()),
                 t.text("fight fresh.", t.secondary())));

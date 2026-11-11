@@ -2,6 +2,7 @@ package dev.mintpvp.managers;
 
 import dev.mintpvp.MintPvP;
 import dev.mintpvp.managers.ArenaManager.Arena;
+import dev.mintpvp.managers.KitManager.Kit;
 import dev.mintpvp.util.Theme;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.ClickEvent;
@@ -26,14 +27,16 @@ public final class DuelManager {
 
     public static final class Duel {
         public final Arena arena;
+        public final Kit kit;
         public final Player a, b;
         public State state = State.COUNTDOWN;
         final Map<UUID, Saved> saved = new HashMap<>();
         public final Set<UUID> spectators = new LinkedHashSet<>();
         BukkitTask countdown, timeout, sweep;
 
-        Duel(Arena arena, Player a, Player b) {
+        Duel(Arena arena, Kit kit, Player a, Player b) {
             this.arena = arena;
+            this.kit = kit;
             this.a = a;
             this.b = b;
         }
@@ -49,7 +52,7 @@ public final class DuelManager {
 
     private record SpecSaved(Location loc, GameMode mode) {}
 
-    private record Request(UUID from, String arena, long expires) {}
+    private record Request(UUID from, String kit, String arena, long expires) {}
 
     private final MintPvP plugin;
     private final Map<UUID, Request> requests = new HashMap<>(); // keyed by target
@@ -79,8 +82,11 @@ public final class DuelManager {
 
     // ---- requests -------------------------------------------------------
 
-    public void request(Player from, Player to, String arenaName) {
+    public void request(Player from, Player to, String kitId, String arenaName) {
         Theme t = plugin.theme();
+        Kit kit = kitId == null ? plugin.kits().defaultKit() : plugin.kits().get(kitId);
+        if (kit == null) { from.sendMessage(t.error("that kit doesn't exist.")); return; }
+        if (plugin.queue().isQueued(from.getUniqueId())) { from.sendMessage(t.error("leave the queue first (/queue leave).")); return; }
         if (from.equals(to)) { from.sendMessage(t.error("you can't duel yourself.")); return; }
         if (inDuel(from.getUniqueId())) { from.sendMessage(t.error("you're already in a duel.")); return; }
         if (isSpectating(from.getUniqueId())) { from.sendMessage(t.error("stop spectating first (/spectate leave).")); return; }
@@ -100,15 +106,16 @@ public final class DuelManager {
         }
 
         int expire = plugin.getConfig().getInt("duel.request-expire-seconds", 30);
-        requests.put(to.getUniqueId(), new Request(from.getUniqueId(), chosen, System.currentTimeMillis() + expire * 1000L));
+        requests.put(to.getUniqueId(), new Request(from.getUniqueId(), kit.id, chosen, System.currentTimeMillis() + expire * 1000L));
 
-        from.sendMessage(t.info(t.text("duel request sent to ", t.accent()).append(t.raw(to.getName(), t.primary()))));
+        from.sendMessage(t.info(t.text("duel request sent to ", t.accent()).append(t.raw(to.getName(), t.primary()))
+                .append(t.text(" (" + kit.display + ")", t.muted()))));
         Component accept = t.text("[accept]", t.primary())
                 .clickEvent(ClickEvent.runCommand("/duel accept " + from.getName()));
         Component deny = t.text("[deny]", t.muted())
                 .clickEvent(ClickEvent.runCommand("/duel deny " + from.getName()));
         to.sendMessage(t.info(t.raw(from.getName(), t.primary())
-                .append(t.text(" challenged you to a duel" + (chosen != null ? " on " + chosen : "") + "! ", t.accent()))
+                .append(t.text(" challenged you to a " + kit.display + " duel" + (chosen != null ? " on " + chosen : "") + "! ", t.accent()))
                 .append(accept).append(Component.text(" ")).append(deny)));
     }
 
@@ -142,7 +149,24 @@ public final class DuelManager {
             from.sendMessage(t.error("that arena isn't available."));
             return;
         }
-        start(from, target, arena);
+        Kit kit = plugin.kits().get(r.kit);
+        if (kit == null) {
+            target.sendMessage(t.error("that kit no longer exists."));
+            from.sendMessage(t.error("that kit no longer exists."));
+            return;
+        }
+        start(from, target, arena, kit);
+    }
+
+    /** Starts a queue match on a random free arena. @return false if no arena is free. */
+    public boolean startMatch(Player a, Player b, Kit kit) {
+        Arena arena = plugin.arenas().randomFree().orElse(null);
+        if (arena == null) return false;
+        Theme t = plugin.theme();
+        a.sendMessage(t.info(t.text("match found! opponent: ", t.accent()).append(t.raw(b.getName(), t.primary()))));
+        b.sendMessage(t.info(t.text("match found! opponent: ", t.accent()).append(t.raw(a.getName(), t.primary()))));
+        start(a, b, arena, kit);
+        return true;
     }
 
     public void deny(Player target, String fromName) {
@@ -157,8 +181,10 @@ public final class DuelManager {
 
     // ---- lifecycle ------------------------------------------------------
 
-    private void start(Player a, Player b, Arena arena) {
-        Duel duel = new Duel(arena, a, b);
+    private void start(Player a, Player b, Arena arena, Kit kit) {
+        Duel duel = new Duel(arena, kit, a, b);
+        plugin.queue().leave(a.getUniqueId());
+        plugin.queue().leave(b.getUniqueId());
         arena.inUse = true;
         byPlayer.put(a.getUniqueId(), duel);
         byPlayer.put(b.getUniqueId(), duel);
@@ -174,7 +200,7 @@ public final class DuelManager {
             p.setFireTicks(0);
             p.setLevel(0);
             p.setExp(0);
-            plugin.kits().give(p);
+            plugin.kits().give(p, kit);
         }
         a.teleport(arena.spawn1);
         b.teleport(arena.spawn2);
@@ -188,7 +214,7 @@ public final class DuelManager {
             Bukkit.broadcast(t.info(t.raw(a.getName(), t.primary())
                     .append(t.text(" vs ", t.muted()))
                     .append(t.raw(b.getName(), t.primary()))
-                    .append(t.text(" is starting on " + arena.name + " ", t.accent()))
+                    .append(t.text(" is starting (" + kit.display + ") on " + arena.name + " ", t.accent()))
                     .append(t.text("[watch]", t.secondary())
                             .clickEvent(ClickEvent.runCommand("/spectate " + a.getName())))));
         }
@@ -205,7 +231,7 @@ public final class DuelManager {
             if (left[0] > 0) {
                 for (Player p : List.of(a, b)) {
                     p.showTitle(Title.title(t.raw(String.valueOf(left[0]), t.primary()),
-                            t.text(a.getName() + " vs " + b.getName(), t.secondary()),
+                            t.raw(a.getName() + " vs " + b.getName(), t.secondary()),
                             Title.Times.times(java.time.Duration.ZERO, java.time.Duration.ofMillis(1100), java.time.Duration.ZERO)));
                     p.playSound(p.getLocation(), Sound.BLOCK_NOTE_BLOCK_HAT, 1f, 1f);
                 }
@@ -254,6 +280,7 @@ public final class DuelManager {
         if (inDuel(id)) { sp.sendMessage(t.error("you're in a duel.")); return; }
         if (isSpectating(id)) { sp.sendMessage(t.error("you're already spectating (/spectate leave).")); return; }
         if (plugin.combat().isTagged(id)) { sp.sendMessage(t.error("you can't spectate while in combat.")); return; }
+        if (plugin.queue().isQueued(id)) { sp.sendMessage(t.error("leave the queue first (/queue leave).")); return; }
         Duel d = find(query);
         if (d == null) { sp.sendMessage(t.error("no running duel found for that player or arena.")); return; }
         int max = plugin.getConfig().getInt("duel.max-spectators", 20);

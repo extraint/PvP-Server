@@ -62,8 +62,18 @@ public final class Theme {
         return prefix().append(text(s, TextColor.fromHexString("#FF8A8A")));
     }
 
-    /** "label: value" line used by stats and help output. */
+    /** "label: value" line used by stats and output; both sides in small caps. */
     public Component line(String label, String value) {
-        return text(label + ": ", secondary).append(Component.text(value, accent));
+        return text(label + ": ", secondary).append(text(value, accent));
+    }
+
+    /** Command usage line: the command stays real, copyable text; the description is small caps. */
+    public Component usage(String command, String description) {
+        return Component.text(command, secondary).append(text("  " + description, muted));
+    }
+
+    /** GUI title: "mint pvp » section". */
+    public Component title(String section) {
+        return text(serverName, primary).append(Component.text(" » ", muted)).append(text(section, accent));
     }
 }

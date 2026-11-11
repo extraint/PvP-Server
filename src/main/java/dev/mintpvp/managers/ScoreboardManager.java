@@ -45,6 +45,12 @@ public final class ScoreboardManager {
     private void actionBar(Player p) {
         Theme t = plugin.theme();
         UUID id = p.getUniqueId();
+        var q = plugin.queue().entryOf(id);
+        if (q != null && !plugin.combat().isTagged(id)) {
+            long sec = (System.currentTimeMillis() - q.since()) / 1000;
+            p.sendActionBar(t.text("queued · " + q.kit().display + " · ", t.secondary())
+                    .append(Component.text(String.format("%d:%02d", sec / 60, sec % 60), t.accent())));
+        }
         if (plugin.combat().isTagged(id)) {
             p.sendActionBar(t.text("in combat ", t.secondary())
                     .append(Component.text(plugin.combat().secondsLeft(id) + "s", t.accent())));

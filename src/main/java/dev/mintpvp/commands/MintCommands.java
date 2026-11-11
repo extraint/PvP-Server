@@ -27,7 +27,6 @@ public final class MintCommands implements CommandExecutor, TabCompleter {
             case "mintpvp" -> main(sender, args);
             case "stats" -> stats(sender, args);
             case "leaderboard" -> leaderboard(sender, args);
-            case "kit" -> kit(sender);
             default -> { return false; }
         }
         return true;
@@ -46,13 +45,15 @@ public final class MintCommands implements CommandExecutor, TabCompleter {
             return;
         }
         s.sendMessage(t.info(t.serverName() + " v" + plugin.getPluginMeta().getVersion()));
-        s.sendMessage(t.line("/stats [player]", "view stats"));
-        s.sendMessage(t.line("/leaderboard [kills|kd|streak]", "top players"));
-        s.sendMessage(t.line("/kit", "re-equip your kit (out of combat)"));
-        s.sendMessage(t.line("/duel <player> [arena]", "challenge a player"));
+        s.sendMessage(t.usage("/stats [player]", "view stats"));
+        s.sendMessage(t.usage("/leaderboard [kills|kd|streak]", "top players"));
+        s.sendMessage(t.usage("/menu", "open the duels menu"));
+        s.sendMessage(t.usage("/queue [kit|leave]", "join a random match"));
+        s.sendMessage(t.usage("/duel [player] [kit]", "challenge a player"));
+        s.sendMessage(t.usage("/kit", "edit your kit layouts"));
         if (s.hasPermission("mintpvp.admin")) {
-            s.sendMessage(t.line("/mintpvp reload", "reload config"));
-            s.sendMessage(t.line("/arena", "manage duel arenas"));
+            s.sendMessage(t.usage("/mintpvp reload", "reload config"));
+            s.sendMessage(t.usage("/arena", "manage duel arenas"));
         }
     }
 
@@ -109,20 +110,6 @@ public final class MintCommands implements CommandExecutor, TabCompleter {
                     .append(t.raw(plugin.stats().nameOf(entry.getKey()), t.primary()))
                     .append(t.raw(" - " + value, t.accent())));
         }
-    }
-
-    private void kit(CommandSender s) {
-        Theme t = plugin.theme();
-        if (!(s instanceof Player p)) {
-            s.sendMessage(t.error("players only."));
-            return;
-        }
-        if (plugin.combat().isTagged(p.getUniqueId())) {
-            p.sendMessage(t.error("you can't use /kit in combat."));
-            return;
-        }
-        plugin.kits().give(p);
-        p.sendMessage(t.info("kit equipped."));
     }
 
     @Override

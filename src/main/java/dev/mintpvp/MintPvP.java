@@ -1,7 +1,10 @@
 package dev.mintpvp;
 
 import dev.mintpvp.commands.DuelCommands;
+import dev.mintpvp.commands.KitCommands;
 import dev.mintpvp.commands.MintCommands;
+import dev.mintpvp.commands.QueueCommands;
+import dev.mintpvp.gui.GuiManager;
 import dev.mintpvp.listeners.DuelListener;
 import dev.mintpvp.managers.ArenaManager;
 import dev.mintpvp.managers.DuelManager;
@@ -9,6 +12,7 @@ import dev.mintpvp.listeners.CombatListener;
 import dev.mintpvp.listeners.PlayerListener;
 import dev.mintpvp.managers.CombatManager;
 import dev.mintpvp.managers.KitManager;
+import dev.mintpvp.managers.QueueManager;
 import dev.mintpvp.managers.ScoreboardManager;
 import dev.mintpvp.managers.StatsManager;
 import dev.mintpvp.util.Theme;
@@ -23,6 +27,8 @@ public final class MintPvP extends JavaPlugin {
     private ScoreboardManager boards;
     private ArenaManager arenas;
     private DuelManager duels;
+    private QueueManager queue;
+    private GuiManager guis;
 
     @Override
     public void onEnable() {
@@ -34,13 +40,15 @@ public final class MintPvP extends JavaPlugin {
         boards = new ScoreboardManager(this);
         arenas = new ArenaManager(this);
         duels = new DuelManager(this);
+        queue = new QueueManager(this);
+        guis = new GuiManager(this);
 
         getServer().getPluginManager().registerEvents(new CombatListener(this), this);
         getServer().getPluginManager().registerEvents(new PlayerListener(this), this);
         getServer().getPluginManager().registerEvents(new DuelListener(this), this);
 
         MintCommands commands = new MintCommands(this);
-        for (String name : new String[] {"mintpvp", "stats", "leaderboard", "kit"}) {
+        for (String name : new String[] {"mintpvp", "stats", "leaderboard"}) {
             var cmd = getCommand(name);
             if (cmd != null) {
                 cmd.setExecutor(commands);
@@ -57,7 +65,23 @@ public final class MintPvP extends JavaPlugin {
             }
         }
 
+        KitCommands kitCommands = new KitCommands(this);
+        var kitCmd = getCommand("kit");
+        if (kitCmd != null) {
+            kitCmd.setExecutor(kitCommands);
+            kitCmd.setTabCompleter(kitCommands);
+        }
+        QueueCommands queueCommands = new QueueCommands(this);
+        for (String name : new String[] {"queue", "menu"}) {
+            var cmd = getCommand(name);
+            if (cmd != null) {
+                cmd.setExecutor(queueCommands);
+                cmd.setTabCompleter(queueCommands);
+            }
+        }
+
         boards.start();
+        queue.start();
         // autosave stats every 5 minutes
         getServer().getScheduler().runTaskTimerAsynchronously(this, () -> stats.save(), 6000L, 6000L);
         getLogger().info("ᴍɪɴᴛ ᴘᴠᴘ enabled.");
@@ -65,7 +89,10 @@ public final class MintPvP extends JavaPlugin {
 
     @Override
     public void onDisable() {
+        if (guis != null) guis.shutdown();
+        if (queue != null) queue.stop();
         if (duels != null) duels.shutdown();
+        if (kits != null) kits.saveLayouts();
         if (boards != null) boards.stop();
         if (stats != null) stats.save();
     }
@@ -83,4 +110,5 @@ public final class MintPvP extends JavaPlugin {
     public ScoreboardManager boards() { return boards; }
     public ArenaManager arenas() { return arenas; }
     public DuelManager duels() { return duels; }
+    public QueueManager queue() { return queue; }
 }

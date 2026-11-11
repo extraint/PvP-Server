@@ -4,7 +4,8 @@ A light mint-green, small-caps themed PvP plugin for **Paper 26.3** (Java 25).
 
 ## Features
 - Mint hex palette + small-caps chat, sidebar, titles (configurable in `config.yml`)
-- Kit given on join/respawn (fully configurable), instant respawn, keep-inventory
+- Admin-made kits, editable per-player layouts, random duel queue, custom mint GUIs
+- Instant respawn, keep-inventory
 - Combat tag with action-bar timer, command blocking, combat-log punishment
 - Persistent kills / deaths / K/D / kill streaks, streak announcements
 - Arenas + 1v1 duels (see below)
@@ -66,3 +67,30 @@ can only use `/spectate` and the allowed duel commands. When the duel ends (or t
 quit) they're returned to their old location and game mode. Starting a duel
 broadcasts a clickable **[watch]**. Settings: `duel.allow-spectators`,
 `duel.max-spectators`, `duel.announce-start`. Permission: `mintpvp.spectate`.
+
+## Duels menu, queue & kits
+```
+/menu  (aliases /duels, /play)   # the hub GUI: queue, ranked (coming soon), challenge, kit layout, spectate, stats
+/queue [kit|leave]               # random matchmaking, one queue per kit
+/duel [player] [kit] [arena]     # no args opens the challenge GUI
+/kit                             # everyone: edit your layout for any kit
+```
+**Kits (admins)** are captured from your inventory, including armor and offhand, and
+stored in `kits.yml`:
+```
+/kit create <name>      # from the inventory you're carrying
+/kit update <name>      # re-capture
+/kit seticon <name>     # held item becomes the GUI icon
+/kit edit <name>        # arrange the default layout
+/kit delete <name>
+/kit admin              # the same, as a GUI (also reachable from /menu)
+```
+**Layouts:** players rearrange the 36 storage slots of a kit in a GUI that looks like
+their inventory. Items can only be moved, never added or removed - on save the layout
+must contain exactly the kit's items, and a layout that no longer matches (because an
+admin changed the kit) falls back to the default.
+
+**Ranked:** the queue type exists but is disabled; the hub shows it as "coming soon".
+
+> `kit.give-on-join` / `kit.give-on-respawn` are **off** by default because giving a kit
+> replaces the player's inventory. Duels always save and restore inventories.
