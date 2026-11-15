@@ -175,7 +175,7 @@ public final class DuelCommands implements CommandExecutor, TabCompleter {
             p.sendMessage(t.usage("/arena themes", "pre-made arena themes"));
             p.sendMessage(t.usage("/arena lobby", "(re)build the lobby and set the spawn there"));
             p.sendMessage(t.usage("/arena generate <theme|random> [count]", "build pre-made arenas"));
-            p.sendMessage(t.usage("/arena rebuild <name>", "re-place a generated arena"));
+            p.sendMessage(t.usage("/arena rebuild <name|all>", "re-place generated arenas (applies design changes)"));
             return;
         }
         String sub = args[0].toLowerCase(Locale.ROOT);
@@ -223,6 +223,15 @@ public final class DuelCommands implements CommandExecutor, TabCompleter {
         switch (sub) {
             case "check" -> checkArena(p, name);
             case "rebuild" -> {
+                if (name.equalsIgnoreCase("all")) {
+                    int n = 0;
+                    for (Arena each : new ArrayList<>(plugin.arenas().all())) {
+                        if (each.theme != null && !each.inUse && plugin.generator().rebuild(each)) n++;
+                    }
+                    p.sendMessage(n > 0 ? t.info("rebuilding " + n + " arena" + (n == 1 ? "" : "s") + " (" + plugin.generator().status() + "). arenas in use are skipped.")
+                            : t.error("no generated arenas to rebuild right now."));
+                    return;
+                }
                 Arena a = plugin.arenas().get(name);
                 if (a == null || a.theme == null) { p.sendMessage(t.error("only generated arenas can be rebuilt.")); return; }
                 p.sendMessage(plugin.generator().rebuild(a)

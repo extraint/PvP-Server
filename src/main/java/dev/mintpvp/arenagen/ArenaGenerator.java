@@ -386,10 +386,9 @@ public final class ArenaGenerator {
                 out.put(key(x, y0 - 2, z), sub);
                 out.put(key(x, y0 - 1, z), sub);
                 if (cell.wall) {
-                    out.put(key(x, y0, z), sub);
-                    BlockData w = data(cell.b);
-                    for (int y = 1; y <= cell.h; y++) out.put(key(x, y0 + y, z), w);
-                    for (int y = cell.h + 1; y <= CEILING; y++) out.put(key(x, y0 + y, z), barrier);
+                    // the edge ring: ordinary floor, with an invisible barrier standing on it
+                    out.put(key(x, y0, z), data(cell.floor));
+                    for (int y = 1; y <= CEILING; y++) out.put(key(x, y0 + y, z), barrier);
                     continue;
                 }
                 out.put(key(x, y0, z), data(cell.floor));

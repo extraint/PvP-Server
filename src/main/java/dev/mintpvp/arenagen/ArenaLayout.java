@@ -152,9 +152,8 @@ public final class ArenaLayout {
                 if (d > R_WALL) continue;
                 Cell cell;
                 if (d > R_PLAY) {
-                    long ang = Math.round((Math.atan2(dz, dx) + Math.PI) / (2 * Math.PI) * 48);
-                    boolean post = ang % 4 == 0;
-                    cell = new Cell(post ? t.wallPost() : t.wallBlock(), post ? 5 : 4);
+                    // no visible wall: the island just continues, sealed by an invisible barrier
+                    cell = new Cell(t.floor().at(Math.abs(dx), Math.abs(dz), d), 0);
                     cell.wall = true;
                 } else {
                     int ax = Math.abs(dx), az = Math.abs(dz);

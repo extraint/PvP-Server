@@ -157,9 +157,17 @@ public final class DuelListener implements Listener {
             if (!ok) e.setCancelled(true);
             return;
         }
-        if (plugin.duels().inDuel(e.getPlayer().getUniqueId())
-                && e.getCause() != PlayerTeleportEvent.TeleportCause.PLUGIN) {
-            e.setCancelled(true);
+        Duel d = plugin.duels().duelOf(e.getPlayer().getUniqueId());
+        if (d == null) return;
+        var cause = e.getCause();
+        if (cause == PlayerTeleportEvent.TeleportCause.PLUGIN) return;
+        // ender pearls and chorus fruit work normally, as long as you land inside the arena
+        boolean hop = cause == PlayerTeleportEvent.TeleportCause.ENDER_PEARL
+                || cause == PlayerTeleportEvent.TeleportCause.CHORUS_FRUIT;
+        if (hop && d.state == State.FIGHTING && e.getTo() != null && d.arena.innerContains(e.getTo())) return;
+        e.setCancelled(true);
+        if (hop && d.state == State.FIGHTING) {
+            e.getPlayer().sendActionBar(plugin.theme().text("that would land outside the arena", plugin.theme().secondary()));
         }
     }
 

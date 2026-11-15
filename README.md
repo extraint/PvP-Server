@@ -131,7 +131,7 @@ until that world loads.
 ## Pre-made arenas (auto-generated)
 The plugin builds round duel arenas into its own empty world (`mint_arenas`), so no other
 world is ever touched. Five themes: **Plains, Desert, Poplar Grove, Snowy, Cherry Grove**,
-each a 75-block circle inside a wall, with spawns 60 blocks apart and mirror-symmetric
+each a 75-block circle with no visible wall (an invisible barrier seals the edge), with spawns 60 blocks apart and mirror-symmetric
 cover so both sides are equal.
 
 - On first start it builds 2 of each theme (10 arenas, about 20 seconds in the background).
@@ -172,3 +172,9 @@ Turn it off with `arena-generator.lobby: false`.
 - When someone dies the duel doesn't cut away at once: for `duel.end-delay-seconds` (4) the
   winner gets a victory title, the loser a defeat title and watches from spectator mode, nobody
   can be hurt, and then everyone is sent back. Quitting or forfeiting still ends it straight away.
+
+### Pearls and walls
+Ender pearls and chorus fruit work in duels as long as you land inside the arena (a pearl that
+would land outside is cancelled). Generated arenas have no visible wall: the floor runs to the
+island's edge and an invisible barrier stops anyone leaving. Existing arenas keep their old walls
+until you run `/arena rebuild all` (arenas in use are skipped).
