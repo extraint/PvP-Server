@@ -8,7 +8,7 @@ A light mint-green, small-caps themed PvP plugin for **Paper 26.3** (Java 25).
 - Instant respawn, keep-inventory
 - Combat tag with action-bar timer, command blocking, combat-log punishment
 - Persistent kills / deaths / K/D / kill streaks, streak announcements
-- Arenas + 1v1 duels (see below)
+- Arenas + 1v1 duels, party duels and free-for-alls (see below)
 - `/stats [player]`, `/leaderboard [kills|kd|streak]`, `/kit`, `/mintpvp reload`
 
 ## Build
@@ -192,3 +192,27 @@ Winner = the other player dies, quits or forfeits. At the time limit (`duel.max-
 300) the player with more health wins (`duel.timeout-winner-by-health`); only an exact tie is a
 draw. A draw can also happen if the server restarts or an error stops the duel, and the message
 says which ("the duel ended in a draw: ..."). Every result is also logged in the server console.
+
+## Parties, party duels and free-for-all
+All three run on the same match engine as 1v1 duels (same arenas, countdown, kits, spectating, reset).
+A player who dies is eliminated and watches from spectator mode where they fell; the match ends when one
+team is left. Ranked Elo only applies to 1v1 ranked duels.
+
+### Parties
+```
+/party                         # the party menu (create, members, invite, challenge, leave)
+/party create | invite <player> | accept|deny [leader] | leave | list
+/party kick <player> | promote <player> | disband      # leader only
+/party duel <player> [kit]     # leader: challenge the party that player is in (they answer with /duel accept)
+/pc <message>                  # party chat
+```
+Up to `party.max-size` (6) players. Inviting someone makes you a party. A party duel is team vs team
+on the same kit; both parties must be the same size (`party.require-equal-sizes`), nobody may be busy,
+teammates can't hurt each other (`party.friendly-fire`), and 7+ players total use a big arena.
+Leaders can also challenge from the menu. Parties live in memory (they end on restart or logout).
+
+### Free-for-all
+`/ffa [kit]` (or the menu) joins that kit's lobby; `/ffa leave` leaves. With `ffa.min-players` (3) a
+countdown of `ffa.start-delay-seconds` (30) starts (instantly when `ffa.max-players` (10) is reached);
+everyone is dropped around the arena (5+ players get a big arena) and the last player standing wins.
+At `ffa.max-duration-seconds` the player with the most health wins.

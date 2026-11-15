@@ -78,3 +78,18 @@ arena-generator:
   ranked-radius-min: 100     # ranked arenas get a random radius in this range
   ranked-radius-max: 150
   max-total: 30              # more are made on demand when all are busy, up to this many
+
+party:
+  max-size: 6
+  invite-expire-seconds: 60
+  require-equal-sizes: true     # a party duel needs both parties to have the same number of players
+  friendly-fire: false          # can teammates hurt each other?
+  large-arena-min-players: 7    # party duels with this many players in total use a big (ranked-size) arena
+
+ffa:
+  enabled: true
+  min-players: 3                # the countdown starts once this many have joined
+  max-players: 10               # starts at once when full
+  start-delay-seconds: 30
+  max-duration-seconds: 420     # time limit; the player with the most health wins
+  large-arena-min-players: 5    # this many players or more use a big (ranked-size) arena

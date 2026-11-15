@@ -90,6 +90,21 @@ public final class HubGui extends Gui {
                         t.text("click to watch", t.secondary()))
                 .build(), e -> Guis.spectateList(plugin, p, () -> new HubGui(plugin, p).open(p)));
 
+        var party = plugin.parties().partyOf(p.getUniqueId());
+        set(11, Items.of(Material.FIREWORK_ROCKET)
+                .name(t.text("✦ party", t.primary()))
+                .lore(t.text(party == null ? "team up and duel other parties" : "your party: " + party.members.size() + " members", t.accent()),
+                        Component.empty(),
+                        t.text("click to open", t.secondary()))
+                .build(), e -> new PartyGui(plugin, p).open(p));
+        set(15, Items.of(Material.TNT)
+                .name(t.text("✦ free-for-all", t.primary()))
+                .lore(t.text("everyone for themselves - last", t.accent()),
+                        t.text("one standing wins", t.accent()),
+                        Component.empty(),
+                        t.text("click to pick a kit", t.secondary()))
+                .build(), e -> Guis.ffaKits(plugin, p, () -> new HubGui(plugin, p).open(p)));
+
         if (mine != null) {
             set(13, Items.of(Material.REDSTONE)
                     .name(t.text("leave queue", t.secondary()))

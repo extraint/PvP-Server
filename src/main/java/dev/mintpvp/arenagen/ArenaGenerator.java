@@ -141,6 +141,13 @@ public final class ArenaGenerator {
         return plugin.getConfig().getBoolean("arena-generator.lobby", true);
     }
 
+    /** Standing height (ground + 1) at a world x/z inside a generated arena, or -1 for other arenas. */
+    public int standY(Arena a, int x, int z) {
+        Slot s = a.slot < 0 ? null : slots.get(a.slot);
+        if (s == null) return -1;
+        return model(s).surface(x - s.cx(), z - s.cz()) + 1;
+    }
+
     public Location lobbySpawn() {
         return world == null ? null : new Location(world, LOBBY_X + 0.5, FLOOR_Y + 1, LOBBY_Z + 0.5, 0f, 0f);
     }

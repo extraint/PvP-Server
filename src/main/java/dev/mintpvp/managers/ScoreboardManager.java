@@ -56,6 +56,8 @@ public final class ScoreboardManager {
             }
             p.sendActionBar(bar);
         }
+        var ffaBar = plugin.ffa().barFor(id);
+        if (ffaBar != null && !plugin.combat().isTagged(id)) p.sendActionBar(ffaBar);
         if (plugin.combat().isTagged(id)) {
             p.sendActionBar(t.text("in combat ", t.secondary())
                     .append(Component.text(plugin.combat().secondsLeft(id) + "s", t.accent())));

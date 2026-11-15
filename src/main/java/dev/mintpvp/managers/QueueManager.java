@@ -75,6 +75,7 @@ public final class QueueManager {
         if (plugin.duels().inDuel(id)) { p.sendMessage(t.error("you're already in a duel.")); return false; }
         if (plugin.duels().isSpectating(id)) { p.sendMessage(t.error("stop spectating first (/spectate leave).")); return false; }
         if (plugin.combat().isTagged(id)) { p.sendMessage(t.error("you can't queue while in combat.")); return false; }
+        if (plugin.ffa().isIn(id)) { p.sendMessage(t.error("leave the free-for-all lobby first (/ffa leave).")); return false; }
         if (queued.containsKey(id)) { p.sendMessage(t.error("you're already queued. use /queue leave first.")); return false; }
         if (plugin.arenas().all().stream().noneMatch(a -> a.ready()) && !plugin.generator().building()) {
             p.sendMessage(t.error(plugin.duels().noArenaReason()));

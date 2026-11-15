@@ -42,6 +42,15 @@ commands:
     description: Challenge a player to a ranked duel.
     aliases: [ranked]
     usage: /<command> [player] [kit]
+  party:
+    description: Create and manage a party, and duel other parties.
+    usage: /<command> [create|invite|accept|deny|leave|kick|disband|promote|list|duel]
+  pc:
+    description: Party chat.
+    usage: /<command> <message>
+  ffa:
+    description: Join a free-for-all lobby.
+    usage: /<command> [kit|leave]
   spectate:
     description: Watch a running duel.
     aliases: [spec, watch]

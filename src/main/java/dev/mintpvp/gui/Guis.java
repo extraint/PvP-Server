@@ -70,7 +70,7 @@ public final class Guis {
         List<PagedGui.Entry> entries = new ArrayList<>();
         for (Duel d : plugin.duels().activeDuels()) {
             ItemStack icon = Items.of(d.kit.icon)
-                    .name(t.raw(d.a.getName() + " vs " + d.b.getName(), t.primary()))
+                    .name(t.raw(d.title(), t.primary()))
                     .lore(t.text("kit: " + d.kit.display, t.accent()),
                             t.text("arena: " + d.arena.name, t.accent()),
                             t.text(d.spectators.size() + " watching", t.muted()),
@@ -79,7 +79,7 @@ public final class Guis {
                     .build();
             entries.add(new PagedGui.Entry(icon, e -> {
                 p.closeInventory();
-                plugin.duels().spectate(p, d.a.getName());
+                plugin.duels().spectate(p, d.first().getName());
             }));
         }
         new PagedGui(plugin, t.title("spectate"), entries, back, "no duels running").open(p);
@@ -115,6 +115,28 @@ public final class Guis {
             } else {
                 if (mine != null) plugin.queue().leave(p.getUniqueId());
                 plugin.queue().join(p, kit, type);
+            }
+        });
+    }
+
+    /** Pick a kit, then join that kit's free-for-all lobby (clicking your own lobby leaves it). */
+    public static void ffaKits(MintPvP plugin, Player p, Runnable back) {
+        Theme t = plugin.theme();
+        pickKit(plugin, p, "free-for-all", back, kit -> {
+            List<Component> lore = new ArrayList<>();
+            lore.add(t.text(plugin.ffa().count(kit) + " waiting", t.accent()));
+            lore.add(t.text("starts at " + plugin.getConfig().getInt("ffa.min-players", 3) + "+ players", t.muted()));
+            lore.add(Component.empty());
+            lore.add(t.text(plugin.ffa().kitOf(p.getUniqueId()) == kit ? "click to leave" : "click to join", t.secondary()));
+            return lore;
+        }, kit -> {
+            p.closeInventory();
+            if (plugin.ffa().kitOf(p.getUniqueId()) == kit) {
+                plugin.ffa().leave(p.getUniqueId());
+                p.sendMessage(t.info("you left the free-for-all lobby."));
+            } else {
+                plugin.ffa().leave(p.getUniqueId());
+                plugin.ffa().join(p, kit);
             }
         });
     }

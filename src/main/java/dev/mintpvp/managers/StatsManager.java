@@ -107,6 +107,14 @@ public final class StatsManager {
         return k.streak;
     }
 
+    public void addDuelWin(UUID id) {
+        get(id).duelWins++;
+    }
+
+    public void addDuelLoss(UUID id) {
+        get(id).duelLosses++;
+    }
+
     public void recordDuel(UUID winner, UUID loser) {
         get(winner).duelWins++;
         get(loser).duelLosses++;

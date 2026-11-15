@@ -43,7 +43,13 @@ public final class DuelListener implements Listener {
         if (attacker == null) return;
         Duel dv = plugin.duels().duelOf(victim.getUniqueId());
         Duel da = plugin.duels().duelOf(attacker.getUniqueId());
-        if ((dv != null || da != null) && dv != da) e.setCancelled(true);
+        if ((dv != null || da != null) && dv != da) {
+            e.setCancelled(true);
+        } else if (dv != null && !victim.equals(attacker)) {
+            // inside one match: eliminated players can't hurt or be hurt, and teammates don't hit each other
+            boolean friendly = dv.sameTeam(attacker, victim) && !plugin.getConfig().getBoolean("party.friendly-fire", false);
+            if (!dv.isAlive(attacker) || !dv.isAlive(victim) || friendly) e.setCancelled(true);
+        }
     }
 
     /** Lethal damage in a duel ends it (no death screen, no item loss). */
@@ -52,7 +58,7 @@ public final class DuelListener implements Listener {
         if (!(e.getEntity() instanceof Player victim)) return;
         Duel d = plugin.duels().duelOf(victim.getUniqueId());
         if (d == null) return;
-        if (d.state == State.COUNTDOWN || d.state == State.ENDING) {
+        if (!d.isAlive(victim) || d.state == State.COUNTDOWN || d.state == State.ENDING) {
             e.setCancelled(true);
             return;
         }
@@ -61,7 +67,7 @@ public final class DuelListener implements Listener {
             // instead of ending the duel. (The void and /kill ignore totems.)
             if (savedByTotem(victim, e.getCause())) return;
             e.setCancelled(true);
-            plugin.duels().finish(d, d.opponentOf(victim));
+            plugin.duels().eliminate(d, victim, false);
         }
     }
 
@@ -87,7 +93,7 @@ public final class DuelListener implements Listener {
         e.setDroppedExp(0);
         e.deathMessage(null);
         p.setHealth(p.getAttribute(org.bukkit.attribute.Attribute.MAX_HEALTH).getValue());
-        plugin.duels().end(d, d.opponentOf(p));
+        plugin.duels().eliminate(d, p, false);
     }
 
     /** Enforces the arena border and the countdown freeze. */
@@ -133,7 +139,7 @@ public final class DuelListener implements Listener {
     }
 
     private void returnToSpawn(Player p, Duel d) {
-        p.teleport(p.getUniqueId().equals(d.a.getUniqueId()) ? d.arena.spawn1() : d.arena.spawn2());
+        p.teleport(d.spawnOf(p));
         p.setFallDistance(0);
         p.setVelocity(new org.bukkit.util.Vector(0, 0, 0));
     }
@@ -215,6 +221,8 @@ public final class DuelListener implements Listener {
     @EventHandler
     public void onQuit(PlayerQuitEvent e) {
         plugin.queue().leave(e.getPlayer().getUniqueId());
+        plugin.ffa().leave(e.getPlayer().getUniqueId());
+        plugin.parties().leave(e.getPlayer(), true);
         plugin.duels().stopSpectating(e.getPlayer());
         plugin.duels().forfeit(e.getPlayer());
     }

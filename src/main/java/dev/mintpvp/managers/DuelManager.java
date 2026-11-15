@@ -20,39 +20,95 @@ import org.bukkit.scheduler.BukkitTask;
 
 import java.util.*;
 
-/** 1v1 duels: requests, countdown, state save/restore, and results. */
+/**
+ * Matches: 1v1 duels, party-vs-party duels and free-for-alls all run on this engine. A match is a
+ * list of teams (a 1v1 is two teams of one, a free-for-all is every player on their own team); a
+ * player who dies is eliminated, and the match ends when one team (or nobody) is left standing.
+ */
 public final class DuelManager {
 
     public enum State { COUNTDOWN, FIGHTING, ENDING }
+
+    public enum Mode { DUEL, PARTY, FFA }
 
     public static final class Duel {
         public final Arena arena;
         public final Kit kit;
         public final boolean ranked;
-        public final Player a, b;
+        public final Mode mode;
+        /** Everyone who started in the match (including players who died or left). */
+        public final List<Player> players = new ArrayList<>();
+        final Map<UUID, Integer> team = new HashMap<>();
+        final List<String> teamNames = new ArrayList<>();
+        /** Players still fighting. */
+        public final Set<UUID> alive = new LinkedHashSet<>();
+        final Map<UUID, Location> spawns = new HashMap<>();
+        /** Players who quit or forfeited and were already put back. */
+        final Set<UUID> left = new HashSet<>();
         public State state = State.COUNTDOWN;
+        /** Set once end() has run, so it can only run once. */
+        boolean ended;
         final Map<UUID, Saved> saved = new HashMap<>();
         public final Set<UUID> spectators = new LinkedHashSet<>();
-        /** Original state of every block changed during the duel, so the arena can be put back. */
+        /** Original state of every block changed during the match, so the arena can be put back. */
         final Map<Long, org.bukkit.block.BlockState> changes = new LinkedHashMap<>();
         /** Chunks holding a plugin ticket because something in them was changed (so they can't unload and save). */
         final Set<Long> heldChunks = new HashSet<>();
         BukkitTask countdown, timeout, sweep, ending;
-        /** Set once someone has died: the winner is decided, the duel is just winding down. */
-        public Player pendingWinner;
-        /** Shown in the chat message (and logged) if the duel ends in a draw. */
+        /** Set once the result is decided and the match is just winding down (-1 = none/draw). */
+        public int pendingWinTeam = -1;
+        /** Shown in the chat message (and logged) if the match ends in a draw. */
         public String drawReason = "the time limit was reached";
 
-        Duel(Arena arena, Kit kit, boolean ranked, Player a, Player b) {
+        Duel(Arena arena, Kit kit, boolean ranked, Mode mode) {
             this.arena = arena;
             this.kit = kit;
             this.ranked = ranked;
-            this.a = a;
-            this.b = b;
+            this.mode = mode;
         }
 
+        public int teamOf(Player p) {
+            return team.getOrDefault(p.getUniqueId(), -1);
+        }
+
+        public boolean sameTeam(Player a, Player b) {
+            return teamOf(a) >= 0 && teamOf(a) == teamOf(b);
+        }
+
+        public boolean isAlive(Player p) {
+            return alive.contains(p.getUniqueId());
+        }
+
+        public Location spawnOf(Player p) {
+            return spawns.get(p.getUniqueId());
+        }
+
+        public Player first() {
+            return players.get(0);
+        }
+
+        /** The other player of a 1v1 duel. */
         public Player opponentOf(Player p) {
-            return p.getUniqueId().equals(a.getUniqueId()) ? b : a;
+            for (Player q : players) if (!q.getUniqueId().equals(p.getUniqueId())) return q;
+            return p;
+        }
+
+        public String teamName(int t) {
+            return t >= 0 && t < teamNames.size() ? teamNames.get(t) : "nobody";
+        }
+
+        /** "A vs B", "A's party vs B's party", or "free-for-all (6 players)". */
+        public String title() {
+            return switch (mode) {
+                case FFA -> "free-for-all (" + players.size() + " players)";
+                default -> teamNames.get(0) + " vs " + teamNames.get(1);
+            };
+        }
+
+        Set<Integer> aliveTeams() {
+            Set<Integer> out = new LinkedHashSet<>();
+            for (UUID id : alive) out.add(team.getOrDefault(id, -1));
+            return out;
         }
     }
 
@@ -62,7 +118,9 @@ public final class DuelManager {
 
     private record SpecSaved(Location loc, GameMode mode) {}
 
-    private record Request(UUID from, String kit, String arena, long expires, boolean ranked) {}
+    private record Request(UUID from, String kit, String arena, long expires, boolean ranked, boolean party) {}
+
+    private static final int[][] OFFSETS = {{0, 0}, {2, 0}, {-2, 0}, {0, 2}, {0, -2}, {2, 2}, {-2, 2}, {2, -2}, {-2, -2}};
 
     private final MintPvP plugin;
     private final Map<UUID, Request> requests = new HashMap<>(); // keyed by target
@@ -88,7 +146,7 @@ public final class DuelManager {
         return null;
     }
 
-    /** Remembers a block's state before a duel changes it (first change wins). */
+    /** Remembers a block's state before a match changes it (first change wins). */
     public void recordBlock(org.bukkit.block.BlockState state) {
         if (state == null) return;
         Arena a = plugin.arenas().activeAt(state.getLocation()).orElse(null);
@@ -161,11 +219,23 @@ public final class DuelManager {
         return a.compareTo(b) < 0 ? a + ":" + b : b + ":" + a;
     }
 
+    /** Is this player free to be put into a match right now? Returns the reason if not, else null. */
+    public String busyReason(Player p) {
+        UUID id = p.getUniqueId();
+        if (inDuel(id)) return "in a match";
+        if (isSpectating(id)) return "spectating";
+        if (plugin.combat().isTagged(id)) return "in combat";
+        if (plugin.queue().isQueued(id)) return "in a queue";
+        if (plugin.ffa().isIn(id)) return "waiting for a free-for-all";
+        return null;
+    }
+
     public void request(Player from, Player to, String kitId, String arenaName, boolean ranked) {
         Theme t = plugin.theme();
         Kit kit = kitId == null ? plugin.kits().defaultKit() : plugin.kits().get(kitId);
         if (kit == null) { from.sendMessage(t.error("that kit doesn't exist.")); return; }
         if (plugin.queue().isQueued(from.getUniqueId())) { from.sendMessage(t.error("leave the queue first (/queue leave).")); return; }
+        if (plugin.ffa().isIn(from.getUniqueId())) { from.sendMessage(t.error("leave the free-for-all first (/ffa leave).")); return; }
         if (ranked && !plugin.queue().rankedEnabled()) { from.sendMessage(t.error("ranked is disabled right now.")); return; }
         if (ranked && overRankedLimit(from.getUniqueId(), to.getUniqueId())) {
             from.sendMessage(t.error("you've already played a lot of ranked duels against that player this hour - try someone else or the queue."));
@@ -192,7 +262,7 @@ public final class DuelManager {
         }
 
         int expire = plugin.getConfig().getInt("duel.request-expire-seconds", 30);
-        requests.put(to.getUniqueId(), new Request(from.getUniqueId(), kit.id, chosen, System.currentTimeMillis() + expire * 1000L, ranked));
+        requests.put(to.getUniqueId(), new Request(from.getUniqueId(), kit.id, chosen, System.currentTimeMillis() + expire * 1000L, ranked, false));
 
         from.sendMessage(t.info(t.text("duel request sent to ", t.accent()).append(t.raw(to.getName(), t.primary()))
                 .append(t.text(" (" + (ranked ? "ranked " : "") + kit.display + ")", t.muted()))));
@@ -203,6 +273,62 @@ public final class DuelManager {
         to.sendMessage(t.info(t.raw(from.getName(), t.primary())
                 .append(t.text(" challenged you to a " + (ranked ? "ranked " : "") + kit.display + " duel" + (chosen != null ? " on " + chosen : "") + "! ", t.accent()))
                 .append(accept).append(Component.text(" ")).append(deny)));
+    }
+
+    /**
+     * A party leader challenges another party. The request goes to that party's leader and is
+     * answered with the same /duel accept as a normal duel.
+     */
+    public void requestParty(Player leader, Player targetMember, String kitId) {
+        Theme t = plugin.theme();
+        var mine = plugin.parties().partyOf(leader.getUniqueId());
+        var theirs = plugin.parties().partyOf(targetMember.getUniqueId());
+        if (mine == null) { leader.sendMessage(t.error("you're not in a party.")); return; }
+        if (!mine.leader.equals(leader.getUniqueId())) { leader.sendMessage(t.error("only the party leader can start a party duel.")); return; }
+        if (theirs == null) { leader.sendMessage(t.error("that player isn't in a party.")); return; }
+        if (theirs == mine) { leader.sendMessage(t.error("that's your own party.")); return; }
+        Kit kit = kitId == null ? plugin.kits().defaultKit() : plugin.kits().get(kitId);
+        if (kit == null) { leader.sendMessage(t.error("that kit doesn't exist.")); return; }
+        if (plugin.getConfig().getBoolean("party.require-equal-sizes", true) && mine.members.size() != theirs.members.size()) {
+            leader.sendMessage(t.error("the parties must be the same size (" + mine.members.size() + " vs " + theirs.members.size() + ")."));
+            return;
+        }
+        String why = partyBusy(mine);
+        if (why != null) { leader.sendMessage(t.error("your party can't duel right now: " + why)); return; }
+        Player theirLeader = Bukkit.getPlayer(theirs.leader);
+        if (theirLeader == null) { leader.sendMessage(t.error("that party's leader is offline.")); return; }
+        String theirWhy = partyBusy(theirs);
+        if (theirWhy != null) { leader.sendMessage(t.error("that party can't duel right now: " + theirWhy)); return; }
+        if (plugin.arenas().randomFree(partyNeedsLarge(mine.members.size() + theirs.members.size())).isEmpty()) {
+            plugin.generator().requestExtra(partyNeedsLarge(mine.members.size() + theirs.members.size()));
+            leader.sendMessage(t.error(noArenaReason()));
+            return;
+        }
+
+        int expire = plugin.getConfig().getInt("duel.request-expire-seconds", 30);
+        requests.put(theirLeader.getUniqueId(), new Request(leader.getUniqueId(), kit.id, null, System.currentTimeMillis() + expire * 1000L, false, true));
+        leader.sendMessage(t.info(t.text("party duel request sent to ", t.accent()).append(t.raw(theirLeader.getName() + "'s party", t.primary()))
+                .append(t.text(" (" + mine.members.size() + "v" + theirs.members.size() + ", " + kit.display + ")", t.muted()))));
+        Component accept = t.text("[accept]", t.primary()).clickEvent(ClickEvent.runCommand("/duel accept " + leader.getName()));
+        Component deny = t.text("[deny]", t.muted()).clickEvent(ClickEvent.runCommand("/duel deny " + leader.getName()));
+        theirLeader.sendMessage(t.info(t.raw(leader.getName() + "'s party", t.primary())
+                .append(t.text(" challenged your party to a " + mine.members.size() + "v" + theirs.members.size() + " " + kit.display + " duel! ", t.accent()))
+                .append(accept).append(Component.text(" ")).append(deny)));
+    }
+
+    private boolean partyNeedsLarge(int totalPlayers) {
+        return totalPlayers >= plugin.getConfig().getInt("party.large-arena-min-players", 7);
+    }
+
+    /** Why this party can't fight right now (offline or busy member), or null. */
+    private String partyBusy(PartyManager.Party party) {
+        for (UUID id : party.members) {
+            Player m = Bukkit.getPlayer(id);
+            if (m == null) return "a member is offline.";
+            String why = busyReason(m);
+            if (why != null) return m.getName() + " is " + why + ".";
+        }
+        return null;
     }
 
     /** Explains why no arena can be used (none set up, all busy, or all broken). */
@@ -232,6 +358,16 @@ public final class DuelManager {
         if (r == null) { target.sendMessage(t.error("no pending duel request.")); return; }
         Player from = Bukkit.getPlayer(r.from);
         requests.remove(target.getUniqueId());
+        Kit kit = plugin.kits().get(r.kit);
+        if (kit == null) {
+            target.sendMessage(t.error("that kit no longer exists."));
+            from.sendMessage(t.error("that kit no longer exists."));
+            return;
+        }
+        if (r.party()) {
+            acceptParty(from, target, kit);
+            return;
+        }
 
         if (inDuel(from.getUniqueId()) || inDuel(target.getUniqueId())
                 || isSpectating(from.getUniqueId()) || isSpectating(target.getUniqueId())
@@ -246,14 +382,42 @@ public final class DuelManager {
             from.sendMessage(t.error("that arena isn't available."));
             return;
         }
-        Kit kit = plugin.kits().get(r.kit);
-        if (kit == null) {
-            target.sendMessage(t.error("that kit no longer exists."));
-            from.sendMessage(t.error("that kit no longer exists."));
-            return;
-        }
         start(from, target, arena, kit, r.ranked());
         if (r.ranked()) recordRankedPair(from.getUniqueId(), target.getUniqueId());
+    }
+
+    private void acceptParty(Player challengerLeader, Player targetLeader, Kit kit) {
+        Theme t = plugin.theme();
+        var mine = plugin.parties().partyOf(challengerLeader.getUniqueId());
+        var theirs = plugin.parties().partyOf(targetLeader.getUniqueId());
+        if (mine == null || theirs == null || mine == theirs) {
+            targetLeader.sendMessage(t.error("the party duel can't start any more (a party changed)."));
+            return;
+        }
+        if (plugin.getConfig().getBoolean("party.require-equal-sizes", true) && mine.members.size() != theirs.members.size()) {
+            targetLeader.sendMessage(t.error("the parties are no longer the same size."));
+            challengerLeader.sendMessage(t.error("the parties are no longer the same size."));
+            return;
+        }
+        String why = partyBusy(mine), theirWhy = partyBusy(theirs);
+        if (why != null || theirWhy != null) {
+            String msg = "the party duel can't start: " + (why != null ? why : theirWhy);
+            targetLeader.sendMessage(t.error(msg));
+            challengerLeader.sendMessage(t.error(msg));
+            return;
+        }
+        boolean large = partyNeedsLarge(mine.members.size() + theirs.members.size());
+        Arena arena = plugin.arenas().randomFree(large).orElse(null);
+        if (arena == null) {
+            plugin.generator().requestExtra(large);
+            targetLeader.sendMessage(t.error(noArenaReason()));
+            challengerLeader.sendMessage(t.error(noArenaReason()));
+            return;
+        }
+        List<Player> a = new ArrayList<>(), b = new ArrayList<>();
+        for (UUID id : mine.members) a.add(Bukkit.getPlayer(id));
+        for (UUID id : theirs.members) b.add(Bukkit.getPlayer(id));
+        start(Mode.PARTY, List.of(a, b), List.of(challengerLeader.getName() + "'s party", targetLeader.getName() + "'s party"), arena, kit, false);
     }
 
     /** Starts a queue match on a random free arena. @return false if no arena is free. */
@@ -263,10 +427,27 @@ public final class DuelManager {
             plugin.generator().requestExtra(ranked); // all busy: make another one
             return false;
         }
-        Theme t = plugin.theme();
         a.sendMessage(found(b, ranked));
         b.sendMessage(found(a, ranked));
         start(a, b, arena, kit, ranked);
+        return true;
+    }
+
+    /** Starts a free-for-all. @return false if no arena is free yet. */
+    public boolean startFfa(List<Player> players, Kit kit) {
+        boolean large = players.size() >= plugin.getConfig().getInt("ffa.large-arena-min-players", 5);
+        Arena arena = plugin.arenas().randomFree(large).orElse(null);
+        if (arena == null) {
+            plugin.generator().requestExtra(large);
+            return false;
+        }
+        List<List<Player>> teams = new ArrayList<>();
+        List<String> names = new ArrayList<>();
+        for (Player p : players) {
+            teams.add(List.of(p));
+            names.add(p.getName());
+        }
+        start(Mode.FFA, teams, names, arena, kit, false);
         return true;
     }
 
@@ -292,42 +473,59 @@ public final class DuelManager {
         return t.info(c);
     }
 
-    /** Starts a duel; if anything goes wrong the players are put back and the arena is freed. */
     private void start(Player a, Player b, Arena arena, Kit kit, boolean ranked) {
+        start(Mode.DUEL, List.of(List.of(a), List.of(b)), List.of(a.getName(), b.getName()), arena, kit, ranked);
+    }
+
+    /** Starts a match; if anything goes wrong the players are put back and the arena is freed. */
+    private void start(Mode mode, List<List<Player>> teams, List<String> names, Arena arena, Kit kit, boolean ranked) {
+        List<Player> all = new ArrayList<>();
+        teams.forEach(all::addAll);
         try {
-            begin(a, b, arena, kit, ranked);
+            begin(mode, teams, names, arena, kit, ranked);
         } catch (RuntimeException ex) {
-            plugin.getLogger().log(java.util.logging.Level.SEVERE, "Duel failed to start on arena " + arena.name, ex);
-            Duel d = byPlayer.get(a.getUniqueId());
+            plugin.getLogger().log(java.util.logging.Level.SEVERE, "Match failed to start on arena " + arena.name, ex);
+            Duel d = all.isEmpty() ? null : byPlayer.get(all.get(0).getUniqueId());
             if (d != null) {
-                d.drawReason = "an error stopped the duel from starting";
-                end(d, null, false);
+                d.drawReason = "an error stopped the match from starting";
+                end(d, -1, false);
             } else {
                 arena.inUse = false;
             }
             Theme t = plugin.theme();
-            for (Player p : List.of(a, b)) p.sendMessage(t.error("the duel couldn't start - an admin can see the error in the console."));
+            for (Player p : all) p.sendMessage(t.error("the match couldn't start - an admin can see the error in the console."));
         }
     }
 
     private void fail(Duel duel, RuntimeException ex) {
-        plugin.getLogger().log(java.util.logging.Level.SEVERE, "Duel error on arena " + duel.arena.name, ex);
+        plugin.getLogger().log(java.util.logging.Level.SEVERE, "Match error on arena " + duel.arena.name, ex);
         duel.drawReason = "an error occurred";
-        end(duel, null, false);
-        for (Player p : List.of(duel.a, duel.b)) p.sendMessage(plugin.theme().error("the duel hit an error and was cancelled."));
+        end(duel, -1, false);
+        for (Player p : duel.players) p.sendMessage(plugin.theme().error("the match hit an error and was cancelled."));
     }
 
-    private void begin(Player a, Player b, Arena arena, Kit kit, boolean ranked) {
-        Duel duel = new Duel(arena, kit, ranked, a, b);
-        plugin.queue().leave(a.getUniqueId());
-        plugin.queue().leave(b.getUniqueId());
+    private void begin(Mode mode, List<List<Player>> teams, List<String> names, Arena arena, Kit kit, boolean ranked) {
+        Duel duel = new Duel(arena, kit, ranked, mode);
+        duel.teamNames.addAll(names);
+        for (int i = 0; i < teams.size(); i++) {
+            for (Player p : teams.get(i)) {
+                duel.players.add(p);
+                duel.team.put(p.getUniqueId(), i);
+                duel.alive.add(p.getUniqueId());
+            }
+        }
+        for (Player p : duel.players) {
+            plugin.queue().leave(p.getUniqueId());
+            plugin.ffa().leave(p.getUniqueId());
+        }
         arena.inUse = true;
-        byPlayer.put(a.getUniqueId(), duel);
-        byPlayer.put(b.getUniqueId(), duel);
-        requests.remove(a.getUniqueId());
-        requests.remove(b.getUniqueId());
+        for (Player p : duel.players) {
+            byPlayer.put(p.getUniqueId(), duel);
+            requests.remove(p.getUniqueId());
+        }
+        computeSpawns(duel, teams);
 
-        for (Player p : List.of(a, b)) {
+        for (Player p : duel.players) {
             duel.saved.put(p.getUniqueId(), new Saved(p.getLocation(), p.getInventory().getContents().clone(),
                     p.getGameMode(), p.getHealth(), p.getFoodLevel(), p.getSaturation(),
                     p.getLevel(), p.getExp(), new ArrayList<>(p.getActivePotionEffects())));
@@ -338,21 +536,23 @@ public final class DuelManager {
             p.setExp(0);
             plugin.kits().give(p, kit);
         }
-        a.teleport(arena.spawn1());
-        b.teleport(arena.spawn2());
-
-        // visible per-player border so duelists can see the arena limits
-        applyBorder(a, arena);
-        applyBorder(b, arena);
+        for (Player p : duel.players) {
+            p.teleport(duel.spawnOf(p));
+            applyBorder(p, arena); // visible per-player border so everyone can see the arena limits
+        }
 
         if (plugin.getConfig().getBoolean("duel.announce-start", true)) {
             Theme t = plugin.theme();
-            Bukkit.broadcast(t.info(t.raw(a.getName(), t.primary())
-                    .append(t.text(" vs ", t.muted()))
-                    .append(t.raw(b.getName(), t.primary()))
-                    .append(t.text(" is starting (" + (ranked ? "ranked " : "") + kit.display + ") on " + arena.name + " ", t.accent()))
+            String label = switch (mode) {
+                case FFA -> "free-for-all (" + duel.players.size() + " players, " + kit.display + ")";
+                case PARTY -> "party duel " + teams.get(0).size() + "v" + teams.get(1).size() + " (" + kit.display + ")";
+                default -> (ranked ? "ranked " : "") + kit.display + " duel";
+            };
+            Bukkit.broadcast(t.info(t.raw(mode == Mode.FFA ? "a " : duel.title(), t.primary())
+                    .append(t.text(mode == Mode.FFA ? "" : " ", t.muted()))
+                    .append(t.text("is starting: " + label + " on " + arena.name + " ", t.accent()))
                     .append(t.text("[watch]", t.secondary())
-                            .clickEvent(ClickEvent.runCommand("/spectate " + a.getName())))));
+                            .clickEvent(ClickEvent.runCommand("/spectate " + duel.first().getName())))));
         }
 
         if (plugin.getConfig().getBoolean("duel.clear-mobs", true)) {
@@ -365,9 +565,9 @@ public final class DuelManager {
         int[] left = {seconds};
         duel.countdown = Bukkit.getScheduler().runTaskTimer(plugin, () -> { try {
             if (left[0] > 0) {
-                for (Player p : List.of(a, b)) {
+                for (Player p : duel.players) {
                     p.showTitle(Title.title(t.raw(String.valueOf(left[0]), t.primary()),
-                            t.raw(a.getName() + " vs " + b.getName(), t.secondary()),
+                            t.raw(duel.title(), t.secondary()),
                             Title.Times.times(java.time.Duration.ZERO, java.time.Duration.ofMillis(1100), java.time.Duration.ZERO)));
                     p.playSound(p.getLocation(), Sound.BLOCK_NOTE_BLOCK_HAT, 1f, 1f);
                 }
@@ -376,15 +576,64 @@ public final class DuelManager {
             }
             duel.countdown.cancel();
             duel.state = State.FIGHTING;
-            for (Player p : List.of(a, b)) {
+            for (Player p : duel.players) {
                 p.showTitle(Title.title(t.text("fight!", t.primary()), Component.empty()));
                 p.playSound(p.getLocation(), Sound.BLOCK_NOTE_BLOCK_PLING, 1f, 2f);
             }
             int max = plugin.getConfig().getInt("duel.max-duration-seconds", 300);
+            if (mode == Mode.FFA) max = plugin.getConfig().getInt("ffa.max-duration-seconds", max);
             if (max > 0) {
                 duel.timeout = Bukkit.getScheduler().runTaskLater(plugin, () -> timeUp(duel), max * 20L);
             }
         } catch (RuntimeException ex) { duel.countdown.cancel(); fail(duel, ex); } }, 0L, 20L);
+    }
+
+    // ---- where everyone starts -------------------------------------------
+
+    private void computeSpawns(Duel duel, List<List<Player>> teams) {
+        Arena arena = duel.arena;
+        if (duel.mode == Mode.FFA) {
+            Location c = arena.center();
+            int n = duel.players.size();
+            double radius = Math.min(arena.radius() * 0.6, 70);
+            double start = Math.random() * Math.PI * 2;
+            for (int i = 0; i < n; i++) {
+                double ang = start + Math.PI * 2 * i / n;
+                int x = (int) Math.round(c.getX() + Math.cos(ang) * radius), z = (int) Math.round(c.getZ() + Math.sin(ang) * radius);
+                Location spot = standingSpot(arena, c.getWorld(), x, z);
+                float yaw = (float) Math.toDegrees(Math.atan2(c.getZ() - z, c.getX() - x)) - 90f;
+                spot.setYaw(yaw);
+                duel.spawns.put(duel.players.get(i).getUniqueId(), spot);
+            }
+            return;
+        }
+        for (int t = 0; t < teams.size(); t++) {
+            Location anchor = t == 0 ? arena.spawn1() : arena.spawn2();
+            List<Player> members = teams.get(t);
+            for (int i = 0; i < members.size(); i++) {
+                int[] off = OFFSETS[Math.min(i, OFFSETS.length - 1)];
+                Location spot = i == 0 ? anchor.clone() : standingSpot(arena, anchor.getWorld(), anchor.getBlockX() + off[0], anchor.getBlockZ() + off[1]);
+                if (i > 0) {
+                    spot.setYaw(anchor.getYaw());
+                    spot.setPitch(0);
+                }
+                duel.spawns.put(members.get(i).getUniqueId(), spot);
+            }
+        }
+    }
+
+    /** A safe place to stand at x/z: on the generated ground, or the highest block, lifted clear of obstacles. */
+    private Location standingSpot(Arena arena, org.bukkit.World world, int x, int z) {
+        int y = plugin.generator().standY(arena, x, z);
+        if (y < 0) y = world.getHighestBlockYAt(x, z) + 1;
+        for (int tries = 0; tries < 12; tries++) {
+            var feet = world.getBlockAt(x, y, z);
+            var head = world.getBlockAt(x, y + 1, z);
+            var below = world.getBlockAt(x, y - 1, z);
+            if (feet.isPassable() && head.isPassable() && !below.isPassable()) break;
+            if (!feet.isPassable() || !head.isPassable()) y++; else y--;
+        }
+        return new Location(world, x + 0.5, y, z + 0.5);
     }
 
     private void applyBorder(Player p, Arena arena) {
@@ -397,7 +646,7 @@ public final class DuelManager {
 
     // ---- spectating -----------------------------------------------------
 
-    /** Finds a running duel by a duelist's name or by arena name. */
+    /** Finds a running match by a participant's name or by arena name. */
     public Duel find(String query) {
         Player pl = Bukkit.getPlayerExact(query);
         if (pl != null && byPlayer.containsKey(pl.getUniqueId())) return byPlayer.get(pl.getUniqueId());
@@ -417,6 +666,7 @@ public final class DuelManager {
         if (isSpectating(id)) { sp.sendMessage(t.error("you're already spectating (/spectate leave).")); return; }
         if (plugin.combat().isTagged(id)) { sp.sendMessage(t.error("you can't spectate while in combat.")); return; }
         if (plugin.queue().isQueued(id)) { sp.sendMessage(t.error("leave the queue first (/queue leave).")); return; }
+        if (plugin.ffa().isIn(id)) { sp.sendMessage(t.error("leave the free-for-all first (/ffa leave).")); return; }
         Duel d = find(query);
         if (d == null) { sp.sendMessage(t.error("no running duel found for that player or arena.")); return; }
         int max = plugin.getConfig().getInt("duel.max-spectators", 20);
@@ -427,9 +677,10 @@ public final class DuelManager {
         spectating.put(id, d);
         applyBorder(sp, d.arena);
         sp.setGameMode(GameMode.SPECTATOR);
-        sp.teleport(d.a.getLocation());
+        Player focus = d.alive.stream().map(Bukkit::getPlayer).filter(Objects::nonNull).findFirst().orElse(d.first());
+        sp.teleport(focus.getLocation());
         sp.sendMessage(t.info(t.text("now spectating ", t.accent())
-                .append(t.raw(d.a.getName() + " vs " + d.b.getName(), t.primary()))
+                .append(t.raw(d.title(), t.primary()))
                 .append(t.text(". /spectate leave to stop.", t.accent()))));
     }
 
@@ -468,78 +719,142 @@ public final class DuelManager {
                 .forEach(org.bukkit.entity.Entity::remove);
     }
 
-    /** Time limit reached: the player with more health wins; only an exact tie is a draw. */
+    // ---- results --------------------------------------------------------
+
+    /** Total health (with absorption) of the living members of each team. */
+    private Map<Integer, Double> teamHealth(Duel d) {
+        Map<Integer, Double> out = new LinkedHashMap<>();
+        for (Player p : d.players) {
+            if (!d.isAlive(p)) continue;
+            out.merge(d.teamOf(p), p.getHealth() + p.getAbsorptionAmount(), Double::sum);
+        }
+        return out;
+    }
+
+    /** Time limit reached: the team with more health wins; only an exact tie is a draw. */
     private void timeUp(Duel duel) {
-        if (duel.state != State.FIGHTING || byPlayer.get(duel.a.getUniqueId()) != duel) return;
+        if (duel.state != State.FIGHTING || duel.ended) return;
         Theme t = plugin.theme();
         if (plugin.getConfig().getBoolean("duel.timeout-winner-by-health", true)) {
-            double ha = duel.a.getHealth() + duel.a.getAbsorptionAmount();
-            double hb = duel.b.getHealth() + duel.b.getAbsorptionAmount();
-            if (Math.abs(ha - hb) >= 1.0) {
-                Player w = ha > hb ? duel.a : duel.b;
-                for (Player p : List.of(duel.a, duel.b)) {
-                    p.sendMessage(t.info(t.text("time's up! ", t.accent()).append(t.raw(w.getName(), t.primary()))
+            Map<Integer, Double> hp = teamHealth(duel);
+            List<Map.Entry<Integer, Double>> sorted = new ArrayList<>(hp.entrySet());
+            sorted.sort((x, y) -> Double.compare(y.getValue(), x.getValue()));
+            if (!sorted.isEmpty() && (sorted.size() == 1 || sorted.get(0).getValue() - sorted.get(1).getValue() >= 1.0)) {
+                int win = sorted.get(0).getKey();
+                for (Player p : duel.players) {
+                    p.sendMessage(t.info(t.text("time's up! ", t.accent()).append(t.raw(duel.teamName(win), t.primary()))
                             .append(t.text(" wins with more health.", t.accent()))));
                 }
-                finish(duel, w);
+                finishTeam(duel, win);
                 return;
             }
         }
-        duel.drawReason = "time ran out and you both had the same health";
-        end(duel, null);
+        duel.drawReason = "time ran out and the health was level";
+        end(duel, -1);
     }
 
     /**
-     * Someone died: decide the result now, but let the fight wind down for a few seconds
-     * (duel.end-delay-seconds) before everyone is sent back. The loser watches from
-     * spectator mode and nobody can be hurt any more.
+     * A player is out: killed (they watch from spectator mode where they fell), or quit/forfeited
+     * ({@code leaving}: they are put back at once). When one team is left standing it wins.
      */
+    public void eliminate(Duel d, Player victim, boolean leaving) {
+        UUID id = victim.getUniqueId();
+        if (!d.alive.remove(id)) {
+            if (leaving && !d.left.contains(id) && byPlayer.get(id) == d) {
+                // already dead (watching), now leaving: just put them back
+                if (d.state == State.ENDING) {
+                    end(d, d.pendingWinTeam);
+                } else {
+                    removeFromMatch(d, victim);
+                }
+            }
+            return;
+        }
+        if (d.state == State.ENDING) { // the result is already decided; only tidy up
+            if (leaving) end(d, d.pendingWinTeam);
+            return;
+        }
+        Theme t = plugin.theme();
+        if (leaving) {
+            removeFromMatch(d, victim);
+        } else {
+            try {
+                if (victim.getLocation().getY() < d.arena.minY()) victim.teleport(d.spawnOf(victim));
+                victim.setFireTicks(0);
+                victim.setGameMode(GameMode.SPECTATOR);
+                var at = victim.getLocation().add(0, 1, 0);
+                victim.getWorld().playSound(at, Sound.ENTITY_PLAYER_DEATH, 1f, 1f);
+                victim.getWorld().spawnParticle(org.bukkit.Particle.SOUL, at, 40, .3, .6, .3, .03);
+                victim.showTitle(Title.title(t.text("eliminated", t.secondary()), t.text("you can keep watching", t.accent())));
+            } catch (RuntimeException ex) {
+                plugin.getLogger().log(java.util.logging.Level.WARNING, "Elimination effects failed", ex);
+            }
+        }
+        if (d.mode != Mode.DUEL) {
+            Component msg = t.info(t.raw(victim.getName(), t.secondary())
+                    .append(t.text(leaving ? " left the match" : " was eliminated", t.muted()))
+                    .append(t.text(" (" + d.alive.size() + " left)", t.muted())));
+            for (Player p : d.players) if (byPlayer.get(p.getUniqueId()) == d) p.sendMessage(msg);
+        }
+
+        Set<Integer> teams = d.aliveTeams();
+        if (teams.size() > 1) return;
+        int win = teams.isEmpty() ? -1 : teams.iterator().next();
+        if (win < 0) d.drawReason = "everyone was eliminated";
+        if (leaving || win < 0) end(d, win);
+        else finishTeam(d, win);
+    }
+
+    /** Compatibility: a 1v1 where {@code winner} won. */
     public void finish(Duel duel, Player winner) {
-        if (duel.state == State.ENDING || byPlayer.get(duel.a.getUniqueId()) != duel) return;
+        finishTeam(duel, duel.teamOf(winner));
+    }
+
+    /**
+     * The result is decided, but let the fight wind down for a few seconds (duel.end-delay-seconds)
+     * before everyone is sent back. Winners celebrate, nobody can be hurt any more.
+     */
+    public void finishTeam(Duel duel, int winTeam) {
+        if (duel.state == State.ENDING || duel.ended) return;
         int delay = plugin.getConfig().getInt("duel.end-delay-seconds", 4);
         if (delay <= 0) {
-            end(duel, winner);
+            end(duel, winTeam);
             return;
         }
         duel.state = State.ENDING;
-        duel.pendingWinner = winner;
+        duel.pendingWinTeam = winTeam;
         if (duel.timeout != null) duel.timeout.cancel();
 
-        Player loser = duel.opponentOf(winner);
         Theme t = plugin.theme();
-        try {
-            if (loser.getLocation().getY() < duel.arena.minY()) {
-                loser.teleport(loser.getUniqueId().equals(duel.a.getUniqueId()) ? duel.arena.spawn1() : duel.arena.spawn2());
+        var times = Title.Times.times(java.time.Duration.ofMillis(200), java.time.Duration.ofSeconds(Math.max(1, delay - 1)), java.time.Duration.ofMillis(500));
+        for (Player p : duel.players) {
+            if (byPlayer.get(p.getUniqueId()) != duel) continue;
+            try {
+                boolean won = duel.teamOf(p) == winTeam;
+                p.showTitle(Title.title(t.text(won ? "victory" : "defeat", won ? t.primary() : t.secondary()),
+                        t.text("returning in " + delay + "s", t.accent()), times));
+                if (won) p.playSound(p.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1f, 1.2f);
+            } catch (RuntimeException ex) {
+                plugin.getLogger().log(java.util.logging.Level.WARNING, "Match end effects failed", ex);
             }
-            loser.setFireTicks(0);
-            loser.setGameMode(GameMode.SPECTATOR);
-            var at = loser.getLocation().add(0, 1, 0);
-            loser.getWorld().playSound(at, Sound.ENTITY_PLAYER_DEATH, 1f, 1f);
-            loser.getWorld().spawnParticle(org.bukkit.Particle.SOUL, at, 40, .3, .6, .3, .03);
-            var times = Title.Times.times(java.time.Duration.ofMillis(200), java.time.Duration.ofSeconds(Math.max(1, delay - 1)), java.time.Duration.ofMillis(500));
-            winner.showTitle(Title.title(t.text("victory", t.primary()), t.text("returning in " + delay + "s", t.accent()), times));
-            loser.showTitle(Title.title(t.text("defeat", t.secondary()), t.text("returning in " + delay + "s", t.accent()), times));
-            winner.playSound(winner.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1f, 1.2f);
-        } catch (RuntimeException ex) {
-            plugin.getLogger().log(java.util.logging.Level.WARNING, "Duel end effects failed", ex);
         }
-        duel.ending = Bukkit.getScheduler().runTaskLater(plugin, () -> end(duel, winner), delay * 20L);
+        duel.ending = Bukkit.getScheduler().runTaskLater(plugin, () -> end(duel, winTeam), delay * 20L);
     }
 
-    /** End a duel. winner == null means a draw. */
-    public void end(Duel duel, Player winner) {
-        end(duel, winner, true);
+    /** End a match. winTeam -1 = a draw. */
+    public void end(Duel duel, int winTeam) {
+        end(duel, winTeam, true);
     }
 
-    /** @param count false voids the result (server shutdown): no ranked rating change. */
-    private void end(Duel duel, Player winner, boolean count) {
-        if (byPlayer.get(duel.a.getUniqueId()) != duel && byPlayer.get(duel.b.getUniqueId()) != duel) return;
+    /** @param count false voids the result (server shutdown / error): no ranked rating change. */
+    private void end(Duel duel, int winTeam, boolean count) {
+        if (duel.ended) return;
+        duel.ended = true;
         if (duel.countdown != null) duel.countdown.cancel();
         if (duel.timeout != null) duel.timeout.cancel();
         if (duel.sweep != null) duel.sweep.cancel();
         if (duel.ending != null) duel.ending.cancel();
-        byPlayer.remove(duel.a.getUniqueId());
-        byPlayer.remove(duel.b.getUniqueId());
+        for (Player p : duel.players) if (byPlayer.get(p.getUniqueId()) == duel) byPlayer.remove(p.getUniqueId());
 
         for (UUID sid : new ArrayList<>(duel.spectators)) {
             Player sp = Bukkit.getPlayer(sid);
@@ -548,29 +863,42 @@ public final class DuelManager {
         }
 
         Theme t = plugin.theme();
-        if (winner != null) {
-            Player loser = duel.opponentOf(winner);
-            plugin.stats().recordDuel(winner.getUniqueId(), loser.getUniqueId());
-            plugin.getLogger().info("Duel " + duel.a.getName() + " vs " + duel.b.getName() + " on " + duel.arena.name + ": " + winner.getName() + " won");
-            Bukkit.broadcast(t.info(t.raw(winner.getName(), t.primary())
-                    .append(t.text(" defeated ", t.accent()))
-                    .append(t.raw(loser.getName(), t.secondary()))
-                    .append(t.text(duel.ranked ? " in a ranked duel!" : " in a duel!", t.accent()))));
-            if (duel.ranked && count) rankedResult(duel, winner, false);
+        if (winTeam >= 0) {
+            List<Player> winners = new ArrayList<>(), losers = new ArrayList<>();
+            for (Player p : duel.players) (duel.teamOf(p) == winTeam ? winners : losers).add(p);
+            if (count) {
+                for (Player p : winners) plugin.stats().addDuelWin(p.getUniqueId());
+                for (Player p : losers) plugin.stats().addDuelLoss(p.getUniqueId());
+            }
+            plugin.getLogger().info("Match " + duel.title() + " on " + duel.arena.name + ": " + duel.teamName(winTeam) + " won");
+            Component msg = switch (duel.mode) {
+                case FFA -> t.info(t.raw(duel.teamName(winTeam), t.primary())
+                        .append(t.text(" won the free-for-all (" + duel.players.size() + " players)!", t.accent())));
+                case PARTY -> t.info(t.raw(duel.teamName(winTeam), t.primary())
+                        .append(t.text(" defeated ", t.accent()))
+                        .append(t.raw(duel.teamName(1 - winTeam), t.secondary()))
+                        .append(t.text(" in a party duel!", t.accent())));
+                default -> t.info(t.raw(duel.teamName(winTeam), t.primary())
+                        .append(t.text(" defeated ", t.accent()))
+                        .append(t.raw(duel.teamName(1 - winTeam), t.secondary()))
+                        .append(t.text(duel.ranked ? " in a ranked duel!" : " in a duel!", t.accent())));
+            };
+            Bukkit.broadcast(msg);
+            if (duel.mode == Mode.DUEL && duel.ranked && count) rankedResult(duel, winners.get(0), false);
         } else {
-            for (Player p : List.of(duel.a, duel.b)) p.sendMessage(t.info("the duel ended in a draw: " + duel.drawReason + "."));
-            plugin.getLogger().info("Duel " + duel.a.getName() + " vs " + duel.b.getName() + " on " + duel.arena.name + " ended in a draw: " + duel.drawReason);
-            if (duel.ranked && count) rankedResult(duel, duel.a, true);
+            for (Player p : duel.players) p.sendMessage(t.info("the match ended in a draw: " + duel.drawReason + "."));
+            plugin.getLogger().info("Match " + duel.title() + " on " + duel.arena.name + " ended in a draw: " + duel.drawReason);
+            if (duel.mode == Mode.DUEL && duel.ranked && count) rankedResult(duel, duel.players.get(0), true);
         }
         restoreWorld(duel);
-        for (Player p : List.of(duel.a, duel.b)) restore(p, duel.saved.get(p.getUniqueId()));
+        for (Player p : duel.players) if (!duel.left.contains(p.getUniqueId())) restore(p, duel.saved.get(p.getUniqueId()));
         releaseArena(duel);
     }
 
     /**
-     * The arena stays locked until it has been reset, so the next duel always gets a fresh one.
-     * Generated arenas are reset completely (their chunks are dropped and regenerate); hand-made
-     * ones only get back the blocks that were recorded as changed.
+     * The arena stays locked until it has been reset, so the next match always gets a fresh one.
+     * Generated arenas are reset completely; hand-made ones only get back the blocks that were
+     * recorded as changed.
      */
     private void releaseArena(Duel duel) {
         Arena a = duel.arena;
@@ -585,7 +913,7 @@ public final class DuelManager {
         }
     }
 
-    /** Applies the Elo change and tells both players. */
+    /** Applies the Elo change and tells both players (1v1 ranked duels only). */
     private void rankedResult(Duel duel, Player first, boolean draw) {
         Player second = duel.opponentOf(first);
         int k = plugin.getConfig().getInt("ranked.k-factor", 32);
@@ -618,19 +946,25 @@ public final class DuelManager {
         p.teleport(s.loc());
     }
 
-    /** A player left (quit / forfeit command): the opponent wins. */
+    /** Puts one player back where they were and takes them out of the match (the others fight on). */
+    private void removeFromMatch(Duel d, Player p) {
+        byPlayer.remove(p.getUniqueId());
+        d.alive.remove(p.getUniqueId());
+        d.left.add(p.getUniqueId());
+        restore(p, d.saved.get(p.getUniqueId()));
+    }
+
+    /** A player left (quit / forfeit command): they're out and put back at once. */
     public void forfeit(Player p) {
         Duel d = byPlayer.get(p.getUniqueId());
         if (d == null) return;
-        // if the fight was already decided, a player leaving during the wind-down doesn't change the winner
-        Player w = d.state == State.ENDING && d.pendingWinner != null ? d.pendingWinner : d.opponentOf(p);
-        end(d, w);
+        eliminate(d, p, true);
     }
 
     public void shutdown() {
         new HashSet<>(byPlayer.values()).forEach(d -> {
             d.drawReason = "the server is restarting";
-            end(d, null, false);
+            end(d, -1, false);
             // chunks are saved on shutdown, so put a generated arena back right now rather than leave the mess
             if (plugin.generator().resets(d.arena)) plugin.generator().resetSync(d.arena);
         });
