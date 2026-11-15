@@ -57,9 +57,22 @@ public final class DuelListener implements Listener {
             return;
         }
         if (victim.getHealth() - e.getFinalDamage() <= 0) {
+            // A totem of undying in either hand saves the player: let the game pop it
+            // instead of ending the duel. (The void and /kill ignore totems.)
+            if (savedByTotem(victim, e.getCause())) return;
             e.setCancelled(true);
             plugin.duels().end(d, d.opponentOf(victim));
         }
+    }
+
+    private boolean savedByTotem(Player p, EntityDamageEvent.DamageCause cause) {
+        if (cause == EntityDamageEvent.DamageCause.VOID || cause == EntityDamageEvent.DamageCause.KILL
+                || cause == EntityDamageEvent.DamageCause.SUICIDE) {
+            return false;
+        }
+        var inv = p.getInventory();
+        return inv.getItemInMainHand().getType() == org.bukkit.Material.TOTEM_OF_UNDYING
+                || inv.getItemInOffHand().getType() == org.bukkit.Material.TOTEM_OF_UNDYING;
     }
 
     /** Safety net for deaths that bypass the damage check (e.g. /kill). */
