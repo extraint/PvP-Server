@@ -10,6 +10,7 @@ import dev.mintpvp.listeners.LobbyListener;
 import dev.mintpvp.managers.LobbyManager;
 import dev.mintpvp.managers.SpawnManager;
 import dev.mintpvp.gui.GuiManager;
+import dev.mintpvp.listeners.ArenaBuildListener;
 import dev.mintpvp.listeners.DuelListener;
 import dev.mintpvp.managers.ArenaManager;
 import dev.mintpvp.managers.DuelManager;
@@ -58,6 +59,7 @@ public final class MintPvP extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new PlayerListener(this), this);
         getServer().getPluginManager().registerEvents(new DuelListener(this), this);
         getServer().getPluginManager().registerEvents(new LobbyListener(this), this);
+        getServer().getPluginManager().registerEvents(new ArenaBuildListener(this), this);
 
         MintCommands commands = new MintCommands(this);
         for (String name : new String[] {"mintpvp", "stats", "leaderboard"}) {

@@ -108,9 +108,29 @@ public final class ArenaManager {
             return Math.max(base, (int) Math.ceil(far) + 3);
         }
 
-        public double minY() { return center().getY() - height(); }
+        /** Off by default: arenas span the whole world height. Turn on with duel.height-limit. */
+        public boolean heightLimited() {
+            return plugin.getConfig().getBoolean("duel.height-limit", false);
+        }
 
-        public double maxY() { return center().getY() + height(); }
+        public double minY() {
+            Location ctr = center();
+            return heightLimited() ? ctr.getY() - height() : ctr.getWorld().getMinHeight();
+        }
+
+        public double maxY() {
+            Location ctr = center();
+            return heightLimited() ? ctr.getY() + height() : ctr.getWorld().getMaxHeight();
+        }
+
+        /** Is this location far enough inside the border to build or break there? */
+        public boolean innerContains(Location l) {
+            Location ctr = center();
+            if (ctr == null || l.getWorld() == null || !l.getWorld().equals(ctr.getWorld())) return false;
+            double r = radius() - 1.5, dx = l.getX() - ctr.getX(), dz = l.getZ() - ctr.getZ();
+            if (circular()) return dx * dx + dz * dz <= r * r;
+            return Math.abs(dx) <= r && Math.abs(dz) <= r;
+        }
 
         /** Is this location inside the arena border (horizontally)? */
         public boolean containsXZ(Location l) {

@@ -33,6 +33,8 @@ public final class DuelManager {
         public State state = State.COUNTDOWN;
         final Map<UUID, Saved> saved = new HashMap<>();
         public final Set<UUID> spectators = new LinkedHashSet<>();
+        /** Original state of every block changed during the duel, so the arena can be put back. */
+        final Map<Long, org.bukkit.block.BlockState> changes = new LinkedHashMap<>();
         BukkitTask countdown, timeout, sweep;
 
         Duel(Arena arena, Kit kit, boolean ranked, Player a, Player b) {
@@ -72,6 +74,39 @@ public final class DuelManager {
 
     public Duel duelOf(UUID id) {
         return byPlayer.get(id);
+    }
+
+    public Duel duelIn(Arena arena) {
+        for (Duel d : new HashSet<>(byPlayer.values())) if (d.arena == arena) return d;
+        return null;
+    }
+
+    /** Remembers a block's state before a duel changes it (first change wins). */
+    public void recordBlock(org.bukkit.block.BlockState state) {
+        if (state == null) return;
+        Arena a = plugin.arenas().activeAt(state.getLocation()).orElse(null);
+        if (a == null) return;
+        Duel d = duelIn(a);
+        if (d == null) return;
+        long key = ((long) (state.getX() & 0x3FFFFFF) << 38) | ((long) (state.getY() & 0xFFF) << 26) | (state.getZ() & 0x3FFFFFF);
+        d.changes.putIfAbsent(key, state);
+    }
+
+    /** Puts every changed block back and clears loose items and arrows. */
+    private void restoreWorld(Duel duel) {
+        for (var st : duel.changes.values()) {
+            try {
+                st.update(true, false);
+            } catch (RuntimeException e) {
+                plugin.getLogger().warning("Could not restore a block in arena " + duel.arena.name + ": " + e.getMessage());
+            }
+        }
+        duel.changes.clear();
+        var ctr = duel.arena.center();
+        if (ctr != null && ctr.getWorld() != null) {
+            ctr.getWorld().getNearbyEntities(duel.arena.box(),
+                    e -> e instanceof org.bukkit.entity.Item || e instanceof org.bukkit.entity.AbstractArrow).forEach(org.bukkit.entity.Entity::remove);
+        }
     }
 
     public boolean isSpectating(UUID id) {
@@ -413,6 +448,7 @@ public final class DuelManager {
             for (Player p : List.of(duel.a, duel.b)) p.sendMessage(t.info("the duel ended in a draw."));
             if (duel.ranked && count) rankedResult(duel, duel.a, true);
         }
+        restoreWorld(duel);
         for (Player p : List.of(duel.a, duel.b)) restore(p, duel.saved.get(p.getUniqueId()));
     }
 

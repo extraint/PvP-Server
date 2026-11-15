@@ -14,8 +14,11 @@ import org.bukkit.WorldCreator;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.block.data.Orientable;
 import org.bukkit.block.data.type.Leaves;
+import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.scheduler.BukkitTask;
 
+import java.io.File;
+import java.io.IOException;
 import java.util.*;
 
 /**
@@ -29,8 +32,12 @@ public final class ArenaGenerator {
 
     /** Floor height in the arena world; players stand one block above. */
     public static final int FLOOR_Y = 64;
-    /** Barrier ring above the wall reaches this many blocks above the floor. */
-    public static final int CEILING = 20;
+    /** The invisible barrier above each wall reaches this many blocks above the floor. */
+    public static final int CEILING = 40;
+    /** Old arenas' features never exceed this height, so a rebuild only needs to clear this much. */
+    private static final int CLEAR_TOP = 16;
+    /** Where the lobby island is built, away from the arena grid. */
+    public static final int LOBBY_X = -400, LOBBY_Z = 0;
     /** Distance between arena centres. */
     public static final int SPACING = 300;
 
@@ -85,7 +92,12 @@ public final class ArenaGenerator {
     /** Feature blocks that are built as plain columns straight from the plan. */
     private static final Set<String> COLUMNS = Set.of("hay", "cobble", "cut", "pillar", "dune", "fallen", "drift", "spike", "gardenwall");
 
-    private record Job(ArenaTheme theme, int slot, String name, Arena existing) {}
+    /** theme == null means the lobby. */
+    private record Job(ArenaTheme theme, int slot, String name, Arena existing, boolean forceSpawn) {
+        Job(ArenaTheme theme, int slot, String name, Arena existing) {
+            this(theme, slot, name, existing, false);
+        }
+    }
 
     private final MintPvP plugin;
     private final Deque<Job> jobs = new ArrayDeque<>();
@@ -157,7 +169,8 @@ public final class ArenaGenerator {
     /** Generated arenas plus the ones queued or being built. */
     public int total() {
         return (int) plugin.arenas().all().stream().filter(a -> a.theme != null).count()
-                + jobs.size() + (active != null && active.existing() == null ? 1 : 0);
+                + (int) jobs.stream().filter(j -> j.theme() != null).count()
+                + (active != null && active.theme() != null && active.existing() == null ? 1 : 0);
     }
 
     public boolean building() {
@@ -170,7 +183,56 @@ public final class ArenaGenerator {
         return "building " + active.name() + " (" + pct + "%)" + (jobs.isEmpty() ? "" : ", " + jobs.size() + " queued");
     }
 
+    // ---- lobby ----------------------------------------------------------
+
+    private File lobbyFile() {
+        return new File(plugin.getDataFolder(), "lobby.yml");
+    }
+
+    private boolean lobbyBuilt() {
+        return lobbyFile().exists() && YamlConfiguration.loadConfiguration(lobbyFile()).getBoolean("built");
+    }
+
+    /** Queues the lobby build. @param forceSpawn also moves the server spawn there, even if one is already set. */
+    public boolean buildLobby(boolean forceSpawn) {
+        if (world == null) return false;
+        jobs.removeIf(j -> j.theme() == null);
+        jobs.addFirst(new Job(null, -1, "lobby", null, forceSpawn));
+        return true;
+    }
+
+    public Location lobbySpawn() {
+        return world == null ? null : new Location(world, LOBBY_X + 0.5, FLOOR_Y + 1, LOBBY_Z + 0.5, 0f, 0f);
+    }
+
+    private void prepareLobby(Job job) {
+        Map<Long, BlockData> out = new LinkedHashMap<>(120_000);
+        LobbyDesign.place(out, this::data, LOBBY_X, LOBBY_Z, FLOOR_Y);
+        flatten(out);
+    }
+
+    private void finishLobby(Job job) {
+        YamlConfiguration y = new YamlConfiguration();
+        y.set("built", true);
+        try {
+            plugin.getDataFolder().mkdirs();
+            y.save(lobbyFile());
+        } catch (IOException e) {
+            plugin.getLogger().warning("Could not save lobby.yml: " + e.getMessage());
+        }
+        if (job.forceSpawn() || !plugin.spawn().isSet()) {
+            plugin.spawn().set(lobbySpawn());
+            plugin.getLogger().info("Lobby built and set as the server spawn.");
+        } else {
+            plugin.getLogger().info("Lobby built (your existing spawn was kept; use /arena lobby to move the spawn there).");
+        }
+        active = null;
+        px = py = pz = null;
+        pd = null;
+    }
+
     private void fillPool() {
+        if (plugin.getConfig().getBoolean("arena-generator.lobby", true) && !lobbyBuilt()) buildLobby(false);
         for (ArenaTheme t : ArenaTheme.values()) {
             long have = plugin.arenas().all().stream().filter(a -> t.id.equals(a.theme)).count();
             for (long i = have; i < perTheme() && total() < maxTotal(); i++) enqueue(t);
@@ -246,7 +308,7 @@ public final class ArenaGenerator {
             active = jobs.poll();
             if (active == null) return;
             try {
-                prepare(active);
+                if (active.theme() == null) prepareLobby(active); else prepare(active);
             } catch (RuntimeException e) {
                 plugin.getLogger().log(java.util.logging.Level.SEVERE, "Could not plan arena " + active.name(), e);
                 if (active.existing() != null) active.existing().inUse = false;
@@ -260,7 +322,9 @@ public final class ArenaGenerator {
             for (; cursor < end; cursor++) {
                 world.getBlockAt(px[cursor], py[cursor], pz[cursor]).setBlockData(pd[cursor], false);
             }
-            if (cursor >= count) finish(active);
+            if (cursor >= count) {
+                if (active.theme() == null) finishLobby(active); else finish(active);
+            }
         } catch (RuntimeException e) {
             plugin.getLogger().log(java.util.logging.Level.SEVERE, "Arena build failed for " + active.name(), e);
             if (active.existing() != null) active.existing().inUse = false;
@@ -311,7 +375,7 @@ public final class ArenaGenerator {
         // 1. clear the whole slot (makes rebuilds and half-finished builds safe)
         for (int dx = -c; dx <= c; dx++)
             for (int dz = -c; dz <= c; dz++)
-                for (int y = y0 - 2; y <= y0 + CEILING + 2; y++) out.put(key(cx + dx, y, cz + dz), air);
+                for (int y = y0 - 2; y <= y0 + CLEAR_TOP + 2; y++) out.put(key(cx + dx, y, cz + dz), air);
 
         // 2. floor, walls, barrier ring, decorations and column features
         for (int dz = -c; dz <= c; dz++) {
@@ -355,7 +419,10 @@ public final class ArenaGenerator {
             }
         }
 
-        // flatten
+        flatten(out);
+    }
+
+    private void flatten(Map<Long, BlockData> out) {
         count = out.size();
         px = new int[count];
         py = new int[count];
@@ -421,7 +488,7 @@ public final class ArenaGenerator {
     }
 
     /** Packs a block position (x, z: 26 bits signed; y: 12 bits signed) into a long. */
-    private static long key(int x, int y, int z) {
+    static long key(int x, int y, int z) {
         return ((long) (x & 0x3FFFFFF) << 38) | ((long) (y & 0xFFF) << 26) | (z & 0x3FFFFFF);
     }
 
@@ -432,7 +499,7 @@ public final class ArenaGenerator {
         int c = ArenaLayout.C;
         for (int dx = -c; dx <= c; dx += 2)
             for (int dz = -c; dz <= c; dz += 2)
-                for (int y = FLOOR_Y - 4; y <= FLOOR_Y + CEILING + 4; y += 4) world.setBiome(cx + dx, y, cz + dz, biome);
+                for (int y = FLOOR_Y - 4; y <= FLOOR_Y + CLEAR_TOP + 4; y += 4) world.setBiome(cx + dx, y, cz + dz, biome);
 
         Location s1 = new Location(world, cx - ArenaLayout.SPAWN_X + 0.5, FLOOR_Y + 1, cz + 0.5, -90f, 0f);
         Location s2 = new Location(world, cx + ArenaLayout.SPAWN_X + 0.5, FLOOR_Y + 1, cz + 0.5, 90f, 0f);

@@ -33,12 +33,13 @@ duel:
   countdown-seconds: 5
   request-expire-seconds: 30
   default-arena-radius: 40    # half-width (blocks) of the square border; override with /arena setradius
-  default-arena-height: 25    # blocks above AND below the arena centre's Y (floor/ceiling)
+  height-limit: false         # false = no floor/ceiling: players can go as high or low as the world allows
+  default-arena-height: 25    # only used when height-limit is true (blocks above AND below the arena centre)
   clear-mobs: true            # remove mobs from the arena at start and keep it clear during the duel
   allow-spectators: true
   max-spectators: 20          # per duel; 0 = unlimited
   announce-start: true        # broadcast a clickable [watch] when a duel starts
-  protect-terrain: true       # arenas are wilderness: no breaking/placing/fire during duels
+  allow-building: true        # duelists can place and break blocks; the arena is put back when the duel ends
   max-duration-seconds: 300   # duel ends in a draw after this long
   allowed-commands: ["duel", "msg", "r"]
 
@@ -66,6 +67,7 @@ arena-generator:
   # Builds round, pre-made arenas (Plains, Desert, Poplar Grove, Snowy, Cherry Grove)
   # in their own empty world. Your other worlds are never touched.
   enabled: true
+  lobby: true           # also build the mint lobby island and use it as the spawn (if no spawn is set yet)
   world: mint_arenas
   per-theme: 2          # built automatically on first start (2 x 5 themes = 10)
   max-total: 30         # extra arenas are built on demand when all are busy, up to this many

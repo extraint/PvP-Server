@@ -150,10 +150,10 @@ public final class DuelListener implements Listener {
         }
     }
 
-    // Arenas are natural wilderness: don't let duels wreck the terrain.
+    // Building is allowed by default (the arena is restored after the duel); this switches it off.
     private boolean protectedTerrain(Player p) {
         return p != null && plugin.duels().inDuel(p.getUniqueId())
-                && plugin.getConfig().getBoolean("duel.protect-terrain", true);
+                && !plugin.getConfig().getBoolean("duel.allow-building", true);
     }
 
     @EventHandler(ignoreCancelled = true)

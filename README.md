@@ -146,3 +146,19 @@ cover so both sides are equal.
 ```
 Settings: `arena-generator:` in `config.yml` (`enabled`, `world`, `per-theme`, `max-total`,
 `blocks-per-tick`).
+
+### Lobby
+The generator also builds a mint **lobby island** (a round floating quartz platform with an
+emerald spawn disc, lantern pillars, cherry trees and a railed edge) in the same world and
+uses it as the server spawn the first time, if no spawn is set. `/arena lobby` rebuilds it
+and moves the spawn there; `/setspawn` still lets you put the spawn anywhere else.
+Turn it off with `arena-generator.lobby: false`.
+
+### Building and height in arenas
+- Duelists **can place and break blocks** in arenas (`duel.allow-building`, default on). Every
+  change is recorded and the arena is put back exactly as it was when the duel ends. Nothing
+  can be built or broken on or beyond the border, loot doesn't drop from broken blocks, and
+  fire, flowing liquid and explosions are recorded and restored too.
+- There is **no height limit** by default (`duel.height-limit: false`), so players can build up
+  as high as the world allows. Falling below the world returns them to their spawn. Set
+  `duel.height-limit: true` to bring the old floor and ceiling back.

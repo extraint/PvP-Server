@@ -113,7 +113,7 @@ public final class DuelCommands implements CommandExecutor, TabCompleter {
             String status = a.problem() != null ? a.problem() : a.inUse ? "in use" : "ready";
             if (a.theme != null) status = a.theme + " · " + status;
             s.sendMessage(t.line(a.name, status + (a.ready() ? " - " + (a.radius() * 2) + "x" + (a.radius() * 2)
-                    + ", height \u00b1" + a.height() : "")));
+                    + (a.heightLimited() ? ", height \u00b1" + a.height() : ", no height limit") : "")));
         }
     }
 
@@ -138,8 +138,8 @@ public final class DuelCommands implements CommandExecutor, TabCompleter {
         if (a.ready()) {
             var c = a.center();
             s.sendMessage(t.line("centre", Math.round(c.getX()) + " " + Math.round(c.getY()) + " " + Math.round(c.getZ())));
-            s.sendMessage(t.line("border", "radius " + a.radius() + ", height \u00b1" + a.height()
-                    + " (configured " + (a.radius > 0 ? a.radius : "default") + " / " + (a.height > 0 ? a.height : "default") + ")"));
+            s.sendMessage(t.line("border", "radius " + a.radius() + (a.circular() ? " (round)" : " (square)")
+                    + (a.heightLimited() ? ", height \u00b1" + a.height() : ", no height limit")));
             s.sendMessage(t.line("status", a.inUse ? "in use" : "ready"));
         } else {
             s.sendMessage(t.error("not usable: " + a.problem()));
@@ -155,6 +155,7 @@ public final class DuelCommands implements CommandExecutor, TabCompleter {
             p.sendMessage(t.usage("/arena setradius <name> <blocks>", "border half-width (square)"));
             p.sendMessage(t.usage("/arena list", "list arenas and their status"));
             p.sendMessage(t.usage("/arena themes", "pre-made arena themes"));
+            p.sendMessage(t.usage("/arena lobby", "(re)build the lobby and set the spawn there"));
             p.sendMessage(t.usage("/arena generate <theme|random> [count]", "build pre-made arenas"));
             p.sendMessage(t.usage("/arena rebuild <name>", "re-place a generated arena"));
             return;
@@ -162,6 +163,15 @@ public final class DuelCommands implements CommandExecutor, TabCompleter {
         String sub = args[0].toLowerCase(Locale.ROOT);
         if (sub.equals("list")) {
             listArenas(p);
+            return;
+        }
+        if (sub.equals("lobby")) {
+            if (!plugin.generator().enabled() || plugin.generator().world() == null) {
+                p.sendMessage(t.error("the generator is off (arena-generator.enabled in config.yml)."));
+                return;
+            }
+            plugin.generator().buildLobby(true);
+            p.sendMessage(t.info("building the lobby and moving the spawn there (" + plugin.generator().status() + ")."));
             return;
         }
         if (sub.equals("themes")) {
@@ -275,7 +285,7 @@ public final class DuelCommands implements CommandExecutor, TabCompleter {
             return out.stream().filter(o -> o.toLowerCase(Locale.ROOT).startsWith(pre)).toList();
         }
         if (args.length == 1) {
-            if (arena) out.addAll(List.of("create", "delete", "setspawn1", "setspawn2", "setcenter", "setradius", "setheight", "check", "list", "tp", "themes", "generate", "rebuild"));
+            if (arena) out.addAll(List.of("create", "delete", "setspawn1", "setspawn2", "setcenter", "setradius", "setheight", "check", "list", "tp", "themes", "generate", "rebuild", "lobby"));
             else {
                 out.addAll(List.of("accept", "deny", "forfeit"));
                 Bukkit.getOnlinePlayers().forEach(pl -> out.add(pl.getName()));
