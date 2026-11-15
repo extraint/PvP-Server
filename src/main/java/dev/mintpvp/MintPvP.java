@@ -71,7 +71,7 @@ public final class MintPvP extends JavaPlugin {
         }
 
         DuelCommands duelCommands = new DuelCommands(this);
-        for (String name : new String[] {"duel", "arena", "spectate"}) {
+        for (String name : new String[] {"duel", "arena", "spectate", "challenge"}) {
             var cmd = getCommand(name);
             if (cmd != null) {
                 cmd.setExecutor(duelCommands);

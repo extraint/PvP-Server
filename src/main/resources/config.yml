@@ -41,6 +41,7 @@ duel:
   announce-start: true        # broadcast a clickable [watch] when a duel starts
   allow-building: true        # duelists can place and break blocks; the arena is put back when the duel ends
   max-duration-seconds: 300   # duel ends in a draw after this long
+  end-delay-seconds: 4        # after a kill, the fight winds down this long (victory/defeat titles) before everyone is sent back; 0 = instant
   allowed-commands: ["duel", "msg", "r"]
 
 ranked:
@@ -50,6 +51,7 @@ ranked:
   window-step: 50              # the window widens by this much...
   window-interval-seconds: 10  # ...every this many seconds spent waiting
   window-max: 800
+  challenge-limit-per-hour: 5  # max ranked /challenge duels between the same two players per hour (stops win-trading; 0 = unlimited)
 
 spawn:
   teleport-on-join: true       # needs /setspawn first

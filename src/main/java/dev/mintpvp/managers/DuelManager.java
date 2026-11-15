@@ -23,7 +23,7 @@ import java.util.*;
 /** 1v1 duels: requests, countdown, state save/restore, and results. */
 public final class DuelManager {
 
-    public enum State { COUNTDOWN, FIGHTING }
+    public enum State { COUNTDOWN, FIGHTING, ENDING }
 
     public static final class Duel {
         public final Arena arena;
@@ -35,7 +35,9 @@ public final class DuelManager {
         public final Set<UUID> spectators = new LinkedHashSet<>();
         /** Original state of every block changed during the duel, so the arena can be put back. */
         final Map<Long, org.bukkit.block.BlockState> changes = new LinkedHashMap<>();
-        BukkitTask countdown, timeout, sweep;
+        BukkitTask countdown, timeout, sweep, ending;
+        /** Set once someone has died: the winner is decided, the duel is just winding down. */
+        public Player pendingWinner;
 
         Duel(Arena arena, Kit kit, boolean ranked, Player a, Player b) {
             this.arena = arena;
@@ -56,11 +58,12 @@ public final class DuelManager {
 
     private record SpecSaved(Location loc, GameMode mode) {}
 
-    private record Request(UUID from, String kit, String arena, long expires) {}
+    private record Request(UUID from, String kit, String arena, long expires, boolean ranked) {}
 
     private final MintPvP plugin;
     private final Map<UUID, Request> requests = new HashMap<>(); // keyed by target
     private final Map<UUID, Duel> byPlayer = new HashMap<>();
+    private final Map<String, Deque<Long>> rankedPairs = new HashMap<>();
     private final Map<UUID, Duel> spectating = new HashMap<>();
     private final Map<UUID, SpecSaved> specSaved = new HashMap<>();
 
@@ -120,10 +123,38 @@ public final class DuelManager {
     // ---- requests -------------------------------------------------------
 
     public void request(Player from, Player to, String kitId, String arenaName) {
+        request(from, to, kitId, arenaName, false);
+    }
+
+    /** Max ranked challenge duels between the same two players per hour (stops win-trading). */
+    private boolean overRankedLimit(UUID a, UUID b) {
+        int max = plugin.getConfig().getInt("ranked.challenge-limit-per-hour", 5);
+        if (max <= 0) return false;
+        Deque<Long> q = rankedPairs.get(pairKey(a, b));
+        if (q == null) return false;
+        long cutoff = System.currentTimeMillis() - 3_600_000L;
+        q.removeIf(ts -> ts < cutoff);
+        return q.size() >= max;
+    }
+
+    private void recordRankedPair(UUID a, UUID b) {
+        rankedPairs.computeIfAbsent(pairKey(a, b), k -> new ArrayDeque<>()).add(System.currentTimeMillis());
+    }
+
+    private static String pairKey(UUID a, UUID b) {
+        return a.compareTo(b) < 0 ? a + ":" + b : b + ":" + a;
+    }
+
+    public void request(Player from, Player to, String kitId, String arenaName, boolean ranked) {
         Theme t = plugin.theme();
         Kit kit = kitId == null ? plugin.kits().defaultKit() : plugin.kits().get(kitId);
         if (kit == null) { from.sendMessage(t.error("that kit doesn't exist.")); return; }
         if (plugin.queue().isQueued(from.getUniqueId())) { from.sendMessage(t.error("leave the queue first (/queue leave).")); return; }
+        if (ranked && !plugin.queue().rankedEnabled()) { from.sendMessage(t.error("ranked is disabled right now.")); return; }
+        if (ranked && overRankedLimit(from.getUniqueId(), to.getUniqueId())) {
+            from.sendMessage(t.error("you've already played a lot of ranked duels against that player this hour - try someone else or the queue."));
+            return;
+        }
         if (from.equals(to)) { from.sendMessage(t.error("you can't duel yourself.")); return; }
         if (inDuel(from.getUniqueId())) { from.sendMessage(t.error("you're already in a duel.")); return; }
         if (isSpectating(from.getUniqueId())) { from.sendMessage(t.error("stop spectating first (/spectate leave).")); return; }
@@ -145,16 +176,16 @@ public final class DuelManager {
         }
 
         int expire = plugin.getConfig().getInt("duel.request-expire-seconds", 30);
-        requests.put(to.getUniqueId(), new Request(from.getUniqueId(), kit.id, chosen, System.currentTimeMillis() + expire * 1000L));
+        requests.put(to.getUniqueId(), new Request(from.getUniqueId(), kit.id, chosen, System.currentTimeMillis() + expire * 1000L, ranked));
 
         from.sendMessage(t.info(t.text("duel request sent to ", t.accent()).append(t.raw(to.getName(), t.primary()))
-                .append(t.text(" (" + kit.display + ")", t.muted()))));
+                .append(t.text(" (" + (ranked ? "ranked " : "") + kit.display + ")", t.muted()))));
         Component accept = t.text("[accept]", t.primary())
                 .clickEvent(ClickEvent.runCommand("/duel accept " + from.getName()));
         Component deny = t.text("[deny]", t.muted())
                 .clickEvent(ClickEvent.runCommand("/duel deny " + from.getName()));
         to.sendMessage(t.info(t.raw(from.getName(), t.primary())
-                .append(t.text(" challenged you to a " + kit.display + " duel" + (chosen != null ? " on " + chosen : "") + "! ", t.accent()))
+                .append(t.text(" challenged you to a " + (ranked ? "ranked " : "") + kit.display + " duel" + (chosen != null ? " on " + chosen : "") + "! ", t.accent()))
                 .append(accept).append(Component.text(" ")).append(deny)));
     }
 
@@ -205,7 +236,8 @@ public final class DuelManager {
             from.sendMessage(t.error("that kit no longer exists."));
             return;
         }
-        start(from, target, arena, kit, false);
+        start(from, target, arena, kit, r.ranked());
+        if (r.ranked()) recordRankedPair(from.getUniqueId(), target.getUniqueId());
     }
 
     /** Starts a queue match on a random free arena. @return false if no arena is free. */
@@ -414,6 +446,43 @@ public final class DuelManager {
                 .forEach(org.bukkit.entity.Entity::remove);
     }
 
+    /**
+     * Someone died: decide the result now, but let the fight wind down for a few seconds
+     * (duel.end-delay-seconds) before everyone is sent back. The loser watches from
+     * spectator mode and nobody can be hurt any more.
+     */
+    public void finish(Duel duel, Player winner) {
+        if (duel.state == State.ENDING || byPlayer.get(duel.a.getUniqueId()) != duel) return;
+        int delay = plugin.getConfig().getInt("duel.end-delay-seconds", 4);
+        if (delay <= 0) {
+            end(duel, winner);
+            return;
+        }
+        duel.state = State.ENDING;
+        duel.pendingWinner = winner;
+        if (duel.timeout != null) duel.timeout.cancel();
+
+        Player loser = duel.opponentOf(winner);
+        Theme t = plugin.theme();
+        try {
+            if (loser.getLocation().getY() < duel.arena.minY()) {
+                loser.teleport(loser.getUniqueId().equals(duel.a.getUniqueId()) ? duel.arena.spawn1() : duel.arena.spawn2());
+            }
+            loser.setFireTicks(0);
+            loser.setGameMode(GameMode.SPECTATOR);
+            var at = loser.getLocation().add(0, 1, 0);
+            loser.getWorld().playSound(at, Sound.ENTITY_PLAYER_DEATH, 1f, 1f);
+            loser.getWorld().spawnParticle(org.bukkit.Particle.SOUL, at, 40, .3, .6, .3, .03);
+            var times = Title.Times.times(java.time.Duration.ofMillis(200), java.time.Duration.ofSeconds(Math.max(1, delay - 1)), java.time.Duration.ofMillis(500));
+            winner.showTitle(Title.title(t.text("victory", t.primary()), t.text("returning in " + delay + "s", t.accent()), times));
+            loser.showTitle(Title.title(t.text("defeat", t.secondary()), t.text("returning in " + delay + "s", t.accent()), times));
+            winner.playSound(winner.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1f, 1.2f);
+        } catch (RuntimeException ex) {
+            plugin.getLogger().log(java.util.logging.Level.WARNING, "Duel end effects failed", ex);
+        }
+        duel.ending = Bukkit.getScheduler().runTaskLater(plugin, () -> end(duel, winner), delay * 20L);
+    }
+
     /** End a duel. winner == null means a draw. */
     public void end(Duel duel, Player winner) {
         end(duel, winner, true);
@@ -425,6 +494,7 @@ public final class DuelManager {
         if (duel.countdown != null) duel.countdown.cancel();
         if (duel.timeout != null) duel.timeout.cancel();
         if (duel.sweep != null) duel.sweep.cancel();
+        if (duel.ending != null) duel.ending.cancel();
         byPlayer.remove(duel.a.getUniqueId());
         byPlayer.remove(duel.b.getUniqueId());
         duel.arena.inUse = false;
@@ -488,7 +558,10 @@ public final class DuelManager {
     /** A player left (quit / forfeit command): the opponent wins. */
     public void forfeit(Player p) {
         Duel d = byPlayer.get(p.getUniqueId());
-        if (d != null) end(d, d.opponentOf(p));
+        if (d == null) return;
+        // if the fight was already decided, a player leaving during the wind-down doesn't change the winner
+        Player w = d.state == State.ENDING && d.pendingWinner != null ? d.pendingWinner : d.opponentOf(p);
+        end(d, w);
     }
 
     public void shutdown() {

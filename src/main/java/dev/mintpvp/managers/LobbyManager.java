@@ -48,6 +48,8 @@ public final class LobbyManager {
         inv.setItem(1, queueItem(p, QueueManager.Type.RANKED));
         inv.setItem(2, Items.of(Material.BOW).name(t.text("✦ challenge a player", t.primary()))
                 .lore(t.text("right-click to duel a friend", t.accent())).tag("challenge").build());
+        inv.setItem(3, Items.of(Material.CROSSBOW).name(t.text("✦ ranked challenge", t.primary()))
+                .lore(t.text("right-click to duel for elo", t.accent())).tag("challenge_ranked").build());
         inv.setItem(4, Items.of(Material.NETHER_STAR).name(t.text("✦ menu", t.primary()))
                 .lore(t.text("right-click for everything", t.accent())).glow().tag("menu").build());
         inv.setItem(5, Items.of(Material.BOOK).name(t.text("✦ your stats", t.primary()))
@@ -101,6 +103,7 @@ public final class LobbyManager {
                 p.sendMessage(t.info("you left the queue."));
             }
             case "challenge" -> Guis.challenge(plugin, p, null);
+            case "challenge_ranked" -> Guis.challenge(plugin, p, null, true);
             case "menu" -> new HubGui(plugin, p).open(p);
             case "layout" -> Guis.layoutKits(plugin, p, null);
             case "leaderboard" -> new LeaderboardGui(plugin, p, "elo", null).open(p);

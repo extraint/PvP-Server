@@ -52,7 +52,7 @@ public final class DuelListener implements Listener {
         if (!(e.getEntity() instanceof Player victim)) return;
         Duel d = plugin.duels().duelOf(victim.getUniqueId());
         if (d == null) return;
-        if (d.state == State.COUNTDOWN) {
+        if (d.state == State.COUNTDOWN || d.state == State.ENDING) {
             e.setCancelled(true);
             return;
         }
@@ -61,7 +61,7 @@ public final class DuelListener implements Listener {
             // instead of ending the duel. (The void and /kill ignore totems.)
             if (savedByTotem(victim, e.getCause())) return;
             e.setCancelled(true);
-            plugin.duels().end(d, d.opponentOf(victim));
+            plugin.duels().finish(d, d.opponentOf(victim));
         }
     }
 

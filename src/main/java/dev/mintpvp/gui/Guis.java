@@ -121,12 +121,17 @@ public final class Guis {
 
     /** Pick a player, then a kit, then send the duel request. */
     public static void challenge(MintPvP plugin, Player p, Runnable back) {
-        pickPlayer(plugin, p, "challenge", back, target -> pickKit(plugin, p, "choose kit",
-                () -> challenge(plugin, p, back),
+        challenge(plugin, p, back, false);
+    }
+
+    /** Same flow; ranked = true sends a ranked challenge (the result changes both players' Elo). */
+    public static void challenge(MintPvP plugin, Player p, Runnable back, boolean ranked) {
+        pickPlayer(plugin, p, ranked ? "ranked challenge" : "challenge", back, target -> pickKit(plugin, p, "choose kit",
+                () -> challenge(plugin, p, back, ranked),
                 kit -> List.of(plugin.theme().text("click to send the challenge", plugin.theme().secondary())),
                 kit -> {
                     p.closeInventory();
-                    plugin.duels().request(p, target, kit.id, null);
+                    plugin.duels().request(p, target, kit.id, null, ranked);
                 }));
     }
 

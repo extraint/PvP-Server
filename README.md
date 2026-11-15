@@ -162,3 +162,13 @@ Turn it off with `arena-generator.lobby: false`.
 - There is **no height limit** by default (`duel.height-limit: false`), so players can build up
   as high as the world allows. Falling below the world returns them to their spawn. Set
   `duel.height-limit: true` to bring the old floor and ceiling back.
+
+### Ranked challenges and the end of a duel
+- `/challenge <player> [kit]` (alias `/ranked`) sends a **ranked** duel request; the other player
+  accepts with the clickable button or `/duel accept`, and the result changes both players'
+  Elo. `/challenge` alone opens a picker, and the hub and hotbar have a ranked-challenge button
+  (crossbow). `/duel` stays unranked. To stop win-trading, the same two players can play at
+  most `ranked.challenge-limit-per-hour` (5) ranked challenge duels an hour.
+- When someone dies the duel doesn't cut away at once: for `duel.end-delay-seconds` (4) the
+  winner gets a victory title, the loser a defeat title and watches from spectator mode, nobody
+  can be hurt, and then everyone is sent back. Quitting or forfeiting still ends it straight away.

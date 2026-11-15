@@ -38,6 +38,10 @@ commands:
   duel:
     description: Challenge a player to a duel.
     usage: /<command> [player] [kit] [arena] | accept [player] | deny [player] | forfeit
+  challenge:
+    description: Challenge a player to a ranked duel.
+    aliases: [ranked]
+    usage: /<command> [player] [kit]
   spectate:
     description: Watch a running duel.
     aliases: [spec, watch]

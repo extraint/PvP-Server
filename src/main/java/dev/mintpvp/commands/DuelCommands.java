@@ -43,6 +43,7 @@ public final class DuelCommands implements CommandExecutor, TabCompleter {
         switch (cmd.getName().toLowerCase(Locale.ROOT)) {
             case "arena" -> arena(p, args);
             case "spectate" -> spectate(p, args);
+            case "challenge" -> challenge(p, args);
             default -> duel(p, args);
         }
         return true;
@@ -60,7 +61,8 @@ public final class DuelCommands implements CommandExecutor, TabCompleter {
             case "deny" -> plugin.duels().deny(p, args.length > 1 ? args[1] : null);
             case "help" -> {
                 p.sendMessage(t.usage("/duel", "open the challenge menu"));
-                p.sendMessage(t.usage("/duel <player> [kit] [arena]", "challenge a player"));
+                p.sendMessage(t.usage("/duel <player> [kit] [arena]", "challenge a player (unranked)"));
+                p.sendMessage(t.usage("/challenge <player> [kit]", "challenge a player to a ranked duel"));
                 p.sendMessage(t.usage("/duel accept|deny [player]", "answer a request"));
                 p.sendMessage(t.usage("/duel forfeit", "leave your duel (you lose)"));
                 p.sendMessage(t.usage("/spectate [player|arena|leave]", "watch a duel"));
@@ -77,6 +79,22 @@ public final class DuelCommands implements CommandExecutor, TabCompleter {
                 plugin.duels().request(p, target, kit, args.length > 2 ? args[2] : null);
             }
         }
+    }
+
+    /** /challenge <player> [kit]: a ranked duel request (accepted with /duel accept). */
+    private void challenge(Player p, String[] args) {
+        Theme t = plugin.theme();
+        if (!p.hasPermission("mintpvp.duel")) { p.sendMessage(t.error("no permission.")); return; }
+        if (!plugin.queue().rankedEnabled()) { p.sendMessage(t.error("ranked is disabled right now.")); return; }
+        if (args.length == 0) {
+            Guis.challenge(plugin, p, null, true);
+            return;
+        }
+        Player target = Bukkit.getPlayerExact(args[0]);
+        if (target == null) { p.sendMessage(t.error("player not found.")); return; }
+        String kit = args.length > 1 ? args[1] : null;
+        if (kit != null && plugin.kits().get(kit) == null) { p.sendMessage(t.error("that kit doesn't exist.")); return; }
+        plugin.duels().request(p, target, kit, null, true);
     }
 
     private void spectate(Player p, String[] args) {
@@ -272,6 +290,12 @@ public final class DuelCommands implements CommandExecutor, TabCompleter {
     public List<String> onTabComplete(CommandSender s, Command cmd, String label, String[] args) {
         List<String> out = new ArrayList<>();
         boolean arena = cmd.getName().equalsIgnoreCase("arena");
+        if (cmd.getName().equalsIgnoreCase("challenge")) {
+            if (args.length == 1) Bukkit.getOnlinePlayers().forEach(pl -> out.add(pl.getName()));
+            else if (args.length == 2) plugin.kits().all().forEach(k -> out.add(k.id));
+            String pre = args[args.length - 1].toLowerCase(Locale.ROOT);
+            return out.stream().filter(o -> o.toLowerCase(Locale.ROOT).startsWith(pre)).toList();
+        }
         if (cmd.getName().equalsIgnoreCase("spectate")) {
             if (args.length == 1) {
                 out.add("leave");
