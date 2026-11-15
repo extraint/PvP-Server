@@ -40,7 +40,8 @@ duel:
   max-spectators: 20          # per duel; 0 = unlimited
   announce-start: true        # broadcast a clickable [watch] when a duel starts
   allow-building: true        # duelists can place and break blocks; the arena is put back when the duel ends
-  max-duration-seconds: 300   # duel ends in a draw after this long
+  max-duration-seconds: 300   # time limit for a duel (0 = none)
+  timeout-winner-by-health: true  # at the time limit the player with more health wins; only an exact tie is a draw
   end-delay-seconds: 4        # after a kill, the fight winds down this long (victory/defeat titles) before everyone is sent back; 0 = instant
   allowed-commands: ["duel", "msg", "r"]
 

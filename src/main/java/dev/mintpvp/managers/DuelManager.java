@@ -38,6 +38,8 @@ public final class DuelManager {
         BukkitTask countdown, timeout, sweep, ending;
         /** Set once someone has died: the winner is decided, the duel is just winding down. */
         public Player pendingWinner;
+        /** Shown in the chat message (and logged) if the duel ends in a draw. */
+        public String drawReason = "the time limit was reached";
 
         Duel(Arena arena, Kit kit, boolean ranked, Player a, Player b) {
             this.arena = arena;
@@ -283,7 +285,12 @@ public final class DuelManager {
         } catch (RuntimeException ex) {
             plugin.getLogger().log(java.util.logging.Level.SEVERE, "Duel failed to start on arena " + arena.name, ex);
             Duel d = byPlayer.get(a.getUniqueId());
-            if (d != null) end(d, null, false); else arena.inUse = false;
+            if (d != null) {
+                d.drawReason = "an error stopped the duel from starting";
+                end(d, null, false);
+            } else {
+                arena.inUse = false;
+            }
             Theme t = plugin.theme();
             for (Player p : List.of(a, b)) p.sendMessage(t.error("the duel couldn't start - an admin can see the error in the console."));
         }
@@ -291,6 +298,7 @@ public final class DuelManager {
 
     private void fail(Duel duel, RuntimeException ex) {
         plugin.getLogger().log(java.util.logging.Level.SEVERE, "Duel error on arena " + duel.arena.name, ex);
+        duel.drawReason = "an error occurred";
         end(duel, null, false);
         for (Player p : List.of(duel.a, duel.b)) p.sendMessage(plugin.theme().error("the duel hit an error and was cancelled."));
     }
@@ -360,7 +368,7 @@ public final class DuelManager {
             }
             int max = plugin.getConfig().getInt("duel.max-duration-seconds", 300);
             if (max > 0) {
-                duel.timeout = Bukkit.getScheduler().runTaskLater(plugin, () -> end(duel, null), max * 20L);
+                duel.timeout = Bukkit.getScheduler().runTaskLater(plugin, () -> timeUp(duel), max * 20L);
             }
         } catch (RuntimeException ex) { duel.countdown.cancel(); fail(duel, ex); } }, 0L, 20L);
     }
@@ -446,6 +454,27 @@ public final class DuelManager {
                 .forEach(org.bukkit.entity.Entity::remove);
     }
 
+    /** Time limit reached: the player with more health wins; only an exact tie is a draw. */
+    private void timeUp(Duel duel) {
+        if (duel.state != State.FIGHTING || byPlayer.get(duel.a.getUniqueId()) != duel) return;
+        Theme t = plugin.theme();
+        if (plugin.getConfig().getBoolean("duel.timeout-winner-by-health", true)) {
+            double ha = duel.a.getHealth() + duel.a.getAbsorptionAmount();
+            double hb = duel.b.getHealth() + duel.b.getAbsorptionAmount();
+            if (Math.abs(ha - hb) >= 1.0) {
+                Player w = ha > hb ? duel.a : duel.b;
+                for (Player p : List.of(duel.a, duel.b)) {
+                    p.sendMessage(t.info(t.text("time's up! ", t.accent()).append(t.raw(w.getName(), t.primary()))
+                            .append(t.text(" wins with more health.", t.accent()))));
+                }
+                finish(duel, w);
+                return;
+            }
+        }
+        duel.drawReason = "time ran out and you both had the same health";
+        end(duel, null);
+    }
+
     /**
      * Someone died: decide the result now, but let the fight wind down for a few seconds
      * (duel.end-delay-seconds) before everyone is sent back. The loser watches from
@@ -509,13 +538,15 @@ public final class DuelManager {
         if (winner != null) {
             Player loser = duel.opponentOf(winner);
             plugin.stats().recordDuel(winner.getUniqueId(), loser.getUniqueId());
+            plugin.getLogger().info("Duel " + duel.a.getName() + " vs " + duel.b.getName() + " on " + duel.arena.name + ": " + winner.getName() + " won");
             Bukkit.broadcast(t.info(t.raw(winner.getName(), t.primary())
                     .append(t.text(" defeated ", t.accent()))
                     .append(t.raw(loser.getName(), t.secondary()))
                     .append(t.text(duel.ranked ? " in a ranked duel!" : " in a duel!", t.accent()))));
             if (duel.ranked && count) rankedResult(duel, winner, false);
         } else {
-            for (Player p : List.of(duel.a, duel.b)) p.sendMessage(t.info("the duel ended in a draw."));
+            for (Player p : List.of(duel.a, duel.b)) p.sendMessage(t.info("the duel ended in a draw: " + duel.drawReason + "."));
+            plugin.getLogger().info("Duel " + duel.a.getName() + " vs " + duel.b.getName() + " on " + duel.arena.name + " ended in a draw: " + duel.drawReason);
             if (duel.ranked && count) rankedResult(duel, duel.a, true);
         }
         restoreWorld(duel);
@@ -565,6 +596,9 @@ public final class DuelManager {
     }
 
     public void shutdown() {
-        new HashSet<>(byPlayer.values()).forEach(d -> end(d, null, false));
+        new HashSet<>(byPlayer.values()).forEach(d -> {
+            d.drawReason = "the server is restarting";
+            end(d, null, false);
+        });
     }
 }

@@ -184,3 +184,9 @@ Generated arenas have no ground decorations: no flowers, ferns, dead bushes, pin
 litter or snow layers. The floor itself (grass blocks, sand, snow blocks...) is unchanged. Run
 `/arena rebuild all` to clean arenas you already have. (To bring decorations back, set
 `DECORATIONS = true` in `arenagen/ArenaLayout.java` and rebuild.)
+
+### How a duel can end
+Winner = the other player dies, quits or forfeits. At the time limit (`duel.max-duration-seconds`,
+300) the player with more health wins (`duel.timeout-winner-by-health`); only an exact tie is a
+draw. A draw can also happen if the server restarts or an error stops the duel, and the message
+says which ("the duel ended in a draw: ..."). Every result is also logged in the server console.
