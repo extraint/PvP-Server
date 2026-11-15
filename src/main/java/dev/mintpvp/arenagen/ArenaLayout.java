@@ -12,6 +12,9 @@ import java.util.Set;
  */
 public final class ArenaLayout {
 
+    /** Ground decorations (flowers, ferns, petals, litter, snow layers). Off: arena floors are clean. */
+    static final boolean DECORATIONS = false;
+
     public static final int N = 81, C = 40, SPAWN_X = 30;
     public static final double R_PLAY = 37.5, R_WALL = 39.5;
 
@@ -160,7 +163,7 @@ public final class ArenaLayout {
                     String b = t.floor().at(ax, az, d);
                     cell = new Cell(b, 0);
                     String dec = t.decor().at(ax, az, b);
-                    if (dec != null) cell.dec = dec;
+                    if (DECORATIONS && dec != null) cell.dec = dec;
                     if (!t.noInlay() && ax + az <= 3 && (ax + az == 3 || ax + az == 0 || (ax == 1 && az == 1))) {
                         cell = new Cell("inlay", 0);
                     }

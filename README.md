@@ -178,3 +178,9 @@ Ender pearls and chorus fruit work in duels as long as you land inside the arena
 would land outside is cancelled). Generated arenas have no visible wall: the floor runs to the
 island's edge and an invisible barrier stops anyone leaving. Existing arenas keep their old walls
 until you run `/arena rebuild all` (arenas in use are skipped).
+
+### Clean floors
+Generated arenas have no ground decorations: no flowers, ferns, dead bushes, pink petals, leaf
+litter or snow layers. The floor itself (grass blocks, sand, snow blocks...) is unchanged. Run
+`/arena rebuild all` to clean arenas you already have. (To bring decorations back, set
+`DECORATIONS = true` in `arenagen/ArenaLayout.java` and rebuild.)
