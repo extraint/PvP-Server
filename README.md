@@ -207,7 +207,7 @@ team is left. Ranked Elo only applies to 1v1 ranked duels.
 /pc <message>                  # party chat
 ```
 Up to `party.max-size` (6) players. Inviting someone makes you a party. A party duel is team vs team
-on the same kit; both parties must be the same size (`party.require-equal-sizes`), nobody may be busy,
+on the same kit; parties can be any size (2v1, 3v1, 3v2...; set `party.allow-uneven-teams: false` to require equal sizes), nobody may be busy,
 teammates can't hurt each other (`party.friendly-fire`), and 7+ players total use a big arena.
 Leaders can also challenge from the menu. Parties live in memory (they end on restart or logout).
 
@@ -216,3 +216,13 @@ Leaders can also challenge from the menu. Parties live in memory (they end on re
 countdown of `ffa.start-delay-seconds` (30) starts (instantly when `ffa.max-players` (10) is reached);
 everyone is dropped around the arena (5+ players get a big arena) and the last player standing wins.
 At `ffa.max-duration-seconds` the player with the most health wins.
+
+### Custom teams and party rules
+- **Custom teams:** in the party menu a leader can click **custom teams** (banner) to split their own party
+  into a red and a blue team of any sizes by clicking players, then pick a kit and start (2v1, 3v2...).
+  A solo player makes a one-person party to be the "1" in a 3v1 against someone else's party.
+- **Lobby hotbar:** slot 6 (firework rocket) opens the party menu, so you can make and manage a party
+  right from the lobby.
+- **In a party you can only do party things:** while you're in a party you can't join a queue (ranked or
+  unranked), join a free-for-all, start or accept a 1v1 duel or ranked challenge, or spectate. Leave the
+  party first (`/party leave`). Kit layouts, stats and the leaderboard still work.

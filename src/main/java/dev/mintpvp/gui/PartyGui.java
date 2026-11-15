@@ -79,6 +79,13 @@ public final class PartyGui extends Gui {
                     .lore(t.text("duel another party", t.accent()), Component.empty(), t.text("click to choose", t.secondary())).glow().build(),
                     e -> challengeParty(plugin, p, () -> new PartyGui(plugin, p).open(p)));
         }
+        if (leader && party.members.size() >= 2) {
+            set(38, Items.of(Material.WHITE_BANNER).name(t.text("✦ custom teams", t.primary()))
+                    .lore(t.text("split your party into two teams", t.accent()),
+                            t.text("of any size (2v1, 3v2...) and play", t.accent()),
+                            Component.empty(), t.text("click to set up", t.secondary())).glow().build(),
+                    e -> new TeamsGui(plugin, p, null, () -> new PartyGui(plugin, p).open(p)).open(p));
+        }
         set(32, Items.of(Material.OAK_DOOR).name(t.text("leave party", t.secondary())).build(), e -> {
             plugin.parties().leave(p, false);
             new PartyGui(plugin, p).open(p);
@@ -110,7 +117,7 @@ public final class PartyGui extends Gui {
             SkullMeta meta = (SkullMeta) head.getItemMeta();
             meta.setOwningPlayer(lead);
             meta.displayName(t.raw(lead.getName() + "'s party", t.primary()).decoration(TextDecoration.ITALIC, false));
-            boolean sizeOk = !plugin.getConfig().getBoolean("party.require-equal-sizes", true) || other.members.size() == mine.members.size();
+            boolean sizeOk = plugin.getConfig().getBoolean("party.allow-uneven-teams", true) || other.members.size() == mine.members.size();
             meta.lore(List.of(
                     t.text(other.members.size() + " members", t.accent()).decoration(TextDecoration.ITALIC, false),
                     t.text(sizeOk ? "click to challenge" : "needs " + mine.members.size() + " members", sizeOk ? t.secondary() : t.muted()).decoration(TextDecoration.ITALIC, false)));

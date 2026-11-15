@@ -75,6 +75,7 @@ public final class FfaManager {
         UUID id = p.getUniqueId();
         if (!enabled()) { p.sendMessage(t.error("free-for-all is disabled right now.")); return false; }
         if (isIn(id)) { p.sendMessage(t.error("you're already in a free-for-all lobby (/ffa leave).")); return false; }
+        if (plugin.parties().blocks(p, "join a free-for-all")) return false;
         if (plugin.duels().inDuel(id)) { p.sendMessage(t.error("you're in a duel.")); return false; }
         if (plugin.duels().isSpectating(id)) { p.sendMessage(t.error("stop spectating first (/spectate leave).")); return false; }
         if (plugin.queue().isQueued(id)) { p.sendMessage(t.error("leave the queue first (/queue leave).")); return false; }

@@ -52,8 +52,8 @@ public final class LobbyManager {
                 .lore(t.text("right-click to duel for elo", t.accent())).tag("challenge_ranked").build());
         inv.setItem(4, Items.of(Material.NETHER_STAR).name(t.text("✦ menu", t.primary()))
                 .lore(t.text("right-click for everything", t.accent())).glow().tag("menu").build());
-        inv.setItem(5, Items.of(Material.BOOK).name(t.text("✦ your stats", t.primary()))
-                .lore(t.text("right-click to view", t.accent())).tag("stats").build());
+        inv.setItem(5, Items.of(Material.FIREWORK_ROCKET).name(t.text("✦ party", t.primary()))
+                .lore(t.text("right-click to make or manage a party", t.accent())).glow().tag("party").build());
         inv.setItem(6, Items.of(Material.ENDER_CHEST).name(t.text("✦ edit kit layout", t.primary()))
                 .lore(t.text("right-click to arrange your kits", t.accent())).tag("layout").build());
         inv.setItem(7, Items.of(Material.GOLD_INGOT).name(t.text("✦ leaderboard", t.primary()))
@@ -109,6 +109,7 @@ public final class LobbyManager {
             case "leaderboard" -> new LeaderboardGui(plugin, p, "elo", null).open(p);
             case "spectate" -> Guis.spectateList(plugin, p, null);
             case "stats" -> p.performCommand("stats");
+            case "party" -> new dev.mintpvp.gui.PartyGui(plugin, p).open(p);
             default -> { }
         }
     }

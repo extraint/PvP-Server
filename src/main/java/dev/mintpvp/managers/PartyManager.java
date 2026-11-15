@@ -54,11 +54,26 @@ public final class PartyManager {
     }
 
     private boolean busy(Player p, Theme t, String what) {
-        if (plugin.duels().inDuel(p.getUniqueId())) {
-            p.sendMessage(t.error("you can't " + what + " during a duel."));
-            return true;
-        }
+        UUID id = p.getUniqueId();
+        if (plugin.duels().inDuel(id)) { p.sendMessage(t.error("you can't " + what + " during a duel.")); return true; }
+        if (plugin.duels().isSpectating(id)) { p.sendMessage(t.error("stop spectating first (/spectate leave).")); return true; }
+        if (plugin.queue().isQueued(id)) { p.sendMessage(t.error("leave the queue first (/queue leave).")); return true; }
+        if (plugin.ffa().isIn(id)) { p.sendMessage(t.error("leave the free-for-all lobby first (/ffa leave).")); return true; }
         return false;
+    }
+
+    public boolean inParty(UUID id) {
+        return byMember.containsKey(id);
+    }
+
+    /**
+     * While you're in a party you can only do party things. Returns true (after telling the player)
+     * if this player is in a party and so can't {@code what}.
+     */
+    public boolean blocks(Player p, String what) {
+        if (!inParty(p.getUniqueId())) return false;
+        p.sendMessage(plugin.theme().error("you're in a party, so you can't " + what + ". leave it first with /party leave (party duels are in /party)."));
+        return true;
     }
 
     // ---- creating and inviting ------------------------------------------

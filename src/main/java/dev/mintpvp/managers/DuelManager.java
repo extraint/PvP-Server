@@ -234,6 +234,8 @@ public final class DuelManager {
         Theme t = plugin.theme();
         Kit kit = kitId == null ? plugin.kits().defaultKit() : plugin.kits().get(kitId);
         if (kit == null) { from.sendMessage(t.error("that kit doesn't exist.")); return; }
+        if (plugin.parties().blocks(from, "start a 1v1 duel")) return;
+        if (plugin.parties().inParty(to.getUniqueId())) { from.sendMessage(t.error("that player is in a party.")); return; }
         if (plugin.queue().isQueued(from.getUniqueId())) { from.sendMessage(t.error("leave the queue first (/queue leave).")); return; }
         if (plugin.ffa().isIn(from.getUniqueId())) { from.sendMessage(t.error("leave the free-for-all first (/ffa leave).")); return; }
         if (ranked && !plugin.queue().rankedEnabled()) { from.sendMessage(t.error("ranked is disabled right now.")); return; }
@@ -289,7 +291,7 @@ public final class DuelManager {
         if (theirs == mine) { leader.sendMessage(t.error("that's your own party.")); return; }
         Kit kit = kitId == null ? plugin.kits().defaultKit() : plugin.kits().get(kitId);
         if (kit == null) { leader.sendMessage(t.error("that kit doesn't exist.")); return; }
-        if (plugin.getConfig().getBoolean("party.require-equal-sizes", true) && mine.members.size() != theirs.members.size()) {
+        if (!plugin.getConfig().getBoolean("party.allow-uneven-teams", true) && mine.members.size() != theirs.members.size()) {
             leader.sendMessage(t.error("the parties must be the same size (" + mine.members.size() + " vs " + theirs.members.size() + ")."));
             return;
         }
@@ -314,6 +316,33 @@ public final class DuelManager {
         theirLeader.sendMessage(t.info(t.raw(leader.getName() + "'s party", t.primary())
                 .append(t.text(" challenged your party to a " + mine.members.size() + "v" + theirs.members.size() + " " + kit.display + " duel! ", t.accent()))
                 .append(accept).append(Component.text(" ")).append(deny)));
+    }
+
+    /**
+     * A party leader splits their own party into two teams of any sizes (2v1, 3v2...) and plays them
+     * against each other.
+     */
+    public void startScrim(Player leader, List<Player> red, List<Player> blue, String kitId) {
+        Theme t = plugin.theme();
+        var party = plugin.parties().partyOf(leader.getUniqueId());
+        if (party == null || !party.leader.equals(leader.getUniqueId())) { leader.sendMessage(t.error("only the party leader can start a custom match.")); return; }
+        if (red.isEmpty() || blue.isEmpty()) { leader.sendMessage(t.error("both teams need at least one player.")); return; }
+        Kit kit = kitId == null ? plugin.kits().defaultKit() : plugin.kits().get(kitId);
+        if (kit == null) { leader.sendMessage(t.error("that kit doesn't exist.")); return; }
+        Set<UUID> inParty = new HashSet<>(party.members);
+        for (Player p : red) if (!inParty.contains(p.getUniqueId())) { leader.sendMessage(t.error("the party changed - open the team menu again.")); return; }
+        for (Player p : blue) if (!inParty.contains(p.getUniqueId())) { leader.sendMessage(t.error("the party changed - open the team menu again.")); return; }
+        if (red.size() + blue.size() != party.members.size()) { leader.sendMessage(t.error("everyone in the party must be on a team.")); return; }
+        String why = partyBusy(party);
+        if (why != null) { leader.sendMessage(t.error("your party can't play right now: " + why)); return; }
+        boolean large = partyNeedsLarge(party.members.size());
+        Arena arena = plugin.arenas().randomFree(large).orElse(null);
+        if (arena == null) {
+            plugin.generator().requestExtra(large);
+            leader.sendMessage(t.error(noArenaReason()));
+            return;
+        }
+        start(Mode.PARTY, List.of(red, blue), List.of("red team", "blue team"), arena, kit, false);
     }
 
     private boolean partyNeedsLarge(int totalPlayers) {
@@ -368,6 +397,11 @@ public final class DuelManager {
             acceptParty(from, target, kit);
             return;
         }
+        if (plugin.parties().blocks(target, "accept a 1v1 duel")) return;
+        if (plugin.parties().inParty(from.getUniqueId())) {
+            target.sendMessage(t.error("that player joined a party, so the duel was cancelled."));
+            return;
+        }
 
         if (inDuel(from.getUniqueId()) || inDuel(target.getUniqueId())
                 || isSpectating(from.getUniqueId()) || isSpectating(target.getUniqueId())
@@ -394,7 +428,7 @@ public final class DuelManager {
             targetLeader.sendMessage(t.error("the party duel can't start any more (a party changed)."));
             return;
         }
-        if (plugin.getConfig().getBoolean("party.require-equal-sizes", true) && mine.members.size() != theirs.members.size()) {
+        if (!plugin.getConfig().getBoolean("party.allow-uneven-teams", true) && mine.members.size() != theirs.members.size()) {
             targetLeader.sendMessage(t.error("the parties are no longer the same size."));
             challengerLeader.sendMessage(t.error("the parties are no longer the same size."));
             return;
@@ -665,6 +699,7 @@ public final class DuelManager {
         if (inDuel(id)) { sp.sendMessage(t.error("you're in a duel.")); return; }
         if (isSpectating(id)) { sp.sendMessage(t.error("you're already spectating (/spectate leave).")); return; }
         if (plugin.combat().isTagged(id)) { sp.sendMessage(t.error("you can't spectate while in combat.")); return; }
+        if (plugin.parties().blocks(sp, "spectate")) return;
         if (plugin.queue().isQueued(id)) { sp.sendMessage(t.error("leave the queue first (/queue leave).")); return; }
         if (plugin.ffa().isIn(id)) { sp.sendMessage(t.error("leave the free-for-all first (/ffa leave).")); return; }
         Duel d = find(query);
