@@ -1,5 +1,6 @@
 package dev.mintpvp;
 
+import dev.mintpvp.arenagen.ArenaGenerator;
 import dev.mintpvp.commands.DuelCommands;
 import dev.mintpvp.commands.KitCommands;
 import dev.mintpvp.commands.MintCommands;
@@ -30,6 +31,7 @@ public final class MintPvP extends JavaPlugin {
     private KitManager kits;
     private ScoreboardManager boards;
     private ArenaManager arenas;
+    private ArenaGenerator generator;
     private DuelManager duels;
     private QueueManager queue;
     private SpawnManager spawn;
@@ -45,6 +47,7 @@ public final class MintPvP extends JavaPlugin {
         kits = new KitManager(this);
         boards = new ScoreboardManager(this);
         arenas = new ArenaManager(this);
+        generator = new ArenaGenerator(this);
         duels = new DuelManager(this);
         queue = new QueueManager(this);
         spawn = new SpawnManager(this);
@@ -97,6 +100,7 @@ public final class MintPvP extends JavaPlugin {
 
         boards.start();
         queue.start();
+        generator.start();
         // autosave stats every 5 minutes
         getServer().getScheduler().runTaskTimerAsynchronously(this, () -> stats.save(), 6000L, 6000L);
         getLogger().info("ᴍɪɴᴛ ᴘᴠᴘ enabled.");
@@ -104,6 +108,7 @@ public final class MintPvP extends JavaPlugin {
 
     @Override
     public void onDisable() {
+        if (generator != null) generator.stop();
         if (guis != null) guis.shutdown();
         if (queue != null) queue.stop();
         if (duels != null) duels.shutdown();
@@ -124,6 +129,7 @@ public final class MintPvP extends JavaPlugin {
     public KitManager kits() { return kits; }
     public ScoreboardManager boards() { return boards; }
     public ArenaManager arenas() { return arenas; }
+    public ArenaGenerator generator() { return generator; }
     public DuelManager duels() { return duels; }
     public QueueManager queue() { return queue; }
     public SpawnManager spawn() { return spawn; }

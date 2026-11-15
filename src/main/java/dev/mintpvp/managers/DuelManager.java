@@ -104,6 +104,7 @@ public final class DuelManager {
             if (!a.ready()) { from.sendMessage(t.error("that arena can't be used: " + a.problem() + ".")); return; }
             chosen = a.name;
         } else if (plugin.arenas().randomFree().isEmpty()) {
+            plugin.generator().requestExtra();
             from.sendMessage(t.error(noArenaReason()));
             return;
         }
@@ -124,6 +125,7 @@ public final class DuelManager {
 
     /** Explains why no arena can be used (none set up, all busy, or all broken). */
     public String noArenaReason() {
+        if (plugin.generator().building()) return "a new arena is being built - try again in a few seconds.";
         if (plugin.arenas().all().isEmpty()) return "there are no arenas yet - an admin needs to /arena create one.";
         boolean anyReady = plugin.arenas().all().stream().anyMatch(a -> a.ready());
         if (anyReady) return "all arenas are busy right now - try again in a moment.";
@@ -157,6 +159,7 @@ public final class DuelManager {
         }
         Arena arena = r.arena != null ? plugin.arenas().get(r.arena) : plugin.arenas().randomFree().orElse(null);
         if (arena == null || !arena.ready() || arena.inUse) {
+            if (r.arena == null) plugin.generator().requestExtra();
             target.sendMessage(t.error("that arena isn't available."));
             from.sendMessage(t.error("that arena isn't available."));
             return;
@@ -173,7 +176,10 @@ public final class DuelManager {
     /** Starts a queue match on a random free arena. @return false if no arena is free. */
     public boolean startMatch(Player a, Player b, Kit kit, boolean ranked) {
         Arena arena = plugin.arenas().randomFree().orElse(null);
-        if (arena == null) return false;
+        if (arena == null) {
+            plugin.generator().requestExtra(); // all busy: build another one
+            return false;
+        }
         Theme t = plugin.theme();
         a.sendMessage(found(b, ranked));
         b.sendMessage(found(a, ranked));
@@ -295,7 +301,7 @@ public final class DuelManager {
     private void applyBorder(Player p, Arena arena) {
         WorldBorder wb = Bukkit.createWorldBorder();
         wb.setCenter(arena.center());
-        wb.setSize(arena.radius() * 2.0);
+        wb.setSize((arena.radius() + (arena.circular() ? 2 : 0)) * 2.0);
         wb.setWarningDistance(5);
         p.setWorldBorder(wb);
     }

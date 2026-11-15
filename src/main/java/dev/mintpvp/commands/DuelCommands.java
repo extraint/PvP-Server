@@ -31,6 +31,8 @@ public final class DuelCommands implements CommandExecutor, TabCompleter {
             // the read-only arena commands also work from the console
             if (cmd.getName().equalsIgnoreCase("arena") && args.length > 0 && args[0].equalsIgnoreCase("list")) {
                 listArenas(sender);
+            } else if (cmd.getName().equalsIgnoreCase("arena") && args.length > 0 && args[0].equalsIgnoreCase("themes")) {
+                themes(sender);
             } else if (cmd.getName().equalsIgnoreCase("arena") && args.length > 1 && args[0].equalsIgnoreCase("check")) {
                 checkArena(sender, args[1]);
             } else {
@@ -109,9 +111,20 @@ public final class DuelCommands implements CommandExecutor, TabCompleter {
         s.sendMessage(t.info("arenas (" + plugin.arenas().all().size() + ")"));
         for (Arena a : plugin.arenas().all()) {
             String status = a.problem() != null ? a.problem() : a.inUse ? "in use" : "ready";
+            if (a.theme != null) status = a.theme + " · " + status;
             s.sendMessage(t.line(a.name, status + (a.ready() ? " - " + (a.radius() * 2) + "x" + (a.radius() * 2)
                     + ", height \u00b1" + a.height() : "")));
         }
+    }
+
+    private void themes(CommandSender s) {
+        Theme t = plugin.theme();
+        s.sendMessage(t.info("arena themes - generator: " + plugin.generator().status()));
+        for (dev.mintpvp.arenagen.ArenaTheme th : dev.mintpvp.arenagen.ArenaTheme.values()) {
+            long n = plugin.arenas().all().stream().filter(a -> th.id.equals(a.theme)).count();
+            s.sendMessage(t.usage(th.id, th.display + " - " + n + " built"));
+        }
+        s.sendMessage(t.usage("/arena generate <theme|random> [count]", "build more"));
     }
 
     private void checkArena(CommandSender s, String name) {
@@ -119,6 +132,7 @@ public final class DuelCommands implements CommandExecutor, TabCompleter {
         Arena a = plugin.arenas().get(name);
         if (a == null) { s.sendMessage(t.error("no such arena.")); return; }
         s.sendMessage(t.info("arena " + a.name));
+        if (a.theme != null) s.sendMessage(t.line("generated", a.theme + " theme, slot " + a.slot + ", round"));
         s.sendMessage(t.line("spawn 1", a.describeSpawn1()));
         s.sendMessage(t.line("spawn 2", a.describeSpawn2()));
         if (a.ready()) {
@@ -140,6 +154,9 @@ public final class DuelCommands implements CommandExecutor, TabCompleter {
             p.sendMessage(t.usage("/arena setheight <name> <blocks>", "floor/ceiling distance from the centre"));
             p.sendMessage(t.usage("/arena setradius <name> <blocks>", "border half-width (square)"));
             p.sendMessage(t.usage("/arena list", "list arenas and their status"));
+            p.sendMessage(t.usage("/arena themes", "pre-made arena themes"));
+            p.sendMessage(t.usage("/arena generate <theme|random> [count]", "build pre-made arenas"));
+            p.sendMessage(t.usage("/arena rebuild <name>", "re-place a generated arena"));
             return;
         }
         String sub = args[0].toLowerCase(Locale.ROOT);
@@ -147,10 +164,43 @@ public final class DuelCommands implements CommandExecutor, TabCompleter {
             listArenas(p);
             return;
         }
+        if (sub.equals("themes")) {
+            themes(p);
+            return;
+        }
+        if (sub.equals("generate")) {
+            if (!plugin.generator().enabled() || plugin.generator().world() == null) {
+                p.sendMessage(t.error("the arena generator is off (arena-generator.enabled in config.yml)."));
+                return;
+            }
+            String which = args.length > 1 ? args[1] : "random";
+            dev.mintpvp.arenagen.ArenaTheme theme = dev.mintpvp.arenagen.ArenaTheme.byId(which);
+            if (theme == null && !which.equalsIgnoreCase("random")) {
+                p.sendMessage(t.error("unknown theme. use /arena themes"));
+                return;
+            }
+            int amount = 1;
+            if (args.length > 2) {
+                try { amount = Math.max(1, Math.min(30, Integer.parseInt(args[2]))); }
+                catch (NumberFormatException e) { p.sendMessage(t.error("usage: /arena generate <theme|random> [count]")); return; }
+            }
+            int queued = plugin.generator().generate(theme, amount);
+            p.sendMessage(queued > 0
+                    ? t.info("queued " + queued + " arena" + (queued == 1 ? "" : "s") + ". " + plugin.generator().status() + ".")
+                    : t.error("the arena limit is reached (arena-generator.max-total)."));
+            return;
+        }
         if (args.length < 2) { p.sendMessage(t.error("specify an arena name.")); return; }
         String name = args[1];
         switch (sub) {
             case "check" -> checkArena(p, name);
+            case "rebuild" -> {
+                Arena a = plugin.arenas().get(name);
+                if (a == null || a.theme == null) { p.sendMessage(t.error("only generated arenas can be rebuilt.")); return; }
+                p.sendMessage(plugin.generator().rebuild(a)
+                        ? t.info("rebuilding " + a.name + " - it's unavailable until it's done.")
+                        : t.error("can't rebuild right now (it may be in use)."));
+            }
             case "create" -> {
                 if (!name.matches("[A-Za-z0-9_-]{1,24}")) { p.sendMessage(t.error("use letters, numbers, - or _ (max 24).")); return; }
                 p.sendMessage(plugin.arenas().create(name) != null
@@ -225,13 +275,16 @@ public final class DuelCommands implements CommandExecutor, TabCompleter {
             return out.stream().filter(o -> o.toLowerCase(Locale.ROOT).startsWith(pre)).toList();
         }
         if (args.length == 1) {
-            if (arena) out.addAll(List.of("create", "delete", "setspawn1", "setspawn2", "setcenter", "setradius", "setheight", "check", "list", "tp"));
+            if (arena) out.addAll(List.of("create", "delete", "setspawn1", "setspawn2", "setcenter", "setradius", "setheight", "check", "list", "tp", "themes", "generate", "rebuild"));
             else {
                 out.addAll(List.of("accept", "deny", "forfeit"));
                 Bukkit.getOnlinePlayers().forEach(pl -> out.add(pl.getName()));
             }
         } else if (args.length == 2) {
-            if (arena) plugin.arenas().all().forEach(a -> out.add(a.name));
+            if (arena && args[0].equalsIgnoreCase("generate")) {
+                out.add("random");
+                for (var th : dev.mintpvp.arenagen.ArenaTheme.values()) out.add(th.id);
+            } else if (arena) plugin.arenas().all().forEach(a -> out.add(a.name));
             else if (args[0].equalsIgnoreCase("accept") || args[0].equalsIgnoreCase("deny")) {
                 Bukkit.getOnlinePlayers().forEach(pl -> out.add(pl.getName()));
             } else plugin.kits().all().forEach(k -> out.add(k.id));

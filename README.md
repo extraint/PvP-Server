@@ -127,3 +127,22 @@ error is printed in the console and both players are put back where they were. T
 always grows to include both spawns, so a spawn can't end up outside its own arena. Arenas
 are stored by world name, so an arena in a world that isn't loaded yet is skipped (not lost)
 until that world loads.
+
+## Pre-made arenas (auto-generated)
+The plugin builds round duel arenas into its own empty world (`mint_arenas`), so no other
+world is ever touched. Five themes: **Plains, Desert, Poplar Grove, Snowy, Cherry Grove**,
+each a 75-block circle inside a wall, with spawns 60 blocks apart and mirror-symmetric
+cover so both sides are equal.
+
+- On first start it builds 2 of each theme (10 arenas, about 20 seconds in the background).
+- When every arena is busy it builds another one on demand, up to 30.
+- Arenas never need resetting (blocks can't change during duels) and survive restarts.
+- The queue picks a random free arena; hand-made arenas keep working alongside them.
+
+```
+/arena themes                          # themes, how many of each, generator status
+/arena generate <theme|random> [count] # build more
+/arena rebuild <name>                  # re-place every block of a generated arena
+```
+Settings: `arena-generator:` in `config.yml` (`enabled`, `world`, `per-theme`, `max-total`,
+`blocks-per-tick`).

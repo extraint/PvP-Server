@@ -45,6 +45,9 @@ public final class ArenaManager {
         /** Configured vertical half-range; 0 = config default. The effective height may be larger. */
         public int height;
         public boolean inUse;
+        /** Set for arenas built by the generator: their theme id and grid slot. Null/-1 for hand-made arenas. */
+        public String theme;
+        public int slot = -1;
 
         Arena(String name) {
             this.name = name;
@@ -114,7 +117,14 @@ public final class ArenaManager {
             Location ctr = center();
             if (ctr == null || l.getWorld() == null || !l.getWorld().equals(ctr.getWorld())) return false;
             int r = radius();
-            return Math.abs(l.getX() - ctr.getX()) <= r && Math.abs(l.getZ() - ctr.getZ()) <= r;
+            double dx = l.getX() - ctr.getX(), dz = l.getZ() - ctr.getZ();
+            if (circular()) return dx * dx + dz * dz <= (double) r * r;
+            return Math.abs(dx) <= r && Math.abs(dz) <= r;
+        }
+
+        /** Generated arenas are round; hand-made ones use a square border. */
+        public boolean circular() {
+            return theme != null;
         }
 
         /** Inside the arena in all three dimensions. */
@@ -179,6 +189,8 @@ public final class ArenaManager {
             a.c = readLoc(sec, name + ".center");
             a.radius = sec.getInt(name + ".radius");
             a.height = sec.getInt(name + ".height");
+            a.theme = sec.getString(name + ".theme");
+            a.slot = sec.getInt(name + ".slot", -1);
             arenas.put(name.toLowerCase(Locale.ROOT), a);
         }
     }
@@ -211,6 +223,10 @@ public final class ArenaManager {
             writeLoc(y, p + ".center", a.c);
             y.set(p + ".radius", a.radius);
             y.set(p + ".height", a.height);
+            if (a.theme != null) {
+                y.set(p + ".theme", a.theme);
+                y.set(p + ".slot", a.slot);
+            }
         }
         try {
             plugin.getDataFolder().mkdirs();
@@ -230,6 +246,20 @@ public final class ArenaManager {
     public Arena create(String name) {
         if (get(name) != null) return null;
         Arena a = new Arena(name);
+        arenas.put(name.toLowerCase(Locale.ROOT), a);
+        save();
+        return a;
+    }
+
+    /** Registers an arena the generator just finished building. */
+    public Arena addGenerated(String name, String theme, int slot, Location spawn1, Location spawn2) {
+        Arena a = new Arena(name);
+        a.setSpawn1(spawn1);
+        a.setSpawn2(spawn2);
+        a.theme = theme;
+        a.slot = slot;
+        a.radius = 38;  // playable circle is 75 across; the wall sits just outside
+        a.height = dev.mintpvp.arenagen.ArenaGenerator.CEILING;
         arenas.put(name.toLowerCase(Locale.ROOT), a);
         save();
         return a;

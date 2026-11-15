@@ -61,3 +61,12 @@ lobby:
   # Lobby players (not in a duel) take no damage or hunger and can't build/drop/move items.
   # Players with mintpvp.build (ops by default) are exempt from the build restrictions.
   protect: true
+
+arena-generator:
+  # Builds round, pre-made arenas (Plains, Desert, Poplar Grove, Snowy, Cherry Grove)
+  # in their own empty world. Your other worlds are never touched.
+  enabled: true
+  world: mint_arenas
+  per-theme: 2          # built automatically on first start (2 x 5 themes = 10)
+  max-total: 30         # extra arenas are built on demand when all are busy, up to this many
+  blocks-per-tick: 5000 # build speed; lower it if building causes lag
