@@ -48,6 +48,10 @@ public final class ArenaManager {
         /** Set for arenas built by the generator: their theme id and grid slot. Null/-1 for hand-made arenas. */
         public String theme;
         public int slot = -1;
+        /** Big ranked arena (radius 100-150) instead of the 75-block unranked kind. */
+        public boolean large;
+        /** Still being generated: not usable yet. */
+        public boolean pending;
 
         Arena(String name) {
             this.name = name;
@@ -65,6 +69,7 @@ public final class ArenaManager {
 
         /** Why this arena can't be used right now, or null if it can. */
         public String problem() {
+            if (pending) return "still being generated";
             if (s1 == null) return "spawn 1 isn't set (/arena setspawn1 " + name + ")";
             if (s2 == null) return "spawn 2 isn't set (/arena setspawn2 " + name + ")";
             if (spawn1() == null) return "world '" + s1.world() + "' isn't loaded";
@@ -166,6 +171,8 @@ public final class ArenaManager {
                     + (l.resolve() == null ? " (world not loaded)" : "");
         }
 
+        public String worldName() { return s1 == null ? null : s1.world(); }
+
         public String describeSpawn1() { return describe(s1); }
 
         public String describeSpawn2() { return describe(s2); }
@@ -174,6 +181,7 @@ public final class ArenaManager {
     private final MintPvP plugin;
     private final File file;
     private final Map<String, Arena> arenas = new LinkedHashMap<>();
+    private int nextSlot;
 
     public ArenaManager(MintPvP plugin) {
         this.plugin = plugin;
@@ -200,6 +208,7 @@ public final class ArenaManager {
                     + backup.getName() + ". Arenas will be empty until this is fixed.");
             return;
         }
+        nextSlot = Math.max(0, y.getInt("next-slot", 0));
         ConfigurationSection sec = y.getConfigurationSection("arenas");
         if (sec == null) return;
         for (String name : sec.getKeys(false)) {
@@ -211,6 +220,7 @@ public final class ArenaManager {
             a.height = sec.getInt(name + ".height");
             a.theme = sec.getString(name + ".theme");
             a.slot = sec.getInt(name + ".slot", -1);
+            a.large = sec.getBoolean(name + ".large");
             arenas.put(name.toLowerCase(Locale.ROOT), a);
         }
     }
@@ -236,6 +246,7 @@ public final class ArenaManager {
 
     public void save() {
         YamlConfiguration y = new YamlConfiguration();
+        y.set("next-slot", nextSlot);
         for (Arena a : arenas.values()) {
             String p = "arenas." + a.name;
             writeLoc(y, p + ".spawn1", a.s1);
@@ -246,6 +257,7 @@ public final class ArenaManager {
             if (a.theme != null) {
                 y.set(p + ".theme", a.theme);
                 y.set(p + ".slot", a.slot);
+                y.set(p + ".large", a.large);
             }
         }
         try {
@@ -271,24 +283,42 @@ public final class ArenaManager {
         return a;
     }
 
-    /** Registers an arena the generator just finished building. */
-    public Arena addGenerated(String name, String theme, int slot, Location spawn1, Location spawn2) {
+    /** Next free generator grid slot (never reused, so old terrain can't clash with a new arena). */
+    public int nextSlot() {
+        int n = nextSlot++;
+        save();
+        return n;
+    }
+
+    /** Registers an arena the generator just created; it stays unusable until its chunks are ready. */
+    public Arena addGenerated(String name, String theme, int slot, Location spawn1, Location spawn2, boolean large, int radius) {
         Arena a = new Arena(name);
         a.setSpawn1(spawn1);
         a.setSpawn2(spawn2);
         a.theme = theme;
         a.slot = slot;
-        a.radius = 38;  // playable circle is 75 across; the wall sits just outside
-        a.height = dev.mintpvp.arenagen.ArenaGenerator.CEILING;
+        a.large = large;
+        a.radius = radius;
+        a.pending = true;
         arenas.put(name.toLowerCase(Locale.ROOT), a);
         save();
         return a;
+    }
+
+    /** Forgets generated arenas that live in a different world than the current arena world. */
+    public int removeGeneratedOutside(String worldName) {
+        int before = arenas.size();
+        arenas.values().removeIf(a -> a.theme != null && (a.worldName() == null || !a.worldName().equals(worldName)));
+        int removed = before - arenas.size();
+        if (removed > 0) save();
+        return removed;
     }
 
     public boolean delete(String name) {
         Arena a = get(name);
         if (a == null || a.inUse) return false;
         arenas.remove(name.toLowerCase(Locale.ROOT));
+        if (a.theme != null && plugin.generator() != null) plugin.generator().forget(a);
         save();
         return true;
     }
@@ -302,8 +332,13 @@ public final class ArenaManager {
         return arenas.values().stream().filter(a -> a.inUse && a.ready() && a.contains(l)).findFirst();
     }
 
-    public Optional<Arena> randomFree() {
-        List<Arena> free = arenas.values().stream().filter(a -> a.ready() && !a.inUse).toList();
+    /** A free arena for a ranked duel (big arenas) or an unranked one (small and hand-made). */
+    public Optional<Arena> randomFree(boolean ranked) {
+        List<Arena> free = arenas.values().stream().filter(a -> a.ready() && !a.inUse && (ranked ? a.large : !a.large)).toList();
+        // no ranked arenas exist at all (generator off): any arena will do
+        if (free.isEmpty() && ranked && arenas.values().stream().noneMatch(a -> a.large)) {
+            free = arenas.values().stream().filter(a -> a.ready() && !a.inUse).toList();
+        }
         if (free.isEmpty()) return Optional.empty();
         return Optional.of(free.get(new Random().nextInt(free.size())));
     }

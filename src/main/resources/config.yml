@@ -67,11 +67,14 @@ lobby:
   protect: true
 
 arena-generator:
-  # Builds round, pre-made arenas (Plains, Desert, Poplar Grove, Snowy, Cherry Grove)
-  # in their own empty world. Your other worlds are never touched.
+  # Pre-made arenas (Plains, Desert, Poplar Grove, Snowy, Cherry Grove) in their own generated world.
+  # The terrain goes down to bedrock with stone, deepslate, caves and ores. After every duel a
+  # generated arena is reset completely. Your other worlds are never touched.
   enabled: true
-  lobby: true           # also build the mint lobby island and use it as the spawn (if no spawn is set yet)
-  world: mint_arenas
-  per-theme: 2          # built automatically on first start (2 x 5 themes = 10)
-  max-total: 30         # extra arenas are built on demand when all are busy, up to this many
-  blocks-per-tick: 5000 # build speed; lower it if building causes lag
+  world-name: mint_arenas_2  # the old 'world' setting is ignored; old generated arenas are dropped
+  lobby: true                # generate the mint lobby island and use it as the spawn (if none is set)
+  per-theme: 2               # normal (unranked) arenas made per theme on start, 75 blocks across
+  ranked-per-theme: 1        # big ranked arenas made per theme on start
+  ranked-radius-min: 100     # ranked arenas get a random radius in this range
+  ranked-radius-max: 150
+  max-total: 30              # more are made on demand when all are busy, up to this many

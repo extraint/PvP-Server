@@ -35,6 +35,8 @@ public final class DuelManager {
         public final Set<UUID> spectators = new LinkedHashSet<>();
         /** Original state of every block changed during the duel, so the arena can be put back. */
         final Map<Long, org.bukkit.block.BlockState> changes = new LinkedHashMap<>();
+        /** Chunks holding a plugin ticket because something in them was changed (so they can't unload and save). */
+        final Set<Long> heldChunks = new HashSet<>();
         BukkitTask countdown, timeout, sweep, ending;
         /** Set once someone has died: the winner is decided, the duel is just winding down. */
         public Player pendingWinner;
@@ -95,6 +97,18 @@ public final class DuelManager {
         if (d == null) return;
         long key = ((long) (state.getX() & 0x3FFFFFF) << 38) | ((long) (state.getY() & 0xFFF) << 26) | (state.getZ() & 0x3FFFFFF);
         d.changes.putIfAbsent(key, state);
+        int cx = state.getX() >> 4, cz = state.getZ() >> 4;
+        if (d.heldChunks.add(((long) cx << 32) | (cz & 0xFFFFFFFFL))) {
+            state.getWorld().addPluginChunkTicket(cx, cz, plugin);
+        }
+    }
+
+    private void releaseChunkTickets(Duel duel) {
+        var ctr = duel.arena.center();
+        if (ctr != null && ctr.getWorld() != null && plugin.isEnabled()) {
+            for (long ck : duel.heldChunks) ctr.getWorld().removePluginChunkTicket((int) (ck >> 32), (int) ck, plugin);
+        }
+        duel.heldChunks.clear();
     }
 
     /** Puts every changed block back and clears loose items and arrows. */
@@ -171,8 +185,8 @@ public final class DuelManager {
             if (a == null) { from.sendMessage(t.error("that arena doesn't exist.")); return; }
             if (!a.ready()) { from.sendMessage(t.error("that arena can't be used: " + a.problem() + ".")); return; }
             chosen = a.name;
-        } else if (plugin.arenas().randomFree().isEmpty()) {
-            plugin.generator().requestExtra();
+        } else if (plugin.arenas().randomFree(ranked).isEmpty()) {
+            plugin.generator().requestExtra(ranked);
             from.sendMessage(t.error(noArenaReason()));
             return;
         }
@@ -225,9 +239,9 @@ public final class DuelManager {
             target.sendMessage(t.error("the duel can't start right now."));
             return;
         }
-        Arena arena = r.arena != null ? plugin.arenas().get(r.arena) : plugin.arenas().randomFree().orElse(null);
+        Arena arena = r.arena != null ? plugin.arenas().get(r.arena) : plugin.arenas().randomFree(r.ranked()).orElse(null);
         if (arena == null || !arena.ready() || arena.inUse) {
-            if (r.arena == null) plugin.generator().requestExtra();
+            if (r.arena == null) plugin.generator().requestExtra(r.ranked());
             target.sendMessage(t.error("that arena isn't available."));
             from.sendMessage(t.error("that arena isn't available."));
             return;
@@ -244,9 +258,9 @@ public final class DuelManager {
 
     /** Starts a queue match on a random free arena. @return false if no arena is free. */
     public boolean startMatch(Player a, Player b, Kit kit, boolean ranked) {
-        Arena arena = plugin.arenas().randomFree().orElse(null);
+        Arena arena = plugin.arenas().randomFree(ranked).orElse(null);
         if (arena == null) {
-            plugin.generator().requestExtra(); // all busy: build another one
+            plugin.generator().requestExtra(ranked); // all busy: make another one
             return false;
         }
         Theme t = plugin.theme();
@@ -526,7 +540,6 @@ public final class DuelManager {
         if (duel.ending != null) duel.ending.cancel();
         byPlayer.remove(duel.a.getUniqueId());
         byPlayer.remove(duel.b.getUniqueId());
-        duel.arena.inUse = false;
 
         for (UUID sid : new ArrayList<>(duel.spectators)) {
             Player sp = Bukkit.getPlayer(sid);
@@ -551,6 +564,25 @@ public final class DuelManager {
         }
         restoreWorld(duel);
         for (Player p : List.of(duel.a, duel.b)) restore(p, duel.saved.get(p.getUniqueId()));
+        releaseArena(duel);
+    }
+
+    /**
+     * The arena stays locked until it has been reset, so the next duel always gets a fresh one.
+     * Generated arenas are reset completely (their chunks are dropped and regenerate); hand-made
+     * ones only get back the blocks that were recorded as changed.
+     */
+    private void releaseArena(Duel duel) {
+        Arena a = duel.arena;
+        Runnable finish = () -> {
+            releaseChunkTickets(duel); // the changed chunks were held loaded until the reset was done
+            a.inUse = false;
+        };
+        if (plugin.isEnabled() && plugin.generator().resets(a)) {
+            plugin.generator().reset(a, finish);
+        } else {
+            finish.run();
+        }
     }
 
     /** Applies the Elo change and tells both players. */
@@ -599,6 +631,8 @@ public final class DuelManager {
         new HashSet<>(byPlayer.values()).forEach(d -> {
             d.drawReason = "the server is restarting";
             end(d, null, false);
+            // chunks are saved on shutdown, so put a generated arena back right now rather than leave the mess
+            if (plugin.generator().resets(d.arena)) plugin.generator().resetSync(d.arena);
         });
     }
 }

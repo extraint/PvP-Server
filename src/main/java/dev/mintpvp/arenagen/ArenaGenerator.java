@@ -1,115 +1,54 @@
 package dev.mintpvp.arenagen;
 
 import dev.mintpvp.MintPvP;
-import dev.mintpvp.arenagen.ArenaLayout.Cell;
-import dev.mintpvp.arenagen.ArenaLayout.Feature;
 import dev.mintpvp.managers.ArenaManager.Arena;
-import org.bukkit.Axis;
 import org.bukkit.Bukkit;
 import org.bukkit.GameRules;
 import org.bukkit.Location;
-import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.WorldCreator;
 import org.bukkit.block.data.BlockData;
-import org.bukkit.block.data.Orientable;
-import org.bukkit.block.data.type.Leaves;
-import org.bukkit.configuration.file.YamlConfiguration;
-import org.bukkit.scheduler.BukkitTask;
 
-import java.io.File;
-import java.io.IOException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Random;
+import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Builds the pre-made arenas into a dedicated void world.
- *
- * On start it tops up a pool (config: per-theme), and when every arena is busy it
- * builds one more on demand (up to max-total). Builds run one at a time and are
- * spread over ticks so the server never freezes.
+ * Owns the arena world. Arenas are slots on a grid in a custom-generated world (terrain is made
+ * as chunks load, so there is nothing to "build"): the pool is topped up on start, more are added
+ * on demand, and after every duel a generated arena is reset by dropping its chunks unsaved so they
+ * regenerate fresh.
  */
 public final class ArenaGenerator {
 
-    /** Floor height in the arena world; players stand one block above. */
-    public static final int FLOOR_Y = 64;
-    /** The invisible barrier above each wall reaches this many blocks above the floor. */
+    public static final int SPACING = 500, COLS = 10;
+    public static final int FLOOR_Y = ArenaModel.BASE_Y;
+    /** Height of the invisible barrier above small arenas' edge. */
     public static final int CEILING = 40;
-    /** Old arenas' features never exceed this height, so a rebuild only needs to clear this much. */
-    private static final int CLEAR_TOP = 16;
-    /** Where the lobby island is built, away from the arena grid. */
-    public static final int LOBBY_X = -400, LOBBY_Z = 0;
-    /** Distance between arena centres. */
-    public static final int SPACING = 300;
+    /** Where the lobby island is, west of the arena grid. */
+    public static final int LOBBY_X = -700, LOBBY_Z = 0;
 
-    private static final Map<String, Material> MAT = new HashMap<>();
-    static {
-        MAT.put("grass", Material.GRASS_BLOCK);
-        MAT.put("coarse", Material.COARSE_DIRT);
-        MAT.put("path", Material.DIRT_PATH);
-        MAT.put("podzol", Material.PODZOL);
-        MAT.put("mossycobble", Material.MOSSY_COBBLESTONE);
-        MAT.put("oaklog", Material.OAK_LOG);
-        MAT.put("oakleaves", Material.OAK_LEAVES);
-        MAT.put("hay", Material.HAY_BLOCK);
-        MAT.put("cobble", Material.MOSSY_COBBLESTONE);
-        MAT.put("sand", Material.SAND);
-        MAT.put("smooth", Material.SMOOTH_SANDSTONE);
-        MAT.put("cut", Material.CUT_SANDSTONE);
-        MAT.put("chiseled", Material.CHISELED_SANDSTONE);
-        MAT.put("pillar", Material.SANDSTONE);
-        MAT.put("dune", Material.SAND);
-        MAT.put("poplarlog", Material.POPLAR_LOG);
-        MAT.put("strippedpoplar", Material.STRIPPED_POPLAR_LOG);
-        MAT.put("poplaryellow", Material.YELLOW_POPLAR_LEAVES);
-        MAT.put("poplarorange", Material.ORANGE_POPLAR_LEAVES);
-        MAT.put("poplarred", Material.RED_POPLAR_LEAVES);
-        MAT.put("fallen", Material.POPLAR_LOG);
-        MAT.put("snow", Material.SNOW_BLOCK);
-        MAT.put("packedice", Material.PACKED_ICE);
-        MAT.put("ice", Material.ICE);
-        MAT.put("sprucelog", Material.SPRUCE_LOG);
-        MAT.put("spruce", Material.SPRUCE_LEAVES);
-        MAT.put("drift", Material.SNOW_BLOCK);
-        MAT.put("spike", Material.PACKED_ICE);
-        MAT.put("cherrylog", Material.CHERRY_LOG);
-        MAT.put("cherry", Material.CHERRY_LEAVES);
-        MAT.put("cherryplanks", Material.CHERRY_PLANKS);
-        MAT.put("stonebrick", Material.MOSSY_STONE_BRICKS);
-        MAT.put("gardenwall", Material.STONE_BRICKS);
-        MAT.put("pad", Material.LIME_CONCRETE);
-        MAT.put("spawn", Material.EMERALD_BLOCK);
-        MAT.put("inlay", Material.LIME_TERRACOTTA);
-        // decorations
-        MAT.put("dandelion", Material.DANDELION);
-        MAT.put("poppy", Material.POPPY);
-        MAT.put("petals", Material.PINK_PETALS);
-        MAT.put("deadbush", Material.DEAD_BUSH);
-        MAT.put("fern", Material.FERN);
-        MAT.put("snowlayer", Material.SNOW);
-        MAT.put("leaflitter", Material.LEAF_LITTER);
-    }
+    /** One arena position on the grid. */
+    public record Slot(int index, ArenaTheme theme, boolean large, int radius) {
+        public int cx() { return (index % COLS) * SPACING; }
 
-    /** Feature blocks that are built as plain columns straight from the plan. */
-    private static final Set<String> COLUMNS = Set.of("hay", "cobble", "cut", "pillar", "dune", "fallen", "drift", "spike", "gardenwall");
-
-    /** theme == null means the lobby. */
-    private record Job(ArenaTheme theme, int slot, String name, Arena existing, boolean forceSpawn) {
-        Job(ArenaTheme theme, int slot, String name, Arena existing) {
-            this(theme, slot, name, existing, false);
-        }
+        public int cz() { return (index / COLS) * SPACING; }
     }
 
     private final MintPvP plugin;
-    private final Deque<Job> jobs = new ArrayDeque<>();
-    private final Map<Material, BlockData> dataCache = new EnumMap<>(Material.class);
+    private final Map<Integer, Slot> slots = new ConcurrentHashMap<>();
+    private final Map<Integer, ArenaModel> models = new ConcurrentHashMap<>();
+    private volatile Map<Long, Map<Long, BlockData>> lobbyBuckets = Map.of();
+    private final Random rnd = new Random();
     private World world;
-    private BukkitTask task;
-
-    // the build in progress
-    private Job active;
-    private int[] px, py, pz;
-    private BlockData[] pd;
-    private int cursor, count;
+    private ArenaWorldGenerator worldGen;
 
     public ArenaGenerator(MintPvP plugin) {
         this.plugin = plugin;
@@ -123,13 +62,48 @@ public final class ArenaGenerator {
         return world;
     }
 
+    // ---- lookups used by the chunk generator (thread-safe) ---------------
+
+    Slot slotAt(int x, int z) {
+        int col = Math.floorDiv(x + SPACING / 2, SPACING), row = Math.floorDiv(z + SPACING / 2, SPACING);
+        if (col < 0 || col >= COLS || row < 0) return null;
+        return slots.get(row * COLS + col);
+    }
+
+    ArenaModel model(Slot s) {
+        return models.computeIfAbsent(s.index(), i -> new ArenaModel(s.theme(), s.large(), s.radius()));
+    }
+
+    Map<Long, BlockData> lobbyChunk(int cx, int cz) {
+        return lobbyBuckets.get(chunkKey(cx, cz));
+    }
+
+    private static long chunkKey(int cx, int cz) {
+        return ((long) cx << 32) | (cz & 0xFFFFFFFFL);
+    }
+
     // ---- lifecycle ------------------------------------------------------
 
     public void start() {
         if (!enabled()) return;
-        String name = plugin.getConfig().getString("arena-generator.world", "mint_arenas");
+        String name = plugin.getConfig().getString("arena-generator.world-name", "mint_arenas_2");
+
+        // arenas from an older generator (other world) can't be used any more: forget them
+        int dropped = plugin.arenas().removeGeneratedOutside(name);
+        if (dropped > 0) {
+            plugin.getLogger().info("Removed " + dropped + " generated arenas from the old arena world; new ones are being made in '" + name + "'. You can delete the old world folder.");
+        }
+        for (Arena a : plugin.arenas().all()) {
+            ArenaTheme t = ArenaTheme.byId(a.theme);
+            if (a.theme == null || t == null || a.slot < 0) continue;
+            register(new Slot(a.slot, t, a.large, a.radius > 0 ? a.radius : 38));
+            a.pending = false;
+        }
+        if (lobbyEnabled()) registerLobby();
+
         try {
-            world = new WorldCreator(name).generator(new VoidGenerator()).environment(World.Environment.NORMAL)
+            worldGen = new ArenaWorldGenerator(this);
+            world = new WorldCreator(name).generator(worldGen).environment(World.Environment.NORMAL)
                     .generateStructures(false).createWorld();
         } catch (RuntimeException e) {
             plugin.getLogger().severe("Could not create the arena world '" + name + "': " + e.getMessage());
@@ -139,378 +113,246 @@ public final class ArenaGenerator {
             plugin.getLogger().severe("Could not create the arena world '" + name + "'.");
             return;
         }
+        // The terrain is a pure function of the generator, so it never needs saving. Not saving is also
+        // what lets a reset (dropping the chunks) bring an arena back to its original state.
+        world.setAutoSave(false);
         world.setGameRule(GameRules.SPAWN_MOBS, false);
         world.setGameRule(GameRules.SPAWN_MONSTERS, false);
         world.setGameRule(GameRules.ADVANCE_TIME, false);
         world.setGameRule(GameRules.ADVANCE_WEATHER, false);
+        world.setGameRule(GameRules.LOCATOR_BAR, true); // players can see each other on the locator bar
         world.setTime(6000);
         world.setStorm(false);
         world.setThundering(false);
 
+        if (lobbyEnabled() && !plugin.spawn().isSet()) {
+            plugin.spawn().set(lobbySpawn());
+            plugin.getLogger().info("Lobby generated and set as the server spawn.");
+        }
+        for (int dx = -3; dx <= 3; dx++) for (int dz = -3; dz <= 3; dz++) world.getChunkAtAsync((LOBBY_X >> 4) + dx, (LOBBY_Z >> 4) + dz);
         fillPool();
-        task = Bukkit.getScheduler().runTaskTimer(plugin, this::tick, 20L, 1L);
     }
 
     public void stop() {
-        if (task != null) task.cancel();
-        if (active != null && active.existing() != null) active.existing().inUse = false;
-        jobs.clear();
-        active = null;
+        // nothing to clean up: the world is never saved
     }
 
-    private int perTheme() {
-        return Math.max(0, plugin.getConfig().getInt("arena-generator.per-theme", 2));
-    }
-
-    private int maxTotal() {
-        return Math.max(1, plugin.getConfig().getInt("arena-generator.max-total", 30));
-    }
-
-    /** Generated arenas plus the ones queued or being built. */
-    public int total() {
-        return (int) plugin.arenas().all().stream().filter(a -> a.theme != null).count()
-                + (int) jobs.stream().filter(j -> j.theme() != null).count()
-                + (active != null && active.theme() != null && active.existing() == null ? 1 : 0);
-    }
-
-    public boolean building() {
-        return active != null || !jobs.isEmpty();
-    }
-
-    public String status() {
-        if (active == null) return jobs.isEmpty() ? "idle" : jobs.size() + " queued";
-        int pct = count == 0 ? 0 : (int) (100L * cursor / count);
-        return "building " + active.name() + " (" + pct + "%)" + (jobs.isEmpty() ? "" : ", " + jobs.size() + " queued");
-    }
-
-    // ---- lobby ----------------------------------------------------------
-
-    private File lobbyFile() {
-        return new File(plugin.getDataFolder(), "lobby.yml");
-    }
-
-    private boolean lobbyBuilt() {
-        return lobbyFile().exists() && YamlConfiguration.loadConfiguration(lobbyFile()).getBoolean("built");
-    }
-
-    /** Queues the lobby build. @param forceSpawn also moves the server spawn there, even if one is already set. */
-    public boolean buildLobby(boolean forceSpawn) {
-        if (world == null) return false;
-        jobs.removeIf(j -> j.theme() == null);
-        jobs.addFirst(new Job(null, -1, "lobby", null, forceSpawn));
-        return true;
+    private boolean lobbyEnabled() {
+        return plugin.getConfig().getBoolean("arena-generator.lobby", true);
     }
 
     public Location lobbySpawn() {
         return world == null ? null : new Location(world, LOBBY_X + 0.5, FLOOR_Y + 1, LOBBY_Z + 0.5, 0f, 0f);
     }
 
-    private void prepareLobby(Job job) {
-        Map<Long, BlockData> out = new LinkedHashMap<>(120_000);
-        LobbyDesign.place(out, this::data, LOBBY_X, LOBBY_Z, FLOOR_Y);
-        flatten(out);
+    private void registerLobby() {
+        Map<Long, BlockData> out = new HashMap<>(120_000);
+        LobbyDesign.place(out, Blocks::data, LOBBY_X, LOBBY_Z, FLOOR_Y);
+        Map<Long, Map<Long, BlockData>> buckets = new HashMap<>();
+        for (var e : out.entrySet()) {
+            if (e.getValue().getMaterial().isAir()) continue; // the void needs no clearing
+            long k = e.getKey();
+            buckets.computeIfAbsent(chunkKey(Pack.x(k) >> 4, Pack.z(k) >> 4), kk -> new HashMap<>()).put(k, e.getValue());
+        }
+        lobbyBuckets = buckets;
     }
 
-    private void finishLobby(Job job) {
-        YamlConfiguration y = new YamlConfiguration();
-        y.set("built", true);
-        try {
-            plugin.getDataFolder().mkdirs();
-            y.save(lobbyFile());
-        } catch (IOException e) {
-            plugin.getLogger().warning("Could not save lobby.yml: " + e.getMessage());
+    // ---- pool -----------------------------------------------------------
+
+    private void register(Slot s) {
+        slots.put(s.index(), s);
+        models.remove(s.index());
+    }
+
+    public void forget(Arena a) {
+        if (a.slot >= 0) {
+            slots.remove(a.slot);
+            models.remove(a.slot);
         }
-        if (job.forceSpawn() || !plugin.spawn().isSet()) {
-            plugin.spawn().set(lobbySpawn());
-            plugin.getLogger().info("Lobby built and set as the server spawn.");
-        } else {
-            plugin.getLogger().info("Lobby built (your existing spawn was kept; use /arena lobby to move the spawn there).");
-        }
-        active = null;
-        px = py = pz = null;
-        pd = null;
+    }
+
+    private int perTheme() { return Math.max(0, plugin.getConfig().getInt("arena-generator.per-theme", 2)); }
+
+    private int rankedPerTheme() { return Math.max(0, plugin.getConfig().getInt("arena-generator.ranked-per-theme", 1)); }
+
+    private int maxTotal() { return Math.max(1, plugin.getConfig().getInt("arena-generator.max-total", 30)); }
+
+    public int total() {
+        return (int) plugin.arenas().all().stream().filter(a -> a.theme != null).count();
+    }
+
+    public boolean building() {
+        return plugin.arenas().all().stream().anyMatch(a -> a.pending);
+    }
+
+    public String status() {
+        long n = plugin.arenas().all().stream().filter(a -> a.pending).count();
+        return n == 0 ? "idle" : n + " generating";
     }
 
     private void fillPool() {
-        if (plugin.getConfig().getBoolean("arena-generator.lobby", true) && !lobbyBuilt()) buildLobby(false);
+        int made = 0;
         for (ArenaTheme t : ArenaTheme.values()) {
-            long have = plugin.arenas().all().stream().filter(a -> t.id.equals(a.theme)).count();
-            for (long i = have; i < perTheme() && total() < maxTotal(); i++) enqueue(t);
+            for (boolean large : new boolean[] {false, true}) {
+                long have = plugin.arenas().all().stream().filter(a -> t.id.equals(a.theme) && a.large == large).count();
+                int want = large ? rankedPerTheme() : perTheme();
+                for (long i = have; i < want && total() < maxTotal(); i++) {
+                    create(t, large);
+                    made++;
+                }
+            }
         }
-        if (!jobs.isEmpty()) plugin.getLogger().info("Building " + jobs.size() + " pre-made arenas in the background...");
+        if (made > 0) plugin.getLogger().info("Generating " + made + " pre-made arenas...");
     }
 
-    private int nextSlot() {
-        int max = -1;
-        for (Arena a : plugin.arenas().all()) max = Math.max(max, a.slot);
-        for (Job j : jobs) max = Math.max(max, j.slot());
-        if (active != null) max = Math.max(max, active.slot());
-        return max + 1;
-    }
-
-    private String nextName(ArenaTheme t) {
+    private String nextName(ArenaTheme t, boolean large) {
         Set<String> taken = new HashSet<>();
         plugin.arenas().all().forEach(a -> taken.add(a.name.toLowerCase(Locale.ROOT)));
-        jobs.forEach(j -> taken.add(j.name()));
-        if (active != null) taken.add(active.name());
-        for (int i = 1; ; i++) {
-            String n = t.id + "-" + i;
-            if (!taken.contains(n)) return n;
+        String prefix = (large ? "ranked-" : "") + t.id + "-";
+        for (int i = 1; ; i++) if (!taken.contains(prefix + i)) return prefix + i;
+    }
+
+    private Arena create(ArenaTheme theme, boolean large) {
+        int min = Math.max(40, plugin.getConfig().getInt("arena-generator.ranked-radius-min", 100));
+        int max = Math.max(min, plugin.getConfig().getInt("arena-generator.ranked-radius-max", 150));
+        int radius = large ? min + rnd.nextInt(max - min + 1) : 38;
+        Slot slot = new Slot(plugin.arenas().nextSlot(), theme, large, radius);
+        register(slot);
+        int sp = model(slot).spawnX;
+        Location s1 = new Location(world, slot.cx() - sp + 0.5, FLOOR_Y + 1, slot.cz() + 0.5, -90f, 0f);
+        Location s2 = new Location(world, slot.cx() + sp + 0.5, FLOOR_Y + 1, slot.cz() + 0.5, 90f, 0f);
+        Arena a = plugin.arenas().addGenerated(nextName(theme, large), theme.id, slot.index(), s1, s2, large, radius);
+        warm(a, slot, sp);
+        return a;
+    }
+
+    /** Generates the chunks around the spawns and centre in the background, then marks the arena ready. */
+    private void warm(Arena a, Slot slot, int spawnX) {
+        Set<Long> chunks = new HashSet<>();
+        int[][] spots = {{slot.cx() - spawnX, slot.cz()}, {slot.cx() + spawnX, slot.cz()}, {slot.cx(), slot.cz()}};
+        for (int[] p : spots) {
+            for (int dx = -2; dx <= 2; dx++) for (int dz = -2; dz <= 2; dz++) chunks.add(chunkKey((p[0] >> 4) + dx, (p[1] >> 4) + dz));
         }
+        List<CompletableFuture<?>> futures = new ArrayList<>();
+        for (long k : chunks) futures.add(world.getChunkAtAsync((int) (k >> 32), (int) k));
+        CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).whenComplete((v, err) ->
+                Bukkit.getScheduler().runTask(plugin, () -> {
+                    a.pending = false;
+                    if (err != null) plugin.getLogger().warning("Arena " + a.name + " generated with a warning: " + err.getMessage());
+                    else plugin.getLogger().info("Arena " + a.name + " is ready.");
+                }));
     }
 
-    private void enqueue(ArenaTheme t) {
-        jobs.add(new Job(t, nextSlot(), nextName(t), null));
-    }
-
-    /** Queues new arenas (admin command). @return how many were queued. */
-    public int generate(ArenaTheme theme, int amount) {
+    /** Queues new arenas (admin command). @return how many were made. */
+    public int generate(ArenaTheme theme, int amount, boolean large) {
         if (world == null) return 0;
-        int queued = 0;
-        Random rnd = new Random();
+        int made = 0;
         for (int i = 0; i < amount && total() < maxTotal(); i++) {
-            enqueue(theme != null ? theme : ArenaTheme.values()[rnd.nextInt(ArenaTheme.values().length)]);
-            queued++;
+            create(theme != null ? theme : ArenaTheme.values()[rnd.nextInt(ArenaTheme.values().length)], large);
+            made++;
         }
-        return queued;
+        return made;
     }
 
-    /** Builds one extra random arena when all are busy. @return true if one is (now) on its way. */
-    public boolean requestExtra() {
+    /** Makes one more arena when all are busy. @return true if one exists or is on its way. */
+    public boolean requestExtra(boolean large) {
         if (!enabled() || world == null) return false;
         if (building()) return true;
         if (total() >= maxTotal()) return false;
-        enqueue(ArenaTheme.values()[new Random().nextInt(ArenaTheme.values().length)]);
+        create(ArenaTheme.values()[rnd.nextInt(ArenaTheme.values().length)], large);
         return true;
     }
 
-    /** Re-places every block of a generated arena (e.g. after someone edited it). */
-    public boolean rebuild(Arena a) {
-        ArenaTheme t = ArenaTheme.byId(a.theme);
-        if (world == null || t == null || a.slot < 0 || a.inUse) return false;
-        a.inUse = true; // nobody gets sent there mid-rebuild
-        jobs.add(new Job(t, a.slot, a.name, a));
-        return true;
+    // ---- reset ----------------------------------------------------------
+
+    public boolean resets(Arena a) {
+        return world != null && a.theme != null && a.slot >= 0 && a.center() != null && world.equals(a.center().getWorld());
     }
 
-    // ---- building -------------------------------------------------------
+    private record Fix(int x, int y, int z, BlockData data) {}
 
-    private static int centerX(int slot) {
-        return (slot % 10) * SPACING;
-    }
+    /**
+     * Puts a generated arena back exactly as it was. Every loaded chunk of the arena is compared with
+     * what the generator produces for it (in the background), and each block that differs is put back
+     * (a few thousand per tick). This undoes anything: placed or broken blocks, fire, liquids, falling
+     * blocks, explosions. {@code done} runs when everything is back.
+     */
+    public void reset(Arena a, Runnable done) {
+        if (!resets(a) || !plugin.isEnabled()) {
+            done.run();
+            return;
+        }
+        var c = a.center();
+        int r = a.radius() + 4;
+        int x0 = (c.getBlockX() - r) >> 4, x1 = (c.getBlockX() + r) >> 4, z0 = (c.getBlockZ() - r) >> 4, z1 = (c.getBlockZ() + r) >> 4;
 
-    private static int centerZ(int slot) {
-        return (slot / 10) * SPACING;
-    }
+        // loose items, arrows and anything else that isn't a player
+        world.getNearbyEntities(a.box(), e -> !(e instanceof org.bukkit.entity.Player)).forEach(org.bukkit.entity.Entity::remove);
 
-    private void tick() {
-        if (active == null) {
-            active = jobs.poll();
-            if (active == null) return;
+        List<org.bukkit.ChunkSnapshot> snaps = new ArrayList<>();
+        for (int x = x0; x <= x1; x++) {
+            for (int z = z0; z <= z1; z++) {
+                if (world.isChunkLoaded(x, z)) snaps.add(world.getChunkAt(x, z).getChunkSnapshot());
+            }
+        }
+        Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
+            List<Fix> fixes = new ArrayList<>();
             try {
-                if (active.theme() == null) prepareLobby(active); else prepare(active);
+                for (org.bukkit.ChunkSnapshot snap : snaps) diff(snap, fixes);
             } catch (RuntimeException e) {
-                plugin.getLogger().log(java.util.logging.Level.SEVERE, "Could not plan arena " + active.name(), e);
-                if (active.existing() != null) active.existing().inUse = false;
-                active = null;
-                return;
+                plugin.getLogger().log(java.util.logging.Level.WARNING, "Arena reset scan failed for " + a.name, e);
             }
-        }
-        int budget = Math.max(500, plugin.getConfig().getInt("arena-generator.blocks-per-tick", 5000));
-        try {
-            int end = Math.min(count, cursor + budget);
-            for (; cursor < end; cursor++) {
-                world.getBlockAt(px[cursor], py[cursor], pz[cursor]).setBlockData(pd[cursor], false);
-            }
-            if (cursor >= count) {
-                if (active.theme() == null) finishLobby(active); else finish(active);
-            }
-        } catch (RuntimeException e) {
-            plugin.getLogger().log(java.util.logging.Level.SEVERE, "Arena build failed for " + active.name(), e);
-            if (active.existing() != null) active.existing().inUse = false;
-            active = null;
-        }
-    }
-
-    private BlockData data(Material m) {
-        return dataCache.computeIfAbsent(m, k -> {
-            BlockData d = k.createBlockData();
-            // fuller patches of petals / litter, if this version uses these properties
-            try {
-                if (k == Material.PINK_PETALS) d = Bukkit.createBlockData("minecraft:pink_petals[flower_amount=4]");
-                if (k == Material.LEAF_LITTER) d = Bukkit.createBlockData("minecraft:leaf_litter[segment_amount=3]");
-            } catch (IllegalArgumentException ignored) {
-                // keep the default state
-            }
-            if (d instanceof Leaves l) l.setPersistent(true); // never decay
-            return d;
+            Bukkit.getScheduler().runTask(plugin, () -> applyFixes(a, fixes, 0, done));
         });
     }
 
-    private BlockData data(String key) {
-        Material m = MAT.get(key);
-        if (m == null) throw new IllegalStateException("No block for '" + key + "'");
-        return data(m);
+    /** Resets an arena right now, on the calling (main) thread. Used on shutdown, when tasks can't be scheduled. */
+    public void resetSync(Arena a) {
+        if (!resets(a)) return;
+        var c = a.center();
+        int r = a.radius() + 4;
+        int x0 = (c.getBlockX() - r) >> 4, x1 = (c.getBlockX() + r) >> 4, z0 = (c.getBlockZ() - r) >> 4, z1 = (c.getBlockZ() + r) >> 4;
+        List<Fix> fixes = new ArrayList<>();
+        for (int x = x0; x <= x1; x++) {
+            for (int z = z0; z <= z1; z++) {
+                if (world.isChunkLoaded(x, z)) diff(world.getChunkAt(x, z).getChunkSnapshot(), fixes);
+            }
+        }
+        for (Fix f : fixes) world.getBlockAt(f.x(), f.y(), f.z()).setBlockData(f.data(), false);
     }
 
-    private BlockData log(String key, Axis axis) {
-        BlockData d = data(key).clone();
-        if (d instanceof Orientable o) o.setAxis(axis);
-        return d;
-    }
-
-    /** Turns the plan into a list of block placements. */
-    private void prepare(Job job) {
-        ArenaTheme theme = job.theme();
-        ArenaLayout.Spec spec = ArenaLayout.spec(theme);
-        Cell[] cells = ArenaLayout.build(theme);
-        int cx = centerX(job.slot()), cz = centerZ(job.slot()), y0 = FLOOR_Y;
-        int n = ArenaLayout.N, c = ArenaLayout.C;
-
-        Map<Long, BlockData> out = new LinkedHashMap<>(220_000);
-        BlockData air = data(Material.AIR);
-        BlockData sub = data(theme.sub);
-        BlockData barrier = data(Material.BARRIER);
-
-        // 1. clear the whole slot (makes rebuilds and half-finished builds safe)
-        for (int dx = -c; dx <= c; dx++)
-            for (int dz = -c; dz <= c; dz++)
-                for (int y = y0 - 2; y <= y0 + CLEAR_TOP + 2; y++) out.put(key(cx + dx, y, cz + dz), air);
-
-        // 2. floor, walls, barrier ring, decorations and column features
-        for (int dz = -c; dz <= c; dz++) {
-            for (int dx = -c; dx <= c; dx++) {
-                Cell cell = cells[(dz + c) * n + (dx + c)];
-                if (cell == null) continue;
-                int x = cx + dx, z = cz + dz;
-                out.put(key(x, y0 - 2, z), sub);
-                out.put(key(x, y0 - 1, z), sub);
-                if (cell.wall) {
-                    // the edge ring: ordinary floor, with an invisible barrier standing on it
-                    out.put(key(x, y0, z), data(cell.floor));
-                    for (int y = 1; y <= CEILING; y++) out.put(key(x, y0 + y, z), barrier);
-                    continue;
-                }
-                out.put(key(x, y0, z), data(cell.floor));
-                if (cell.dec != null && cell.h == 0) out.put(key(x, y0 + 1, z), data(cell.dec));
-                if (cell.h > 0 && COLUMNS.contains(cell.b)) {
-                    for (int y = 1; y <= cell.h; y++) {
-                        BlockData d;
-                        if (cell.b.equals("fallen")) d = log("fallen", Axis.Z);
-                        else if (cell.b.equals("pillar") && y == cell.h) d = data(Material.CHISELED_SANDSTONE);
-                        else d = data(cell.b);
-                        out.put(key(x, y0 + y, z), d);
-                    }
+    private void diff(org.bukkit.ChunkSnapshot snap, List<Fix> out) {
+        var expected = Bukkit.createChunkData(world);
+        worldGen.generateNoise(null, null, snap.getX(), snap.getZ(), expected);
+        int bx = snap.getX() << 4, bz = snap.getZ() << 4;
+        int minY = world.getMinHeight(), maxY = world.getMaxHeight();
+        for (int y = minY; y < maxY; y++) {
+            for (int x = 0; x < 16; x++) {
+                for (int z = 0; z < 16; z++) {
+                    var have = snap.getBlockType(x, y, z);
+                    var want = expected.getType(x, y, z);
+                    if (have == want || (have.isAir() && want.isAir())) continue;
+                    out.add(new Fix(bx + x, y, bz + z, expected.getBlockData(x, y, z)));
                 }
             }
         }
-
-        // 3. trees, in 3D, mirrored exactly like the plan
-        Set<String> placed = new HashSet<>();
-        for (Feature f : spec.features()) {
-            if (!f.k().equals("tree")) continue;
-            for (int sx : new int[] {1, -1}) {
-                for (int sz : new int[] {1, -1}) {
-                    int tx = sx * f.x(), tz = sz * f.z();
-                    if (!placed.add(tx + "," + tz + f.leaves())) continue;
-                    tree(out, f, cx, cz, tx, tz, y0);
-                }
-            }
-        }
-
-        flatten(out);
     }
 
-    private void flatten(Map<Long, BlockData> out) {
-        count = out.size();
-        px = new int[count];
-        py = new int[count];
-        pz = new int[count];
-        pd = new BlockData[count];
-        int i = 0;
-        for (var e : out.entrySet()) {
-            long k = e.getKey();
-            px[i] = (int) (k >> 38);
-            py[i] = (int) ((k << 26) >> 52);
-            pz[i] = (int) ((k << 38) >> 38);
-            pd[i] = e.getValue();
-            i++;
+    private void applyFixes(Arena a, List<Fix> fixes, int from, Runnable done) {
+        if (!plugin.isEnabled()) {
+            done.run();
+            return;
         }
-        cursor = 0;
-    }
-
-    private void tree(Map<Long, BlockData> out, Feature f, int cx, int cz, int tx, int tz, int y0) {
-        int h = f.h(), r = (int) f.r();
-        BlockData leaf = data(f.leaves());
-        // {height above floor, radius}
-        List<int[]> layers = new ArrayList<>();
-        switch (f.trunk()) {
-            case "poplarlog" -> { // tall and narrow
-                for (int y = 4; y <= h; y++) layers.add(new int[] {y, r});
-                layers.add(new int[] {h + 1, 0});
-            }
-            case "sprucelog" -> { // cone
-                layers.add(new int[] {3, 2});
-                layers.add(new int[] {4, 1});
-                layers.add(new int[] {5, 2});
-                layers.add(new int[] {6, 1});
-                layers.add(new int[] {h, 1});
-                layers.add(new int[] {h + 1, 0});
-            }
-            case "cherrylog" -> { // wide umbrella
-                layers.add(new int[] {h - 1, Math.max(1, r - 1)});
-                layers.add(new int[] {h, r});
-                layers.add(new int[] {h + 1, Math.max(1, r - 1)});
-            }
-            default -> { // oak
-                layers.add(new int[] {h - 1, r});
-                layers.add(new int[] {h, r});
-                layers.add(new int[] {h + 1, Math.max(1, r - 1)});
-            }
+        int to = Math.min(fixes.size(), from + 15000);
+        for (int i = from; i < to; i++) {
+            Fix f = fixes.get(i);
+            world.getBlockAt(f.x(), f.y(), f.z()).setBlockData(f.data(), false);
         }
-        for (int[] layer : layers) {
-            int ly = layer[0], lr = layer[1];
-            for (int x = tx - lr; x <= tx + lr; x++) {
-                for (int z = tz - lr; z <= tz + lr; z++) {
-                    if (Math.hypot(x - tx, z - tz) > lr + .35) continue;
-                    if (!ArenaLayout.inside(x, z) || ArenaLayout.nearSpawn(x, z)) continue;
-                    if (x == tx && z == tz && ly <= h) continue; // trunk goes here
-                    out.put(key(cx + x, y0 + ly, cz + z), leaf);
-                }
-            }
-        }
-        if (ArenaLayout.inside(tx, tz) && !ArenaLayout.nearSpawn(tx, tz)) {
-            BlockData trunk = log(f.trunk(), Axis.Y);
-            for (int y = 1; y <= h; y++) out.put(key(cx + tx, y0 + y, cz + tz), trunk);
-            if (f.trunk().equals("sprucelog")) out.put(key(cx + tx, y0 + h + 2, cz + tz), data(Material.SNOW));
-        }
-    }
-
-    /** Packs a block position (x, z: 26 bits signed; y: 12 bits signed) into a long. */
-    static long key(int x, int y, int z) {
-        return ((long) (x & 0x3FFFFFF) << 38) | ((long) (y & 0xFFF) << 26) | (z & 0x3FFFFFF);
-    }
-
-    private void finish(Job job) {
-        int cx = centerX(job.slot()), cz = centerZ(job.slot());
-        // biome for grass, leaf and sky colours
-        var biome = job.theme().biome();
-        int c = ArenaLayout.C;
-        for (int dx = -c; dx <= c; dx += 2)
-            for (int dz = -c; dz <= c; dz += 2)
-                for (int y = FLOOR_Y - 4; y <= FLOOR_Y + CLEAR_TOP + 4; y += 4) world.setBiome(cx + dx, y, cz + dz, biome);
-
-        Location s1 = new Location(world, cx - ArenaLayout.SPAWN_X + 0.5, FLOOR_Y + 1, cz + 0.5, -90f, 0f);
-        Location s2 = new Location(world, cx + ArenaLayout.SPAWN_X + 0.5, FLOOR_Y + 1, cz + 0.5, 90f, 0f);
-        if (job.existing() != null) {
-            job.existing().inUse = false;
-            plugin.getLogger().info("Rebuilt arena " + job.name() + ".");
+        if (to >= fixes.size()) {
+            if (!fixes.isEmpty()) plugin.getLogger().info("Reset arena " + a.name + " (" + fixes.size() + " blocks put back).");
+            done.run();
         } else {
-            plugin.arenas().addGenerated(job.name(), job.theme().id, job.slot(), s1, s2);
-            plugin.getLogger().info("Built arena " + job.name() + " (" + job.theme().display + ").");
+            Bukkit.getScheduler().runTask(plugin, () -> applyFixes(a, fixes, to, done));
         }
-        active = null;
-        px = py = pz = null;
-        pd = null;
     }
 }

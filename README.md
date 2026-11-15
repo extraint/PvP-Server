@@ -129,30 +129,39 @@ are stored by world name, so an arena in a world that isn't loaded yet is skippe
 until that world loads.
 
 ## Pre-made arenas (auto-generated)
-The plugin builds round duel arenas into its own empty world (`mint_arenas`), so no other
-world is ever touched. Five themes: **Plains, Desert, Poplar Grove, Snowy, Cherry Grove**,
-each a 75-block circle with no visible wall (an invisible barrier seals the edge), with spawns 60 blocks apart and mirror-symmetric
-cover so both sides are equal.
+The plugin generates its own arena world (`mint_arenas_2`) the way a normal world is made: terrain
+appears as chunks load, so there is nothing to build and no waiting. No other world is touched.
+Five themes: **Plains, Desert, Poplar Grove, Snowy, Cherry Grove**.
 
-- On first start it builds 2 of each theme (10 arenas, about 20 seconds in the background).
-- When every arena is busy it builds another one on demand, up to 30.
-- Arenas never need resetting (blocks can't change during duels) and survive restarts.
-- The queue picks a random free arena; hand-made arenas keep working alongside them.
+- **Underground:** every arena goes down to bedrock with stone, deepslate, granite/diorite/andesite/tuff
+  patches, ores, winding tunnels, big caverns and a few cave entrances from the surface. Everything
+  is mirror-symmetric, so both players always get the same ground. Players can dig; see "Reset".
+- **Unranked arenas:** 75 blocks across, hand-designed cover, spawns 60 apart. 2 of each theme on start.
+- **Ranked arenas:** the same themes at a random radius of **100-150** (200-300 across) with rolling
+  hills and scattered cover; spawns are 80% of the radius from the centre. 1 of each theme on start.
+  Ranked queue matches and `/challenge` duels use these; unranked uses the small ones.
+- No visible walls and no ground decorations: an invisible barrier seals the edge.
+- More arenas are made on demand when all are busy, up to `arena-generator.max-total` (30).
+- The **locator bar** is on in the arena world, so players can see each other.
 
 ```
-/arena themes                          # themes, how many of each, generator status
-/arena generate <theme|random> [count] # build more
-/arena rebuild <name>                  # re-place every block of a generated arena
+/arena themes                                 # themes, how many of each, generator status
+/arena generate <theme|random> [count] [large]  # make more ("large" = ranked size)
+/arena reset <name>                           # reset a generated arena to its original state
+/arena lobby                                  # make the generated lobby the server spawn
 ```
-Settings: `arena-generator:` in `config.yml` (`enabled`, `world`, `per-theme`, `max-total`,
-`blocks-per-tick`).
+Settings: `arena-generator:` in `config.yml` (`world-name`, `per-theme`, `ranked-per-theme`,
+`ranked-radius-min/max`, `max-total`, `lobby`). Upgrading from the older floating-island arenas:
+the old generated arenas are dropped automatically and new ones are made in the new world; you can
+delete the old `mint_arenas` world folder.
 
-### Lobby
-The generator also builds a mint **lobby island** (a round floating quartz platform with an
-emerald spawn disc, lantern pillars, cherry trees and a railed edge) in the same world and
-uses it as the server spawn the first time, if no spawn is set. `/arena lobby` rebuilds it
-and moves the spawn there; `/setspawn` still lets you put the spawn anywhere else.
-Turn it off with `arena-generator.lobby: false`.
+### Reset
+After every duel the arena is **reset completely**. The plugin compares each loaded chunk of the
+arena with what the generator would produce (in the background) and puts back every block that
+differs, a few thousand per tick, so placed/broken blocks, fire, liquids, falling blocks and
+explosions are all undone, and loose items and arrows are cleared. The arena stays locked until
+the reset is finished. Hand-made arenas only get back the blocks that were recorded as changed. If
+the server stops mid-duel, generated arenas are reset on the way out.
 
 ### Building and height in arenas
 - Duelists **can place and break blocks** in arenas (`duel.allow-building`, default on). Every
@@ -175,15 +184,8 @@ Turn it off with `arena-generator.lobby: false`.
 
 ### Pearls and walls
 Ender pearls and chorus fruit work in duels as long as you land inside the arena (a pearl that
-would land outside is cancelled). Generated arenas have no visible wall: the floor runs to the
-island's edge and an invisible barrier stops anyone leaving. Existing arenas keep their old walls
-until you run `/arena rebuild all` (arenas in use are skipped).
-
-### Clean floors
-Generated arenas have no ground decorations: no flowers, ferns, dead bushes, pink petals, leaf
-litter or snow layers. The floor itself (grass blocks, sand, snow blocks...) is unchanged. Run
-`/arena rebuild all` to clean arenas you already have. (To bring decorations back, set
-`DECORATIONS = true` in `arenagen/ArenaLayout.java` and rebuild.)
+would land outside is cancelled). Generated arenas have no visible wall: an invisible barrier
+seals the edge.
 
 ### How a duel can end
 Winner = the other player dies, quits or forfeits. At the time limit (`duel.max-duration-seconds`,
