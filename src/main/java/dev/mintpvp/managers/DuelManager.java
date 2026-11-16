@@ -957,20 +957,25 @@ public final class DuelManager {
         }
     }
 
-    /** Applies the Elo change and tells both players (1v1 ranked duels only). */
+    /** Applies the adaptive Elo change and tells both players (1v1 ranked duels only). */
     private void rankedResult(Duel duel, Player first, boolean draw) {
         Player second = duel.opponentOf(first);
         int k = plugin.getConfig().getInt("ranked.k-factor", 32);
-        int[] d = plugin.stats().recordRanked(first.getUniqueId(), second.getUniqueId(), draw, k);
-        eloMessage(first, d[0]);
-        eloMessage(second, d[1]);
+        var c = plugin.stats().recordRanked(first.getUniqueId(), second.getUniqueId(), draw, k);
+        eloMessage(first, c[0]);
+        eloMessage(second, c[1]);
     }
 
-    private void eloMessage(Player p, int delta) {
+    private void eloMessage(Player p, StatsManager.EloChange c) {
         Theme t = plugin.theme();
-        int elo = plugin.stats().get(p.getUniqueId()).elo;
-        p.sendMessage(t.info(t.text("elo " + (delta >= 0 ? "+" : "") + delta + " → " + elo, t.accent())
-                .append(t.text(" · " + dev.mintpvp.util.Tier.of(elo).label, t.muted()))));
+        var st = plugin.stats().get(p.getUniqueId());
+        int elo = st.elo;
+        Component msg = t.text("elo " + (c.delta() >= 0 ? "+" : "") + c.delta() + " → " + elo, t.accent())
+                .append(t.text(" · " + dev.mintpvp.util.Tier.of(elo).label, t.muted()));
+        if (c.streakBonusPercent() > 0) msg = msg.append(t.text(" · win streak +" + c.streakBonusPercent() + "%", t.secondary()));
+        int left = plugin.getConfig().getInt("ranked.provisional-games", 10) - st.rankedGames();
+        if (c.provisional() && left > 0) msg = msg.append(t.text(" · placement: " + left + " games left (big swings)", t.muted()));
+        p.sendMessage(t.info(msg));
     }
 
     private void restore(Player p, Saved s) {

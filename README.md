@@ -93,11 +93,23 @@ admin changed the kit) falls back to the default.
 
 
 ## Ranked (Elo)
-`/queue ranked [kit]` or the diamond sword. Everyone starts at **1000 elo** (silver).
-Matches pair the closest ratings inside a window that starts at ±100 and widens by 50
-every 10 s of waiting (max ±800). Results use standard Elo with `ranked.k-factor` (32);
-a win is always at least +1, ratings never go below 0, quitting mid-duel is a loss, and a
-server shutdown voids the match. Tiers (by Elo): LT5 (0), HT5 (850), LT4 (1000, where everyone starts), HT4 (1150), LT3 (1300),
+`/queue ranked [kit]` or the diamond sword. Everyone starts at **1000 elo** (LT4).
+Matches pair the closest ratings inside a window that starts at ±100 and widens by 50 every 10 s of waiting
+(max ±800). A win is always at least +1 and a loss at least -1, ratings never go below 0, quitting
+mid-duel is a loss, and a server shutdown voids the match.
+
+**Adaptive Elo** (so results sometimes swing a lot): each player's points per result depend on how
+established they are, using their own K-factor:
+- first 10 ranked games: **K=64** ("placement": the message shows how many are left)
+- games 11-30: **K=40**
+- after that: **K=32** (`ranked.k-factor`), and **K=20** from 1900 elo up
+- a winner on a win streak of 2+ gets a bonus: **+10% per extra win, up to +50%**
+
+So two new players trade ±32, two veterans ±16, a newcomer beating a veteran can gain 40-60 while the
+veteran loses less, and a 4-win streak adds +30% to the next win. Because each player uses their own K,
+a result is no longer exactly zero-sum. All numbers are under `ranked:` in `config.yml`.
+
+Tiers (by Elo): LT5 (0), HT5 (850), LT4 (1000, where everyone starts), HT4 (1150), LT3 (1300),
 HT3 (1450), LT2 (1600), HT2 (1750), LT1 (1900), HT1 (2050). They're defined in
 `util/Tier.java` if you want to move the cut-offs.
 `/leaderboard [elo|wins|kills|kd|streak]` or the GUI.

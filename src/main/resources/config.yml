@@ -47,7 +47,14 @@ duel:
 
 ranked:
   enabled: true
-  k-factor: 32                 # how many points a result is worth (higher = bigger swings)
+  k-factor: 32                 # points per result once you're established (see the adaptive settings below)
+  # Adaptive Elo: new players swing a lot, veterans less, and win streaks pay extra.
+  provisional-games: 10        # your first this-many ranked games use k-provisional
+  k-provisional: 64
+  settling-games: 30           # up to this many ranked games use k-settling
+  k-settling: 40
+  top-elo: 1900                # at or above this (once settled) the steadier k-top is used
+  k-top: 20
   window-base: 100             # starting allowed Elo difference between matched players
   window-step: 50              # the window widens by this much...
   window-interval-seconds: 10  # ...every this many seconds spent waiting

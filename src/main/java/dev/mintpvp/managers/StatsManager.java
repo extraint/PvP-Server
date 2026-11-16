@@ -13,6 +13,12 @@ public final class StatsManager {
     public static final class Stats {
         public int kills, deaths, streak, bestStreak, duelWins, duelLosses, rankedWins, rankedLosses;
         public int elo = START_ELO;
+        /** Ranked win streak (positive) or loss streak (negative). */
+        public int rankedStreak;
+
+        public int rankedGames() {
+            return rankedWins + rankedLosses;
+        }
 
         public double kd() {
             return deaths == 0 ? kills : (double) kills / deaths;
@@ -49,6 +55,7 @@ public final class StatsManager {
                 s.elo = section.getInt(key + ".elo", START_ELO);
                 s.rankedWins = section.getInt(key + ".ranked-wins");
                 s.rankedLosses = section.getInt(key + ".ranked-losses");
+                s.rankedStreak = section.getInt(key + ".ranked-streak");
                 stats.put(id, s);
                 names.put(id, section.getString(key + ".name", "unknown"));
             } catch (IllegalArgumentException ignored) {
@@ -70,6 +77,7 @@ public final class StatsManager {
             y.set(p + ".elo", s.elo);
             y.set(p + ".ranked-wins", s.rankedWins);
             y.set(p + ".ranked-losses", s.rankedLosses);
+            y.set(p + ".ranked-streak", s.rankedStreak);
         });
         try {
             plugin.getDataFolder().mkdirs();
@@ -120,25 +128,61 @@ public final class StatsManager {
         get(loser).duelLosses++;
     }
 
+    /** One player's rating change from a ranked result. */
+    public record EloChange(int delta, int k, int streakBonusPercent, boolean provisional) {}
+
     /**
-     * Applies an Elo result. A win is always worth at least +1; ratings never drop below 0.
-     * @param draw true for a draw (a and b are then interchangeable)
-     * @return the actual rating changes {a, b}
+     * The K-factor for a player: how many points a result is worth. New players swing a lot while the
+     * system finds their level; established ones move slower; the very top is steadier still.
      */
-    public int[] recordRanked(UUID a, UUID b, boolean draw, int k) {
+    public int kFor(Stats s, int baseK) {
+        var c = plugin.getConfig();
+        int games = s.rankedGames();
+        if (games < c.getInt("ranked.provisional-games", 10)) return c.getInt("ranked.k-provisional", 64);
+        if (games < c.getInt("ranked.settling-games", 30)) return c.getInt("ranked.k-settling", 40);
+        if (s.elo >= c.getInt("ranked.top-elo", 1900)) return c.getInt("ranked.k-top", 20);
+        return baseK;
+    }
+
+    /**
+     * Applies an adaptive Elo result: each player's change uses their own K-factor (so a newcomer
+     * beating a veteran can gain a lot while the veteran loses less), and a winner on a streak of 2+
+     * wins gets a bonus (+10% per extra win, up to +50%). A win is always at least +1, a loss at least -1,
+     * and ratings never go below 0.
+     * @param a the winner (or either player for a draw)
+     * @return the changes {a, b}
+     */
+    public EloChange[] recordRanked(UUID a, UUID b, boolean draw, int baseK) {
         Stats sa = get(a), sb = get(b);
+        boolean provA = sa.rankedGames() < plugin.getConfig().getInt("ranked.provisional-games", 10);
+        boolean provB = sb.rankedGames() < plugin.getConfig().getInt("ranked.provisional-games", 10);
+        int ka = kFor(sa, baseK), kb = kFor(sb, baseK);
         double expectedA = 1.0 / (1.0 + Math.pow(10, (sb.elo - sa.elo) / 400.0));
         double scoreA = draw ? 0.5 : 1.0;
-        int delta = (int) Math.round(k * (scoreA - expectedA));
-        if (!draw && delta < 1) delta = 1;
-        int oldA = sa.elo, oldB = sb.elo;
-        sa.elo = Math.max(0, sa.elo + delta);
-        sb.elo = Math.max(0, sb.elo - delta);
+        int da = (int) Math.round(ka * (scoreA - expectedA));
+        int db = (int) Math.round(kb * ((1 - scoreA) - (1 - expectedA)));
+        int bonus = 0;
         if (!draw) {
+            bonus = Math.min(50, 10 * Math.max(0, sa.rankedStreak - 1));
+            da = (int) Math.round(da * (1 + bonus / 100.0));
+            if (da < 1) da = 1;
+            if (db > -1) db = -1;
+        }
+        int oldA = sa.elo, oldB = sb.elo;
+        sa.elo = Math.max(0, sa.elo + da);
+        sb.elo = Math.max(0, sb.elo + db);
+        if (draw) {
+            sa.rankedStreak = 0;
+            sb.rankedStreak = 0;
+        } else {
             sa.rankedWins++;
             sb.rankedLosses++;
+            sa.rankedStreak = Math.max(0, sa.rankedStreak) + 1;
+            sb.rankedStreak = Math.min(0, sb.rankedStreak) - 1;
         }
-        return new int[] {sa.elo - oldA, sb.elo - oldB};
+        return new EloChange[] {
+                new EloChange(sa.elo - oldA, ka, bonus, provA),
+                new EloChange(sb.elo - oldB, kb, 0, provB)};
     }
 
     public void recordDeath(UUID victim) {
