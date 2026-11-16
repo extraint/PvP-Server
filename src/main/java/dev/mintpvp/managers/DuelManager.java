@@ -48,6 +48,13 @@ public final class DuelManager {
         /** Who last hurt each player (victim -> attacker), so eliminations credit a kill. */
         public final Map<UUID, UUID> lastHitBy = new HashMap<>();
         public State state = State.COUNTDOWN;
+        /** First to this many round wins takes the match (1 = a single round). */
+        public int firstTo = 1;
+        public int round = 1;
+        /** Round wins per team. */
+        public final int[] score = new int[2];
+        /** True while the short pause between two rounds is running. */
+        boolean roundBreak;
         /** Set once end() has run, so it can only run once. */
         boolean ended;
         final Map<UUID, Saved> saved = new HashMap<>();
@@ -95,6 +102,11 @@ public final class DuelManager {
             return p;
         }
 
+        /** "first to 3 · round 2 · 1-0", or "" for a single-round duel. */
+        public String roundInfo() {
+            return firstTo > 1 ? "first to " + firstTo + " · round " + round + " · " + score[0] + "-" + score[1] : "";
+        }
+
         public String teamName(int t) {
             return t >= 0 && t < teamNames.size() ? teamNames.get(t) : "nobody";
         }
@@ -120,7 +132,7 @@ public final class DuelManager {
 
     private record SpecSaved(Location loc, GameMode mode) {}
 
-    private record Request(UUID from, String kit, String arena, long expires, boolean ranked, boolean party) {}
+    private record Request(UUID from, String kit, String arena, long expires, boolean ranked, boolean party, int rounds) {}
 
     private static final int[][] OFFSETS = {{0, 0}, {2, 0}, {-2, 0}, {0, 2}, {0, -2}, {2, 2}, {-2, 2}, {2, -2}, {-2, -2}};
 
@@ -232,6 +244,12 @@ public final class DuelManager {
     }
 
     public void request(Player from, Player to, String kitId, String arenaName, boolean ranked) {
+        request(from, to, kitId, arenaName, ranked, 1);
+    }
+
+    /** @param rounds first to this many round wins (1 = a single round) */
+    public void request(Player from, Player to, String kitId, String arenaName, boolean ranked, int rounds) {
+        rounds = Math.max(1, Math.min(rounds, plugin.getConfig().getInt("duel.max-rounds", 15)));
         Theme t = plugin.theme();
         Kit kit = kitId == null ? plugin.kits().defaultKit() : plugin.kits().get(kitId);
         if (kit == null) { from.sendMessage(t.error("that kit doesn't exist.")); return; }
@@ -264,16 +282,16 @@ public final class DuelManager {
         }
 
         int expire = plugin.getConfig().getInt("duel.request-expire-seconds", 30);
-        requests.put(to.getUniqueId(), new Request(from.getUniqueId(), kit.id, chosen, System.currentTimeMillis() + expire * 1000L, ranked, false));
+        requests.put(to.getUniqueId(), new Request(from.getUniqueId(), kit.id, chosen, System.currentTimeMillis() + expire * 1000L, ranked, false, rounds));
 
         from.sendMessage(t.info(t.text("duel request sent to ", t.accent()).append(t.raw(to.getName(), t.primary()))
-                .append(t.text(" (" + (ranked ? "ranked " : "") + kit.display + ")", t.muted()))));
+                .append(t.text(" (" + (ranked ? "ranked " : "") + kit.display + (rounds > 1 ? ", first to " + rounds : "") + ")", t.muted()))));
         Component accept = t.text("[accept]", t.primary())
                 .clickEvent(ClickEvent.runCommand("/duel accept " + from.getName()));
         Component deny = t.text("[deny]", t.muted())
                 .clickEvent(ClickEvent.runCommand("/duel deny " + from.getName()));
         to.sendMessage(t.info(t.raw(from.getName(), t.primary())
-                .append(t.text(" challenged you to a " + (ranked ? "ranked " : "") + kit.display + " duel" + (chosen != null ? " on " + chosen : "") + "! ", t.accent()))
+                .append(t.text(" challenged you to a " + (ranked ? "ranked " : "") + kit.display + " duel" + (rounds > 1 ? " (first to " + rounds + ")" : "") + (chosen != null ? " on " + chosen : "") + "! ", t.accent()))
                 .append(accept).append(Component.text(" ")).append(deny)));
     }
 
@@ -308,7 +326,7 @@ public final class DuelManager {
         }
 
         int expire = plugin.getConfig().getInt("duel.request-expire-seconds", 30);
-        requests.put(theirLeader.getUniqueId(), new Request(leader.getUniqueId(), kit.id, null, System.currentTimeMillis() + expire * 1000L, false, true));
+        requests.put(theirLeader.getUniqueId(), new Request(leader.getUniqueId(), kit.id, null, System.currentTimeMillis() + expire * 1000L, false, true, 1));
         leader.sendMessage(t.info(t.text("party duel request sent to ", t.accent()).append(t.raw(theirLeader.getName() + "'s party", t.primary()))
                 .append(t.text(" (" + mine.members.size() + "v" + theirs.members.size() + ", " + kit.display + ")", t.muted()))));
         Component accept = t.text("[accept]", t.primary()).clickEvent(ClickEvent.runCommand("/duel accept " + leader.getName()));
@@ -416,7 +434,7 @@ public final class DuelManager {
             from.sendMessage(t.error("that arena isn't available."));
             return;
         }
-        start(from, target, arena, kit, r.ranked());
+        start(from, target, arena, kit, r.ranked(), r.rounds());
         if (r.ranked()) recordRankedPair(from.getUniqueId(), target.getUniqueId());
     }
 
@@ -520,15 +538,23 @@ public final class DuelManager {
     }
 
     private void start(Player a, Player b, Arena arena, Kit kit, boolean ranked) {
-        start(Mode.DUEL, List.of(List.of(a), List.of(b)), List.of(a.getName(), b.getName()), arena, kit, ranked);
+        start(a, b, arena, kit, ranked, 1);
+    }
+
+    private void start(Player a, Player b, Arena arena, Kit kit, boolean ranked, int rounds) {
+        start(Mode.DUEL, List.of(List.of(a), List.of(b)), List.of(a.getName(), b.getName()), arena, kit, ranked, rounds);
+    }
+
+    private void start(Mode mode, List<List<Player>> teams, List<String> names, Arena arena, Kit kit, boolean ranked) {
+        start(mode, teams, names, arena, kit, ranked, 1);
     }
 
     /** Starts a match; if anything goes wrong the players are put back and the arena is freed. */
-    private void start(Mode mode, List<List<Player>> teams, List<String> names, Arena arena, Kit kit, boolean ranked) {
+    private void start(Mode mode, List<List<Player>> teams, List<String> names, Arena arena, Kit kit, boolean ranked, int rounds) {
         List<Player> all = new ArrayList<>();
         teams.forEach(all::addAll);
         try {
-            begin(mode, teams, names, arena, kit, ranked);
+            begin(mode, teams, names, arena, kit, ranked, rounds);
         } catch (RuntimeException ex) {
             plugin.getLogger().log(java.util.logging.Level.SEVERE, "Match failed to start on arena " + arena.name, ex);
             Duel d = all.isEmpty() ? null : byPlayer.get(all.get(0).getUniqueId());
@@ -550,8 +576,9 @@ public final class DuelManager {
         for (Player p : duel.players) p.sendMessage(plugin.theme().error("the match hit an error and was cancelled."));
     }
 
-    private void begin(Mode mode, List<List<Player>> teams, List<String> names, Arena arena, Kit kit, boolean ranked) {
+    private void begin(Mode mode, List<List<Player>> teams, List<String> names, Arena arena, Kit kit, boolean ranked, int rounds) {
         Duel duel = new Duel(arena, kit, ranked, mode);
+        if (mode == Mode.DUEL) duel.firstTo = Math.max(1, rounds);
         duel.teamNames.addAll(names);
         for (int i = 0; i < teams.size(); i++) {
             for (Player p : teams.get(i)) {
@@ -591,7 +618,7 @@ public final class DuelManager {
             String label = switch (mode) {
                 case FFA -> "party free-for-all (" + duel.players.size() + " players, " + kit.display + ")";
                 case PARTY -> "party duel " + teams.get(0).size() + "v" + teams.get(1).size() + " (" + kit.display + ")";
-                default -> (ranked ? "ranked " : "") + kit.display + " duel";
+                default -> (ranked ? "ranked " : "") + kit.display + " duel" + (duel.firstTo > 1 ? ", first to " + duel.firstTo : "");
             };
             Bukkit.broadcast(t.info(t.raw(mode == Mode.FFA ? "a " : duel.title(), t.primary())
                     .append(t.text(mode == Mode.FFA ? "" : " ", t.muted()))
@@ -605,14 +632,19 @@ public final class DuelManager {
             duel.sweep = Bukkit.getScheduler().runTaskTimer(plugin, () -> clearMobs(arena), 40L, 40L);
         }
 
-        int seconds = Math.max(1, plugin.getConfig().getInt("duel.countdown-seconds", 5));
+        countdown(duel, Math.max(1, plugin.getConfig().getInt("duel.countdown-seconds", 5)));
+    }
+
+    /** The pre-round countdown; at zero the round starts (and its time limit begins). */
+    private void countdown(Duel duel, int seconds) {
+        Mode mode = duel.mode;
         Theme t = plugin.theme();
         int[] left = {seconds};
         duel.countdown = Bukkit.getScheduler().runTaskTimer(plugin, () -> { try {
             if (left[0] > 0) {
                 for (Player p : duel.players) {
                     p.showTitle(Title.title(t.raw(String.valueOf(left[0]), t.primary()),
-                            t.raw(duel.title(), t.secondary()),
+                            t.raw(duel.roundInfo().isEmpty() ? duel.title() : duel.title() + " · " + duel.roundInfo(), t.secondary()),
                             Title.Times.times(java.time.Duration.ZERO, java.time.Duration.ofMillis(1100), java.time.Duration.ZERO)));
                     p.playSound(p.getLocation(), Sound.BLOCK_NOTE_BLOCK_HAT, 1f, 1f);
                 }
@@ -622,7 +654,7 @@ public final class DuelManager {
             duel.countdown.cancel();
             duel.state = State.FIGHTING;
             for (Player p : duel.players) {
-                p.showTitle(Title.title(t.text("fight!", t.primary()), Component.empty()));
+                p.showTitle(Title.title(t.text("fight!", t.primary()), duel.firstTo > 1 ? t.text("round " + duel.round, t.accent()) : Component.empty()));
                 p.playSound(p.getLocation(), Sound.BLOCK_NOTE_BLOCK_PLING, 1f, 2f);
             }
             int max = plugin.getConfig().getInt("duel.max-duration-seconds", 300);
@@ -790,9 +822,14 @@ public final class DuelManager {
                     p.sendMessage(t.info(t.text("time's up! ", t.accent()).append(t.raw(duel.teamName(win), t.primary()))
                             .append(t.text(" wins with more health.", t.accent()))));
                 }
-                finishTeam(duel, win);
+                teamWon(duel, win);
                 return;
             }
+        }
+        if (duel.firstTo > 1 && duel.mode == Mode.DUEL) {
+            for (Player p : duel.players) p.sendMessage(t.info("time's up and the health was level - the round is replayed."));
+            roundBreak(duel, -1);
+            return;
         }
         duel.drawReason = "time ran out and the health was level";
         end(duel, -1);
@@ -808,7 +845,7 @@ public final class DuelManager {
             if (leaving && !d.left.contains(id) && byPlayer.get(id) == d) {
                 // already dead (watching), now leaving: just put them back
                 if (d.state == State.ENDING) {
-                    end(d, d.pendingWinTeam);
+                    end(d, resultOnLeave(d, id));
                 } else {
                     removeFromMatch(d, victim);
                 }
@@ -816,7 +853,7 @@ public final class DuelManager {
             return;
         }
         if (d.state == State.ENDING) { // the result is already decided; only tidy up
-            if (leaving) end(d, d.pendingWinTeam);
+            if (leaving) end(d, resultOnLeave(d, id));
             return;
         }
         Theme t = plugin.theme();
@@ -847,8 +884,86 @@ public final class DuelManager {
         if (teams.size() > 1) return;
         int win = teams.isEmpty() ? -1 : teams.iterator().next();
         if (win < 0) d.drawReason = "everyone was eliminated";
-        if (leaving || win < 0) end(d, win);
-        else finishTeam(d, win);
+        if (win < 0 && !leaving && d.firstTo > 1 && d.mode == Mode.DUEL) roundBreak(d, -1);
+        else if (leaving || win < 0) end(d, win);
+        else teamWon(d, win);
+    }
+
+    /** Who wins if a player leaves while the result (or the break between rounds) is already pending. */
+    private int resultOnLeave(Duel d, UUID leaver) {
+        if (!d.roundBreak) return d.pendingWinTeam;
+        return d.team.getOrDefault(leaver, 0) == 0 ? 1 : 0; // leaving between rounds forfeits the match
+    }
+
+    /** A team won the round (or the whole match, for a single-round duel). */
+    private void teamWon(Duel d, int win) {
+        if (d.firstTo > 1 && d.mode == Mode.DUEL && win >= 0 && win < d.score.length) {
+            d.score[win]++;
+            if (d.score[win] < d.firstTo) {
+                roundBreak(d, win);
+                return;
+            }
+        }
+        finishTeam(d, win);
+    }
+
+    /** The round is over but the match goes on: a short pause, then the arena and players are reset. -1 = replay (a drawn round). */
+    private void roundBreak(Duel d, int winTeam) {
+        if (d.ended || d.state == State.ENDING) return;
+        d.state = State.ENDING;
+        d.roundBreak = true;
+        d.pendingWinTeam = winTeam;
+        if (d.timeout != null) d.timeout.cancel();
+        int delay = Math.max(1, plugin.getConfig().getInt("duel.round-delay-seconds", 3));
+        Theme t = plugin.theme();
+        var times = Title.Times.times(java.time.Duration.ofMillis(200), java.time.Duration.ofSeconds(Math.max(1, delay - 1)), java.time.Duration.ofMillis(500));
+        String sc = d.score[0] + "-" + d.score[1];
+        for (Player p : d.players) {
+            if (byPlayer.get(p.getUniqueId()) != d) continue;
+            try {
+                if (winTeam < 0) {
+                    p.showTitle(Title.title(t.text("round drawn", t.accent()), t.text("replaying · " + sc, t.muted()), times));
+                } else {
+                    boolean won = d.teamOf(p) == winTeam;
+                    p.showTitle(Title.title(t.text(won ? "round won" : "round lost", won ? t.primary() : t.secondary()),
+                            t.text(sc + " · first to " + d.firstTo, t.accent()), times));
+                    if (won) p.playSound(p.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1f, 1.2f);
+                }
+            } catch (RuntimeException ex) {
+                plugin.getLogger().log(java.util.logging.Level.WARNING, "Round end effects failed", ex);
+            }
+        }
+        d.ending = Bukkit.getScheduler().runTaskLater(plugin, () -> {
+            try {
+                nextRound(d);
+            } catch (RuntimeException ex) {
+                fail(d, ex);
+            }
+        }, delay * 20L);
+    }
+
+    /** Puts everyone back at their spawn with a fresh kit, restores the arena's changed blocks and counts down. */
+    private void nextRound(Duel d) {
+        if (d.ended) return;
+        d.roundBreak = false;
+        d.round++;
+        restoreWorld(d);
+        d.lastHitBy.clear();
+        d.alive.clear();
+        for (Player p : d.players) {
+            if (byPlayer.get(p.getUniqueId()) != d || d.left.contains(p.getUniqueId())) continue;
+            d.alive.add(p.getUniqueId());
+            p.getActivePotionEffects().forEach(e -> p.removePotionEffect(e.getType()));
+            p.setGameMode(GameMode.SURVIVAL);
+            p.setFireTicks(0);
+            p.setFallDistance(0);
+            p.setVelocity(new org.bukkit.util.Vector(0, 0, 0));
+            plugin.kits().give(p, d.kit);
+            p.teleport(d.spawnOf(p));
+        }
+        d.state = State.COUNTDOWN;
+        d.pendingWinTeam = -1;
+        countdown(d, Math.max(1, plugin.getConfig().getInt("duel.round-countdown-seconds", 3)));
     }
 
     /** Stats for an elimination: a kill for whoever last hit the victim (if still an opponent), a death for the victim. */
@@ -953,7 +1068,8 @@ public final class DuelManager {
                 default -> t.info(t.raw(duel.teamName(winTeam), t.primary())
                         .append(t.text(" defeated ", t.accent()))
                         .append(t.raw(duel.teamName(1 - winTeam), t.secondary()))
-                        .append(t.text(duel.ranked ? " in a ranked duel!" : " in a duel!", t.accent())));
+                        .append(t.text((duel.ranked ? " in a ranked duel" : " in a duel")
+                                + (duel.firstTo > 1 ? " (" + duel.score[winTeam] + "-" + duel.score[1 - winTeam] + ")" : "") + "!", t.accent())));
             };
             Bukkit.broadcast(msg);
             if (duel.mode == Mode.DUEL && duel.ranked && count) rankedResult(duel, winners.get(0), false);

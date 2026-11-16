@@ -73,7 +73,7 @@ broadcasts a clickable **[watch]**. Settings: `duel.allow-spectators`,
 ```
 /menu  (aliases /duels, /play)   # the hub GUI: queue, ranked (coming soon), challenge, kit layout, spectate, stats
 /queue [kit|leave]               # random matchmaking, one queue per kit
-/duel [player] [kit] [arena]     # no args opens the challenge GUI
+/duel [player] [kit] [rounds] [arena]     # no args opens the challenge GUI
 /kit                             # everyone: edit your layout for any kit
 ```
 **Kits (admins)** are captured from your inventory, including armor and offhand, and
@@ -114,6 +114,18 @@ How tiers move (per kit, all numbers under `ranked:` in `config.yml`):
 After each ranked duel you see the promotion/demotion (or your progress) and your new score.
 `/stats` lists your tier in every kit you've played. `/leaderboard [score|wins|kills|kd|streak]` or the GUI.
 Tier points are defined in `util/Tier.java`. (Old Elo values in `stats.yml` are ignored.)
+
+## Rounds ("first to")
+`/duel <player>` no longer starts a classic duel straight away: it opens a **kit menu**, then a **rounds menu**
+(single round, first to 2, 3, 5, 7, 10), then sends the request. The challenge picker in the hub and hotbar does
+the same. Shortcuts: `/duel <player> <kit>` skips to the rounds menu, and `/duel <player> <kit> <rounds>` sends it
+straight away.
+- The first player to win N rounds wins the match. After each round there is a short pause
+  (`duel.round-delay-seconds`), then the arena's changed blocks are restored, both players get a fresh kit and
+  are put back at their spawns for a countdown (`duel.round-countdown-seconds`).
+- A round that ends level on health at the time limit is replayed. Quitting between or during rounds forfeits the match.
+- Ranked tiers and duel wins/losses count once, for the whole match; kills and deaths count every round.
+- Options: `duel.round-options`, `duel.max-rounds`. Rounds apply to 1v1 duels (not parties or the queue).
 
 ## Spawn & lobby
 ```

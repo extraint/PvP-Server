@@ -63,7 +63,7 @@ public final class DuelCommands implements CommandExecutor, TabCompleter {
             case "deny" -> plugin.duels().deny(p, args.length > 1 ? args[1] : null);
             case "help" -> {
                 p.sendMessage(t.usage("/duel", "open the challenge menu"));
-                p.sendMessage(t.usage("/duel <player> [kit] [arena]", "challenge a player (unranked)"));
+                p.sendMessage(t.usage("/duel <player> [kit] [rounds]", "challenge a player; pick the kit and \"first to\" rounds in a menu"));
                 p.sendMessage(t.usage("/challenge <player> [kit]", "challenge a player to a ranked duel"));
                 p.sendMessage(t.usage("/party", "team up and duel other parties"));
                 p.sendMessage(t.usage("/party ffa [kit]", "party free-for-all (leader)"));
@@ -80,7 +80,23 @@ public final class DuelCommands implements CommandExecutor, TabCompleter {
                 if (target == null) { p.sendMessage(t.error("player not found.")); return; }
                 String kit = args.length > 1 ? args[1] : null;
                 if (kit != null && plugin.kits().get(kit) == null) { p.sendMessage(t.error("that kit doesn't exist.")); return; }
-                plugin.duels().request(p, target, kit, args.length > 2 ? args[2] : null);
+                // /duel <player> [kit] [arena|rounds]: anything left out is picked in a menu (kit, then rounds)
+                String arena = null;
+                Integer rounds = null;
+                if (args.length > 2) {
+                    try {
+                        rounds = Integer.parseInt(args[2]);
+                    } catch (NumberFormatException ex) {
+                        arena = args[2];
+                    }
+                }
+                if (rounds != null) {
+                    plugin.duels().request(p, target, kit, arena, false, rounds);
+                } else if (kit == null) {
+                    Guis.kitAndRounds(plugin, p, target, false, null);
+                } else {
+                    Guis.roundsOnly(plugin, p, target, kit, arena, false);
+                }
             }
         }
     }

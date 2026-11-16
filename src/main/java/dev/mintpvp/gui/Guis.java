@@ -123,15 +123,23 @@ public final class Guis {
         challenge(plugin, p, back, false);
     }
 
-    /** Same flow; ranked = true sends a ranked challenge (the result changes both players' Elo). */
+    /** Same flow; ranked = true sends a ranked challenge (the result changes both players' kit tier). */
     public static void challenge(MintPvP plugin, Player p, Runnable back, boolean ranked) {
-        pickPlayer(plugin, p, ranked ? "ranked challenge" : "challenge", back, target -> pickKit(plugin, p, "choose kit",
-                () -> challenge(plugin, p, back, ranked),
-                kit -> List.of(plugin.theme().text("click to send the challenge", plugin.theme().secondary())),
-                kit -> {
-                    p.closeInventory();
-                    plugin.duels().request(p, target, kit.id, null, ranked);
-                }));
+        pickPlayer(plugin, p, ranked ? "ranked challenge" : "challenge", back, target -> kitAndRounds(plugin, p, target, ranked,
+                () -> challenge(plugin, p, back, ranked)));
+    }
+
+    /** Pick a kit, then how many rounds (first to N), then send the duel request. */
+    public static void kitAndRounds(MintPvP plugin, Player p, Player target, boolean ranked, Runnable back) {
+        pickKit(plugin, p, "choose kit", back,
+                kit -> List.of(plugin.theme().text("click to pick the rounds", plugin.theme().secondary())),
+                kit -> new RoundsGui(plugin, p, () -> kitAndRounds(plugin, p, target, ranked, back),
+                        rounds -> plugin.duels().request(p, target, kit.id, null, ranked, rounds)).open(p));
+    }
+
+    /** Kit already chosen: just pick the rounds. */
+    public static void roundsOnly(MintPvP plugin, Player p, Player target, String kitId, String arena, boolean ranked) {
+        new RoundsGui(plugin, p, null, rounds -> plugin.duels().request(p, target, kitId, arena, ranked, rounds)).open(p);
     }
 
     /** Pick a kit, then open the layout editor for it. */
