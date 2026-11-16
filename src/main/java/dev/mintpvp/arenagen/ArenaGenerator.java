@@ -82,11 +82,47 @@ public final class ArenaGenerator {
         return ((long) cx << 32) | (cz & 0xFFFFFFFFL);
     }
 
+    /** Bump this whenever the arena or lobby design changes, so terrain cached in the world is thrown away once. */
+    static final int DESIGN_VERSION = 3;
+
+    /**
+     * Chunks of this world can be saved when they unload, so after a design change old chunks would keep showing
+     * the old arenas. When the design version changes, delete the cached chunk files (before the world loads);
+     * everything is regenerated from the generator.
+     */
+    private void dropStaleTerrain(String worldName) {
+        java.nio.file.Path marker = plugin.getDataFolder().toPath().resolve("arena-design.version");
+        try {
+            String have = java.nio.file.Files.exists(marker) ? java.nio.file.Files.readString(marker).trim() : "";
+            if (have.equals(String.valueOf(DESIGN_VERSION))) return;
+            java.nio.file.Path base = Bukkit.getWorldContainer().toPath().resolve("world/dimensions/minecraft/" + worldName);
+            int removed = 0;
+            for (String dir : new String[] {"region", "entities", "poi"}) {
+                java.nio.file.Path d = base.resolve(dir);
+                if (!java.nio.file.Files.isDirectory(d)) continue;
+                try (var files = java.nio.file.Files.list(d)) {
+                    for (java.nio.file.Path f : (Iterable<java.nio.file.Path>) files::iterator) {
+                        if (java.nio.file.Files.isRegularFile(f) && f.getFileName().toString().endsWith(".mca")) {
+                            java.nio.file.Files.delete(f);
+                            removed++;
+                        }
+                    }
+                }
+            }
+            plugin.getDataFolder().mkdirs();
+            java.nio.file.Files.writeString(marker, String.valueOf(DESIGN_VERSION));
+            if (removed > 0) plugin.getLogger().info("Arena design changed: cleared " + removed + " cached chunk files so the new design is generated.");
+        } catch (java.io.IOException | RuntimeException e) {
+            plugin.getLogger().warning("Could not clear cached arena chunks: " + e.getMessage());
+        }
+    }
+
     // ---- lifecycle ------------------------------------------------------
 
     public void start() {
         if (!enabled()) return;
         String name = plugin.getConfig().getString("arena-generator.world-name", "mint_arenas_2");
+        dropStaleTerrain(name);
 
         // arenas from an older generator (other world) can't be used any more: forget them
         int dropped = plugin.arenas().removeGeneratedOutside(name);

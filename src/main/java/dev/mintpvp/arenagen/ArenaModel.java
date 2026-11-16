@@ -200,20 +200,11 @@ final class ArenaModel {
         boolean alongX = u > .5;
         switch (theme) {
             case PLAINS -> {
-                if (t < .55) Shapes.tree(out, allow, surf, "oaklog", "oakleaves", 2, 4 + (int) (u * 3), x, z);
-                else if (t < .8) Shapes.boulder(out, allow, surf, x, z, 1.6 + u, Blocks.data("cobble"));
+                if (t < .7) Shapes.tree(out, allow, surf, "oaklog", "oakleaves", 2, 4 + (int) (u * 3), x, z);
                 else Shapes.box(out, allow, surf, x, z, (int) (u * 2), (int) ((1 - u) * 2), 1 + (int) (u * 2), Blocks.data("hay"));
             }
             case DESERT -> {
-                if (t < .4) {
-                    int h = 4 + (int) (u * 3);
-                    Shapes.column(out, allow, surf, x, z, h - 1, Blocks.data("pillar"));
-                    Shapes.put(out, allow, x, surf.applyAsInt(x, z) + h, z, Blocks.data("chiseled"));
-                } else if (t < .7) {
-                    Shapes.wall(out, allow, surf, x, z, 7, alongX, 3, 4, Blocks.data("cut"));
-                } else {
-                    Shapes.mound(out, allow, surf, x, z, 3.5 + u * 2, 2 + (int) (u * 2), Blocks.data("dune"));
-                }
+                Shapes.mound(out, allow, surf, x, z, 3.5 + u * 2, 2 + (int) (u * 2), Blocks.data("dune"));
             }
             case POPLAR -> {
                 if (t < .82) {
@@ -224,15 +215,11 @@ final class ArenaModel {
                 }
             }
             case SNOWY -> {
-                if (t < .4) Shapes.tree(out, allow, surf, "sprucelog", "spruce", 2, 6 + (int) (u * 3), x, z);
-                else if (t < .65) Shapes.column(out, allow, surf, x, z, 4 + (int) (u * 5), Blocks.data("spike"));
-                else if (t < .85) Shapes.mound(out, allow, surf, x, z, 3 + u * 2, 2, Blocks.data("drift"));
-                else Shapes.boulder(out, allow, surf, x, z, 1.7 + u, Blocks.data("packedice"));
+                if (t < .6) Shapes.tree(out, allow, surf, "sprucelog", "spruce", 2, 6 + (int) (u * 3), x, z);
+                else Shapes.mound(out, allow, surf, x, z, 3 + u * 2, 2, Blocks.data("drift"));
             }
             case CHERRY -> {
-                if (t < .6) Shapes.tree(out, allow, surf, "cherrylog", "cherry", 2 + (int) (u * 2), 4 + (int) (u * 2), x, z);
-                else if (t < .85) Shapes.wall(out, allow, surf, x, z, 5, alongX, 2, 0, Blocks.data("gardenwall"));
-                else Shapes.boulder(out, allow, surf, x, z, 1.6, Blocks.data("stonebrick"));
+                Shapes.tree(out, allow, surf, "cherrylog", "cherry", 2 + (int) (u * 2), 4 + (int) (u * 2), x, z);
             }
         }
     }

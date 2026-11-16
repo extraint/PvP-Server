@@ -87,17 +87,12 @@ public final class ArenaLayout {
                     (ax, az, b) -> b.equals("grass") ? (hash(ax, az, 12) < .035 ? "dandelion" : hash(ax, az, 13) < .03 ? "poppy" : null) : null,
                     "mossycobble", "oaklog", false, List.of(
                     Feature.box(9, 0, 0, 1, 2, "hay"),
-                    Feature.tree(14, 16, "oaklog", "oakleaves", 2, 5),
-                    Feature.box(21, 7, 1, 1, 2, "cobble"),
-                    Feature.box(4, 23, 1, 1, 2, "cobble")));
+                    Feature.tree(14, 16, "oaklog", "oakleaves", 2, 5)));
             case DESERT -> new Spec(
                     (ax, az, d) -> ring(d, 17.6, 18.8) ? "smooth" : (smooth(ax, az, 21, 7) > .78 ? "smooth" : "sand"),
                     (ax, az, b) -> b.equals("sand") && hash(ax, az, 22) < .025 ? "deadbush" : null,
                     "smooth", "chiseled", false, List.of(
-                    Feature.box(9, 0, 0, 2, 3, "cut"),
-                    Feature.box(16, 12, 1, 1, 5, "pillar"),
-                    Feature.box(27, 14, 1, 1, 4, "pillar"),
-                    Feature.box(5, 24, 1, 1, 4, "pillar"),
+                    Feature.mound(9, 0, 4.5, 2, "dune"),
                     Feature.mound(19, 25, 4.5, 2, "dune")));
             case POPLAR -> new Spec(
                     (ax, az, d) -> {
@@ -122,14 +117,11 @@ public final class ArenaLayout {
                     Feature.box(11, 0, 0, 2, 2, "drift"),
                     Feature.tree(13, 18, "sprucelog", "spruce", 2, 7),
                     Feature.tree(26, 20, "sprucelog", "spruce", 2, 7),
-                    Feature.box(17, 8, 0, 0, 6, "spike"),
-                    Feature.box(5, 21, 0, 0, 5, "spike"),
                     Feature.mound(22, 8, 3.2, 2, "drift")));
             case CHERRY -> new Spec(
                     (ax, az, d) -> ring(d, 17.6, 18.8) ? "stonebrick" : "grass",
                     (ax, az, b) -> b.equals("grass") && smooth(ax, az, 52, 4) > .45 && hash(ax, az, 53) < .55 ? "petals" : null,
                     "cherryplanks", "cherrylog", false, List.of(
-                    Feature.box(9, 0, 0, 1, 2, "gardenwall"),
                     Feature.tree(12, 14, "cherrylog", "cherry", 3, 5),
                     Feature.tree(25, 20, "cherrylog", "cherry", 3, 5),
                     Feature.tree(5, 27, "cherrylog", "cherry", 2, 5)));
