@@ -33,7 +33,7 @@ public final class ArenaGenerator {
     /** Height of the invisible barrier above small arenas' edge. */
     public static final int CEILING = 40;
     /** Where the lobby island is, west of the arena grid. */
-    public static final int LOBBY_X = -2200, LOBBY_Z = 0;
+    public static final int LOBBY_X = -2400, LOBBY_Z = 0;
 
     /** One arena position on the grid. */
     public record Slot(int index, ArenaTheme theme, boolean large, int radius) {

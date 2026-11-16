@@ -33,6 +33,19 @@ public final class DuelListener implements Listener {
         this.plugin = plugin;
     }
 
+    /** Remember who last hurt whom inside a match, so eliminations can credit a kill. */
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void trackHit(EntityDamageByEntityEvent e) {
+        if (!(e.getEntity() instanceof Player victim)) return;
+        Player attacker = null;
+        if (e.getDamager() instanceof Player p) attacker = p;
+        else if (e.getDamager() instanceof Projectile proj && proj.getShooter() instanceof Player p) attacker = p;
+        if (attacker == null || attacker.equals(victim)) return;
+        Duel d = plugin.duels().duelOf(victim.getUniqueId());
+        if (d == null || d != plugin.duels().duelOf(attacker.getUniqueId())) return;
+        d.lastHitBy.put(victim.getUniqueId(), attacker.getUniqueId());
+    }
+
     /** Outsiders can't hit duelists and duelists can't hit outsiders. */
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onHit(EntityDamageByEntityEvent e) {

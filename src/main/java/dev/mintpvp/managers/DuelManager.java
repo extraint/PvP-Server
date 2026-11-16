@@ -45,6 +45,8 @@ public final class DuelManager {
         final Map<UUID, Location> spawns = new HashMap<>();
         /** Players who quit or forfeited and were already put back. */
         final Set<UUID> left = new HashSet<>();
+        /** Who last hurt each player (victim -> attacker), so eliminations credit a kill. */
+        public final Map<UUID, UUID> lastHitBy = new HashMap<>();
         public State state = State.COUNTDOWN;
         /** Set once end() has run, so it can only run once. */
         boolean ended;
@@ -819,6 +821,7 @@ public final class DuelManager {
             return;
         }
         Theme t = plugin.theme();
+        creditElimination(d, victim, leaving, t);
         if (leaving) {
             removeFromMatch(d, victim);
         } else {
@@ -847,6 +850,32 @@ public final class DuelManager {
         if (win < 0) d.drawReason = "everyone was eliminated";
         if (leaving || win < 0) end(d, win);
         else finishTeam(d, win);
+    }
+
+    /** Stats for an elimination: a kill for whoever last hit the victim (if still an opponent), a death for the victim. */
+    private void creditElimination(Duel d, Player victim, boolean leaving, Theme t) {
+        try {
+            UUID killerId = leaving ? null : d.lastHitBy.get(victim.getUniqueId());
+            Player killer = null;
+            if (killerId != null) {
+                for (Player p : d.players) {
+                    if (p.getUniqueId().equals(killerId)) killer = p;
+                }
+                if (killer != null && d.sameTeam(killer, victim)) killer = null;
+            }
+            if (killer == null) {
+                plugin.stats().recordDeath(victim.getUniqueId());
+                return;
+            }
+            int streak = plugin.stats().recordKill(killer.getUniqueId(), victim.getUniqueId());
+            int every = plugin.getConfig().getInt("gameplay.streak-announce-every", 5);
+            if (every > 0 && streak % every == 0) {
+                Bukkit.broadcast(t.info(t.raw(killer.getName(), t.primary())
+                        .append(t.text(" is on a " + streak + " kill streak!", t.accent()))));
+            }
+        } catch (RuntimeException ex) {
+            plugin.getLogger().log(java.util.logging.Level.WARNING, "Stat crediting failed", ex);
+        }
     }
 
     /** Compatibility: a 1v1 where {@code winner} won. */

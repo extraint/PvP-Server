@@ -7,7 +7,7 @@ A light mint-green, small-caps themed PvP plugin for **Paper 26.3** (Java 25).
 - Admin-made kits, editable per-player layouts, random duel queue, custom mint GUIs
 - Instant respawn, keep-inventory
 - Combat tag with action-bar timer, command blocking, combat-log punishment
-- Persistent kills / deaths / K/D / kill streaks, streak announcements
+- Persistent kills / deaths / K/D / kill streaks, streak announcements. Duel, party and free-for-all eliminations count: the last opponent to hit you is credited with the kill (projectiles too), you get a death, and quitting mid-match counts as a death
 - Arenas + 1v1 duels, party duels and party free-for-alls (see below)
 - `/stats [player]`, `/leaderboard [kills|kd|streak]`, `/kit`, `/mintpvp reload`
 
@@ -243,9 +243,9 @@ wins. There is no public free-for-all queue.
 The generated lobby is a large floating quartz plaza (80 blocks across): a three-step **terraced dais** (with
 stairs) holding a lit fountain, an emerald pedestal and a **beacon** with a lime beam, ringed by a flowering
 hedge with benches; mint-teal rings in the wedge-patterned floor, lamp posts, flower planters, three crystal
-spires, four themed gardens (poplar, cherry, snowy, desert), a huge lime **MINT PVP** sign wall with a flower bed
+spires, four themed gardens (poplar, cherry, snowy, desert), a huge **MINT PVP** sign (dark teal panel, glowing sea-lantern frame, lime letters with a drop shadow) with a flower bed
 at its foot, a railed edge with an invisible barrier above it, a tapering underside, and floating islets in the
-sky. You spawn on the south side, facing the dais and the sign. It lives in the arena world at x=-2200; servers
+sky. You spawn on the south side, facing the dais and the sign. It lives in the arena world at x=-2400; servers
 with an older lobby are moved to this one on start (a spawn you set elsewhere with `/setspawn` is left alone).
 
 **The lobby can't be changed by players.** Nobody can break, place, burn, flood, melt, blow up or trample anything

@@ -284,18 +284,23 @@ public final class LobbyDesign {
 
     private static void sign(Map<Long, BlockData> out, Function<Material, BlockData> data, int cx, int cz, int y0) {
         int wz = cz - 27;
+        // a dark teal panel in a glowing sea-lantern frame, on a quartz plinth
         for (int x = -23; x <= 23; x++) {
             for (int y = 1; y <= 29; y++) {
                 Material m;
                 if (y <= 2) m = Material.QUARTZ_BRICKS;
-                else if (y == 29) m = Material.SEA_LANTERN;
-                else if (y == 28 || y == 14) m = Material.LIME_CONCRETE;
-                else if (Math.abs(x) == 23) m = Material.QUARTZ_BRICKS;
-                else m = Material.WHITE_CONCRETE;
+                else if (Math.abs(x) == 23 || y == 3 || y == 29) m = Material.SEA_LANTERN;
+                else if (Math.abs(x) == 22 || y == 4 || y == 28) m = Material.LIME_CONCRETE; // thin mint inner border
+                else if (y == 15 && Math.abs(x) <= 20) m = Material.LIME_CONCRETE;            // divider between the two words
+                else m = Material.DARK_PRISMARINE;
                 out.put(Pack.key(cx + x, y0 + y, wz), data.apply(m));
-                out.put(Pack.key(cx + x, y0 + y, wz - 1), data.apply(m == Material.WHITE_CONCRETE ? Material.WHITE_CONCRETE : m));
+                out.put(Pack.key(cx + x, y0 + y, wz - 1), data.apply(m));
             }
         }
+        // crest on top: stepped mint crown with a lantern jewel
+        for (int x = -8; x <= 8; x++) out.put(Pack.key(cx + x, y0 + 30, wz), data.apply(Material.QUARTZ_BRICKS));
+        for (int x = -5; x <= 5; x++) out.put(Pack.key(cx + x, y0 + 31, wz), data.apply(Material.LIME_CONCRETE));
+        for (int x = -2; x <= 2; x++) out.put(Pack.key(cx + x, y0 + 32, wz), data.apply(Material.SEA_LANTERN));
         BlockData pillar = Blocks.axis(Material.QUARTZ_PILLAR, Axis.Y);
         for (int side : new int[] {-24, 24}) {
             for (int y = 1; y <= 30; y++) {
@@ -314,7 +319,7 @@ public final class LobbyDesign {
             out.put(Pack.key(cx + x, y0 + 2, wz + 2), data.apply(f));
         }
         text(out, data, "MINT", cx, wz + 1, y0 + 17);
-        text(out, data, "PVP", cx, wz + 1, y0 + 4);
+        text(out, data, "PVP", cx, wz + 1, y0 + 5);
     }
 
     /** Draws a line of 5x5 letters, each pixel a 2x2 block, centred on x = cx. Rows go up from {@code yBottom}. */
@@ -322,13 +327,18 @@ public final class LobbyDesign {
         int width = s.length() * 11 - 1;
         int x = cx - width / 2;
         BlockData lime = data.apply(Material.LIME_CONCRETE);
+        BlockData shade = data.apply(Material.GREEN_CONCRETE);
         for (char ch : s.toCharArray()) {
             String[] rows = FONT.get(ch);
             for (int r = 0; r < 5; r++) {
                 for (int c = 0; c < 5; c++) {
                     if (rows[r].charAt(c) != 'X') continue;
                     for (int px = 0; px < 2; px++) {
-                        for (int py = 0; py < 2; py++) out.put(Pack.key(x + c * 2 + px, yBottom + (4 - r) * 2 + py, z), lime);
+                        for (int py = 0; py < 2; py++) {
+                            int bx = x + c * 2 + px, by = yBottom + (4 - r) * 2 + py;
+                            out.put(Pack.key(bx + 1, by - 1, z - 1), shade); // drop shadow on the panel behind
+                            out.put(Pack.key(bx, by, z), lime);
+                        }
                     }
                 }
             }
