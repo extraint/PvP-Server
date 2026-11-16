@@ -247,9 +247,15 @@ public final class DuelManager {
         request(from, to, kitId, arenaName, ranked, 1);
     }
 
+    /** Ranked (tier) matches are first to this many rounds. */
+    public int rankedRounds() {
+        return Math.max(1, plugin.getConfig().getInt("ranked.first-to", 3));
+    }
+
     /** @param rounds first to this many round wins (1 = a single round) */
     public void request(Player from, Player to, String kitId, String arenaName, boolean ranked, int rounds) {
         rounds = Math.max(1, Math.min(rounds, plugin.getConfig().getInt("duel.max-rounds", 15)));
+        if (ranked) rounds = rankedRounds(); // tier tests and ranked challenges are always the same length
         Theme t = plugin.theme();
         Kit kit = kitId == null ? plugin.kits().defaultKit() : plugin.kits().get(kitId);
         if (kit == null) { from.sendMessage(t.error("that kit doesn't exist.")); return; }
@@ -481,7 +487,7 @@ public final class DuelManager {
         }
         a.sendMessage(found(b, ranked, kit));
         b.sendMessage(found(a, ranked, kit));
-        start(a, b, arena, kit, ranked);
+        start(a, b, arena, kit, ranked, ranked ? rankedRounds() : 1);
         return true;
     }
 
@@ -532,7 +538,7 @@ public final class DuelManager {
         Theme t = plugin.theme();
         Component c = t.text("match found! opponent: ", t.accent()).append(t.raw(opponent.getName(), t.primary()));
         if (ranked) {
-            c = c.append(t.text(" (" + dev.mintpvp.util.Tier.name(plugin.stats().get(opponent.getUniqueId()).tierIndex(kit.id)) + ")", t.muted()));
+            c = c.append(t.text(" (" + dev.mintpvp.util.Tier.name(plugin.stats().get(opponent.getUniqueId()).tierIndex(kit.id)) + ", first to " + rankedRounds() + ")", t.muted()));
         }
         return t.info(c);
     }

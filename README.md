@@ -125,7 +125,8 @@ straight away.
   are put back at their spawns for a countdown (`duel.round-countdown-seconds`).
 - A round that ends level on health at the time limit is replayed. Quitting between or during rounds forfeits the match.
 - Ranked tiers and duel wins/losses count once, for the whole match; kills and deaths count every round.
-- Options: `duel.round-options`, `duel.max-rounds`. Rounds apply to 1v1 duels (not parties or the queue).
+- **Ranked is always first to 3** (`ranked.first-to`): tier queue matches and `/challenge` skip the rounds menu.
+- Options: `duel.round-options`, `duel.max-rounds`. Rounds apply to 1v1 duels (not parties; the unranked queue is a single round).
 
 ## Spawn & lobby
 ```

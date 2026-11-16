@@ -132,9 +132,20 @@ public final class Guis {
     /** Pick a kit, then how many rounds (first to N), then send the duel request. */
     public static void kitAndRounds(MintPvP plugin, Player p, Player target, boolean ranked, Runnable back) {
         pickKit(plugin, p, "choose kit", back,
-                kit -> List.of(plugin.theme().text("click to pick the rounds", plugin.theme().secondary())),
-                kit -> new RoundsGui(plugin, p, () -> kitAndRounds(plugin, p, target, ranked, back),
-                        rounds -> plugin.duels().request(p, target, kit.id, null, ranked, rounds)).open(p));
+                kit -> List.of(plugin.theme().text(ranked ? "first to " + plugin.duels().rankedRounds() + " · click to send" : "click to pick the rounds", plugin.theme().secondary())),
+                kit -> {
+                    if (ranked) {
+                        sendRanked(plugin, p, target, kit.id);
+                        return;
+                    }
+                    new RoundsGui(plugin, p, () -> kitAndRounds(plugin, p, target, ranked, back),
+                            rounds -> plugin.duels().request(p, target, kit.id, null, false, rounds)).open(p);
+                });
+    }
+
+    private static void sendRanked(MintPvP plugin, Player p, Player target, String kitId) {
+        p.closeInventory();
+        plugin.duels().request(p, target, kitId, null, true, plugin.duels().rankedRounds());
     }
 
     /** Kit already chosen: just pick the rounds. */

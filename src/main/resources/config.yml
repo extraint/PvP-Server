@@ -54,6 +54,7 @@ ranked:
   # Kit tiers (LT5 < HT5 < LT4 < ... < HT1). Overall score = the points of your tier in every kit
   # (LT5 3, HT5 8, LT4 12, HT4 20, LT3 28, HT3 38, LT2 50, HT2 65, LT1 92, HT1 110).
   # Your first ranked game in a kit places you at LT5.
+  first-to: 3                  # every ranked match (queue and /challenge) is first to this many rounds
   wins-to-promote: 2           # progress needed to go up a tier (a win over your tier or higher = 1, 2+ tiers above = 2)
   losses-to-demote: 2          # losses to your tier or lower needed to drop a tier (never below LT5)
   streak-bonus-at: 3           # from this many ranked wins in a row, each win counts +1 extra progress (0 = off)
