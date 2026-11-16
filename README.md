@@ -9,7 +9,7 @@ A light mint-green, small-caps themed PvP plugin for **Paper 26.3** (Java 25).
 - Combat tag with action-bar timer, command blocking, combat-log punishment
 - Persistent kills / deaths / K/D / kill streaks, streak announcements. Duel, party and free-for-all eliminations count: the last opponent to hit you is credited with the kill (projectiles too), you get a death, and quitting mid-match counts as a death
 - Arenas + 1v1 duels, party duels and party free-for-alls (see below)
-- `/stats [player]`, `/leaderboard [kills|kd|streak]`, `/kit`, `/mintpvp reload`
+- `/stats [player]`, `/leaderboard [score|wins|kills|kd|streak]`, `/kit`, `/mintpvp reload`
 
 ## Build
 ```bash
@@ -92,27 +92,28 @@ must contain exactly the kit's items, and a layout that no longer matches (becau
 admin changed the kit) falls back to the default.
 
 
-## Ranked (Elo)
-`/queue ranked [kit]` or the diamond sword. Everyone starts at **1000 elo** (LT4).
-Matches pair the closest ratings inside a window that starts at ±100 and widens by 50 every 10 s of waiting
-(max ±800). A win is always at least +1 and a loss at least -1, ratings never go below 0, quitting
-mid-duel is a loss, and a server shutdown voids the match.
+## Ranked (kit tiers + score)
+`/queue ranked [kit]` or the diamond sword. There is no Elo: every kit has its own **tier**, and your
+overall **score** is the points of your tier in each kit added together.
 
-**Adaptive Elo** (so results sometimes swing a lot): each player's points per result depend on how
-established they are, using their own K-factor:
-- first 10 ranked games: **K=64** ("placement": the message shows how many are left)
-- games 11-30: **K=40**
-- after that: **K=32** (`ranked.k-factor`), and **K=20** from 1900 elo up
-- a winner on a win streak of 2+ gets a bonus: **+10% per extra win, up to +50%**
+| Tier | LT5 | HT5 | LT4 | HT4 | LT3 | HT3 | LT2 | HT2 | LT1 | HT1 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| Points | 3 | 8 | 12 | 20 | 28 | 38 | 50 | 65 | 92 | 110 |
 
-So two new players trade ±32, two veterans ±16, a newcomer beating a veteran can gain 40-60 while the
-veteran loses less, and a 4-win streak adds +30% to the next win. Because each player uses their own K,
-a result is no longer exactly zero-sum. All numbers are under `ranked:` in `config.yml`.
+How tiers move (per kit, all numbers under `ranked:` in `config.yml`):
+- your **first ranked game** in a kit places you at **LT5** (unranked = 0 points in that kit)
+- a **win** over someone at your tier or higher is +1 progress (+2 over someone 2+ tiers above, and +1 extra
+  from a 3-win streak); **2 progress promotes** you (`ranked.wins-to-promote`)
+- beating someone *below* your tier gives no progress, so farming low tiers doesn't pay
+- a **loss** to someone at your tier or lower is -1 progress; **2 demotes** you (never below LT5).
+  Losing to a higher tier costs nothing. Draws change nothing.
+- quitting mid-duel is a loss; a server shutdown voids the match
+- matchmaking pairs players with the closest tier **in that kit**, in a window that starts at 1 tier and widens
+  by 1 every 10 s of waiting
 
-Tiers (by Elo): LT5 (0), HT5 (850), LT4 (1000, where everyone starts), HT4 (1150), LT3 (1300),
-HT3 (1450), LT2 (1600), HT2 (1750), LT1 (1900), HT1 (2050). They're defined in
-`util/Tier.java` if you want to move the cut-offs.
-`/leaderboard [elo|wins|kills|kd|streak]` or the GUI.
+After each ranked duel you see the promotion/demotion (or your progress) and your new score.
+`/stats` lists your tier in every kit you've played. `/leaderboard [score|wins|kills|kd|streak]` or the GUI.
+Tier points are defined in `util/Tier.java`. (Old Elo values in `stats.yml` are ignored.)
 
 ## Spawn & lobby
 ```
@@ -187,7 +188,7 @@ the server stops mid-duel, generated arenas are reset on the way out.
 ### Ranked challenges and the end of a duel
 - `/challenge <player> [kit]` (alias `/ranked`) sends a **ranked** duel request; the other player
   accepts with the clickable button or `/duel accept`, and the result changes both players'
-  Elo. `/challenge` alone opens a picker, and the hub and hotbar have a ranked-challenge button
+  kit tier. `/challenge` alone opens a picker, and the hub and hotbar have a ranked-challenge button
   (crossbow). `/duel` stays unranked. To stop win-trading, the same two players can play at
   most `ranked.challenge-limit-per-hour` (5) ranked challenge duels an hour.
 - When someone dies the duel doesn't cut away at once: for `duel.end-delay-seconds` (4) the
@@ -208,7 +209,7 @@ says which ("the duel ended in a draw: ..."). Every result is also logged in the
 ## Parties, party duels and party free-for-all
 All three run on the same match engine as 1v1 duels (same arenas, countdown, kits, spectating, reset).
 A player who dies is eliminated and watches from spectator mode where they fell; the match ends when one
-team is left. Ranked Elo only applies to 1v1 ranked duels.
+team is left. Ranked tiers only apply to 1v1 ranked duels.
 
 ### Parties
 ```

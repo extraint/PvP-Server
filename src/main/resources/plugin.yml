@@ -15,7 +15,7 @@ commands:
   leaderboard:
     description: View the top players.
     aliases: [lb, top]
-    usage: /<command> [elo|wins|kills|kd|streak]
+    usage: /<command> [score|wins|kills|kd|streak]
   kit:
     description: Edit your kit layouts (admins can also manage kits).
     aliases: [kits, layout]

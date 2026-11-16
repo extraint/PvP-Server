@@ -11,7 +11,7 @@ import java.util.*;
 
 /**
  * Random matchmaking, one queue per kit and type.
- * Unranked pairs the two longest-waiting players. Ranked pairs players whose Elo
+ * Unranked pairs the two longest-waiting players. Ranked pairs players whose tier in the kit
  * is within a window that starts narrow and widens the longer they wait.
  */
 public final class QueueManager {
@@ -57,13 +57,13 @@ public final class QueueManager {
         return queued.size();
     }
 
-    /** Allowed Elo difference for a ranked entry, widening with wait time. */
+    /** Allowed tier difference (in tiers) for a ranked entry, widening with wait time. */
     public int window(Entry e) {
         var c = plugin.getConfig();
-        int base = c.getInt("ranked.window-base", 100);
-        int step = c.getInt("ranked.window-step", 50);
+        int base = c.getInt("ranked.window-base", 1);
+        int step = c.getInt("ranked.window-step", 1);
         int interval = Math.max(1, c.getInt("ranked.window-interval-seconds", 10));
-        int max = Math.max(base, c.getInt("ranked.window-max", 800));
+        int max = Math.max(base, c.getInt("ranked.window-max", 10));
         long waited = (System.currentTimeMillis() - e.since()) / 1000;
         return (int) Math.min(max, base + step * (waited / interval));
     }
@@ -132,12 +132,12 @@ public final class QueueManager {
             if (!ranked) {
                 b = pool.get(1);
             } else {
-                // closest Elo within either player's (wait-widened) window
-                int eloA = plugin.stats().get(a.getUniqueId()).elo;
+                // closest tier in this kit within either player's (wait-widened) window
+                int tierA = plugin.stats().get(a.getUniqueId()).tierIndex(kit.id);
                 int bestDiff = Integer.MAX_VALUE;
                 for (int i = 1; i < pool.size(); i++) {
                     Player c = pool.get(i);
-                    int diff = Math.abs(eloA - plugin.stats().get(c.getUniqueId()).elo);
+                    int diff = Math.abs(tierA - plugin.stats().get(c.getUniqueId()).tierIndex(kit.id));
                     int allowed = Math.max(window(queued.get(a.getUniqueId())), window(queued.get(c.getUniqueId())));
                     if (diff <= allowed && diff < bestDiff) {
                         b = c;

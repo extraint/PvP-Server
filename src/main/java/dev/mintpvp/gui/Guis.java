@@ -98,8 +98,7 @@ public final class Guis {
             List<Component> lore = new ArrayList<>();
             lore.add(t.text(q.count(kit, type) + " in queue", t.accent()));
             if (ranked) {
-                int elo = plugin.stats().get(p.getUniqueId()).elo;
-                lore.add(t.text("your elo: " + elo + " · " + Tier.of(elo).label, t.muted()));
+                lore.add(t.text("your tier: " + Tier.name(plugin.stats().get(p.getUniqueId()).tierIndex(kit.id)), t.muted()));
             }
             lore.add(Component.empty());
             var mine = q.entryOf(p.getUniqueId());

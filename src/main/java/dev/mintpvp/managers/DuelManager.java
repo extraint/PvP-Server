@@ -461,8 +461,8 @@ public final class DuelManager {
             plugin.generator().requestExtra(ranked); // all busy: make another one
             return false;
         }
-        a.sendMessage(found(b, ranked));
-        b.sendMessage(found(a, ranked));
+        a.sendMessage(found(b, ranked, kit));
+        b.sendMessage(found(a, ranked, kit));
         start(a, b, arena, kit, ranked);
         return true;
     }
@@ -510,12 +510,11 @@ public final class DuelManager {
 
     // ---- lifecycle ------------------------------------------------------
 
-    private Component found(Player opponent, boolean ranked) {
+    private Component found(Player opponent, boolean ranked, Kit kit) {
         Theme t = plugin.theme();
         Component c = t.text("match found! opponent: ", t.accent()).append(t.raw(opponent.getName(), t.primary()));
         if (ranked) {
-            int elo = plugin.stats().get(opponent.getUniqueId()).elo;
-            c = c.append(t.text(" (" + elo + " elo · " + dev.mintpvp.util.Tier.of(elo).label + ")", t.muted()));
+            c = c.append(t.text(" (" + dev.mintpvp.util.Tier.name(plugin.stats().get(opponent.getUniqueId()).tierIndex(kit.id)) + ")", t.muted()));
         }
         return t.info(c);
     }
@@ -986,24 +985,29 @@ public final class DuelManager {
         }
     }
 
-    /** Applies the adaptive Elo change and tells both players (1v1 ranked duels only). */
+    /** Applies the kit tier change and tells both players (1v1 ranked duels only). */
     private void rankedResult(Duel duel, Player first, boolean draw) {
         Player second = duel.opponentOf(first);
-        int k = plugin.getConfig().getInt("ranked.k-factor", 32);
-        var c = plugin.stats().recordRanked(first.getUniqueId(), second.getUniqueId(), draw, k);
-        eloMessage(first, c[0]);
-        eloMessage(second, c[1]);
+        var c = plugin.stats().recordRanked(first.getUniqueId(), second.getUniqueId(), draw, duel.kit.id);
+        tierMessage(first, duel.kit.display, c[0]);
+        tierMessage(second, duel.kit.display, c[1]);
     }
 
-    private void eloMessage(Player p, StatsManager.EloChange c) {
+    private void tierMessage(Player p, String kitName, StatsManager.TierChange c) {
         Theme t = plugin.theme();
-        var st = plugin.stats().get(p.getUniqueId());
-        int elo = st.elo;
-        Component msg = t.text("elo " + (c.delta() >= 0 ? "+" : "") + c.delta() + " → " + elo, t.accent())
-                .append(t.text(" · " + dev.mintpvp.util.Tier.of(elo).label, t.muted()));
-        if (c.streakBonusPercent() > 0) msg = msg.append(t.text(" · win streak +" + c.streakBonusPercent() + "%", t.secondary()));
-        int left = plugin.getConfig().getInt("ranked.provisional-games", 10) - st.rankedGames();
-        if (c.provisional() && left > 0) msg = msg.append(t.text(" · placement: " + left + " games left (big swings)", t.muted()));
+        String now = dev.mintpvp.util.Tier.name(c.newTier());
+        Component msg;
+        if (c.placement()) {
+            msg = t.text(kitName + " placed: " + now, t.accent());
+        } else if (c.newTier() > c.oldTier()) {
+            msg = t.text(kitName + " promoted: " + dev.mintpvp.util.Tier.name(c.oldTier()) + " → " + now, t.primary());
+        } else if (c.newTier() < c.oldTier()) {
+            msg = t.text(kitName + " demoted: " + dev.mintpvp.util.Tier.name(c.oldTier()) + " → " + now, t.secondary());
+        } else {
+            int need = plugin.getConfig().getInt(c.progress() >= 0 ? "ranked.wins-to-promote" : "ranked.losses-to-demote", 2);
+            msg = t.text(kitName + " " + now + " · progress " + c.progress() + "/" + (c.progress() >= 0 ? need : -need), t.accent());
+        }
+        msg = msg.append(t.text(" · score " + c.score() + (c.scoreDelta() != 0 ? " (" + (c.scoreDelta() > 0 ? "+" : "") + c.scoreDelta() + ")" : ""), t.muted()));
         p.sendMessage(t.info(msg));
     }
 

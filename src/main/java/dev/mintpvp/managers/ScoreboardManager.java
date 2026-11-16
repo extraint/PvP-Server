@@ -52,7 +52,7 @@ public final class ScoreboardManager {
                     + q.kit().display + " · ", t.secondary())
                     .append(Component.text(String.format("%d:%02d", sec / 60, sec % 60), t.accent()));
             if (q.type() == dev.mintpvp.managers.QueueManager.Type.RANKED) {
-                bar = bar.append(t.text(" · ±" + plugin.queue().window(q) + " elo", t.muted()));
+                bar = bar.append(t.text(" · ±" + plugin.queue().window(q) + " tiers", t.muted()));
             }
             p.sendActionBar(bar);
         }
@@ -74,7 +74,7 @@ public final class ScoreboardManager {
 
         List<Component> lines = List.of(
                 Component.text(" "),
-                t.line("elo", s.elo + " · " + dev.mintpvp.util.Tier.of(s.elo).label),
+                t.line("score", s.score() + " · " + dev.mintpvp.util.Tier.name(s.bestTier())),
                 t.line("kills", String.valueOf(s.kills)),
                 t.line("deaths", String.valueOf(s.deaths)),
                 t.line("k/d", String.format(Locale.ROOT, "%.2f", s.kd())),

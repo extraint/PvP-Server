@@ -71,7 +71,7 @@ public final class LobbyManager {
         inv.setItem(2, Items.of(Material.BOW).name(t.text("✦ challenge a player", t.primary()))
                 .lore(t.text("right-click to duel a friend", t.accent())).tag("challenge").build());
         inv.setItem(3, Items.of(Material.CROSSBOW).name(t.text("✦ ranked challenge", t.primary()))
-                .lore(t.text("right-click to duel for elo", t.accent())).tag("challenge_ranked").build());
+                .lore(t.text("right-click to duel for tiers", t.accent())).tag("challenge_ranked").build());
         inv.setItem(4, Items.of(Material.NETHER_STAR).name(t.text("✦ menu", t.primary()))
                 .lore(t.text("right-click for everything", t.accent())).glow().tag("menu").build());
         inv.setItem(5, Items.of(Material.FIREWORK_ROCKET).name(t.text("✦ party", t.primary()))
@@ -128,7 +128,7 @@ public final class LobbyManager {
             case "challenge_ranked" -> Guis.challenge(plugin, p, null, true);
             case "menu" -> new HubGui(plugin, p).open(p);
             case "layout" -> Guis.layoutKits(plugin, p, null);
-            case "leaderboard" -> new LeaderboardGui(plugin, p, "elo", null).open(p);
+            case "leaderboard" -> new LeaderboardGui(plugin, p, "score", null).open(p);
             case "spectate" -> Guis.spectateList(plugin, p, null);
             case "stats" -> p.performCommand("stats");
             case "party" -> new dev.mintpvp.gui.PartyGui(plugin, p).open(p);
