@@ -23,6 +23,13 @@ public final class SpawnCommands implements CommandExecutor {
             sender.sendMessage(t.error("players only."));
             return true;
         }
+        if (cmd.getName().equalsIgnoreCase("build")) {
+            if (!p.hasPermission("mintpvp.build")) { p.sendMessage(t.error("no permission.")); return true; }
+            boolean on = plugin.lobby().toggleBuilder(p);
+            p.sendMessage(on ? t.info("builder mode is ON - you can build and break in the lobby. run /build again to turn it off.")
+                    : t.info("builder mode is OFF."));
+            return true;
+        }
         if (cmd.getName().equalsIgnoreCase("setspawn")) {
             if (!p.hasPermission("mintpvp.admin")) { p.sendMessage(t.error("no permission.")); return true; }
             plugin.spawn().set(p.getLocation());

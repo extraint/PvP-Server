@@ -10,7 +10,21 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.block.BlockBreakEvent;
+import org.bukkit.event.block.BlockBurnEvent;
+import org.bukkit.event.block.BlockExplodeEvent;
+import org.bukkit.event.block.BlockFadeEvent;
+import org.bukkit.event.block.BlockFormEvent;
+import org.bukkit.event.block.BlockFromToEvent;
+import org.bukkit.event.block.BlockIgniteEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
+import org.bukkit.event.block.BlockSpreadEvent;
+import org.bukkit.event.block.LeavesDecayEvent;
+import org.bukkit.event.entity.EntityChangeBlockEvent;
+import org.bukkit.event.entity.EntityExplodeEvent;
+import org.bukkit.event.hanging.HangingBreakByEntityEvent;
+import org.bukkit.event.player.PlayerArmorStandManipulateEvent;
+import org.bukkit.event.player.PlayerBucketFillEvent;
+import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.FoodLevelChangeEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
@@ -37,7 +51,11 @@ public final class LobbyListener implements Listener {
     }
 
     private boolean canBuild(Player p) {
-        return p.hasPermission("mintpvp.build");
+        return plugin.lobby().isBuilder(p); // builder mode (/build), off by default even for ops
+    }
+
+    private boolean inLobbyArea(org.bukkit.Location l) {
+        return plugin.lobby().protects() && plugin.generator().inLobbyRegion(l);
     }
 
     @EventHandler(priority = EventPriority.HIGH)
@@ -118,5 +136,86 @@ public final class LobbyListener implements Listener {
         }
         Player p = e.getPlayer();
         Bukkit.getScheduler().runTask(plugin, () -> plugin.lobby().give(p));
+    }
+
+    // ---- the rest of the building protection: buckets, frames, fire, explosions, the lobby itself ----
+
+    @EventHandler(ignoreCancelled = true)
+    public void onBucketFill(PlayerBucketFillEvent e) {
+        if (locked(e.getPlayer()) && !canBuild(e.getPlayer())) e.setCancelled(true);
+    }
+
+    @EventHandler(ignoreCancelled = true)
+    public void onFrameBreak(HangingBreakByEntityEvent e) {
+        if (e.getRemover() instanceof Player p && locked(p) && !canBuild(p)) e.setCancelled(true);
+    }
+
+    @EventHandler(ignoreCancelled = true)
+    public void onEntityUse(PlayerInteractEntityEvent e) {
+        if (locked(e.getPlayer()) && !canBuild(e.getPlayer())
+                && (e.getRightClicked() instanceof org.bukkit.entity.Hanging || e.getRightClicked() instanceof org.bukkit.entity.ArmorStand)) {
+            e.setCancelled(true);
+        }
+    }
+
+    @EventHandler(ignoreCancelled = true)
+    public void onArmorStand(PlayerArmorStandManipulateEvent e) {
+        if (locked(e.getPlayer()) && !canBuild(e.getPlayer())) e.setCancelled(true);
+    }
+
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onPhysical(PlayerInteractEvent e) {
+        if (e.getAction() == Action.PHYSICAL && locked(e.getPlayer()) && !canBuild(e.getPlayer())) e.setCancelled(true);
+    }
+
+    @EventHandler(ignoreCancelled = true)
+    public void onIgnite(BlockIgniteEvent e) {
+        if (inLobbyArea(e.getBlock().getLocation()) && (e.getPlayer() == null || !canBuild(e.getPlayer()))) e.setCancelled(true);
+    }
+
+    // things that change the lobby by themselves
+    @EventHandler(ignoreCancelled = true)
+    public void onFlow(BlockFromToEvent e) {
+        if (inLobbyArea(e.getBlock().getLocation())) e.setCancelled(true); // the fountain can't spill
+    }
+
+    @EventHandler(ignoreCancelled = true)
+    public void onFade(BlockFadeEvent e) {
+        if (inLobbyArea(e.getBlock().getLocation())) e.setCancelled(true); // ice and snow don't melt
+    }
+
+    @EventHandler(ignoreCancelled = true)
+    public void onForm(BlockFormEvent e) {
+        if (inLobbyArea(e.getBlock().getLocation())) e.setCancelled(true);
+    }
+
+    @EventHandler(ignoreCancelled = true)
+    public void onSpread(BlockSpreadEvent e) {
+        if (inLobbyArea(e.getBlock().getLocation())) e.setCancelled(true);
+    }
+
+    @EventHandler(ignoreCancelled = true)
+    public void onBurn(BlockBurnEvent e) {
+        if (inLobbyArea(e.getBlock().getLocation())) e.setCancelled(true);
+    }
+
+    @EventHandler(ignoreCancelled = true)
+    public void onLeafDecay(LeavesDecayEvent e) {
+        if (inLobbyArea(e.getBlock().getLocation())) e.setCancelled(true);
+    }
+
+    @EventHandler(ignoreCancelled = true)
+    public void onBlockChangedByEntity(EntityChangeBlockEvent e) {
+        if (inLobbyArea(e.getBlock().getLocation())) e.setCancelled(true);
+    }
+
+    @EventHandler(ignoreCancelled = true)
+    public void onExplode(EntityExplodeEvent e) {
+        if (inLobbyArea(e.getLocation())) e.blockList().clear();
+    }
+
+    @EventHandler(ignoreCancelled = true)
+    public void onBlockExplode(BlockExplodeEvent e) {
+        if (inLobbyArea(e.getBlock().getLocation())) e.blockList().clear();
     }
 }

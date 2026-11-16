@@ -240,9 +240,15 @@ wins. There is no public free-for-all queue.
   party first (`/party leave`). Kit layouts, stats and the leaderboard still work.
 
 ## The lobby
-The generated lobby is a large floating quartz plaza (80 blocks across): a lit fountain monument in the
-middle, lime spokes and rings in a wedge-patterned floor, four small gardens (poplar, cherry, snowy,
-desert), lamp posts, a big lime **MINT PVP** sign on a white wall, a railed edge with an invisible
-barrier above it, and a tapering underside. You spawn just south of the fountain, facing it and the sign.
-It lives in the arena world at x=-1400; servers with the older lobby are moved to this one on start
-(a spawn you set elsewhere with `/setspawn` is left alone).
+The generated lobby is a large floating quartz plaza (80 blocks across): a three-step **terraced dais** (with
+stairs) holding a lit fountain, an emerald pedestal and a **beacon** with a lime beam, ringed by a flowering
+hedge with benches; mint-teal rings in the wedge-patterned floor, lamp posts, flower planters, three crystal
+spires, four themed gardens (poplar, cherry, snowy, desert), a huge lime **MINT PVP** sign wall with a flower bed
+at its foot, a railed edge with an invisible barrier above it, a tapering underside, and floating islets in the
+sky. You spawn on the south side, facing the dais and the sign. It lives in the arena world at x=-2200; servers
+with an older lobby are moved to this one on start (a spawn you set elsewhere with `/setspawn` is left alone).
+
+**The lobby can't be changed by players.** Nobody can break, place, burn, flood, melt, blow up or trample anything
+there, take items out of frames or stands, or empty/fill buckets. Not even ops: to build you must turn on
+**builder mode** with `/build` (needs `mintpvp.build`, ops have it by default); it's off by default and turns
+itself off when you leave.

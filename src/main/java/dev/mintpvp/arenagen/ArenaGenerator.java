@@ -33,7 +33,7 @@ public final class ArenaGenerator {
     /** Height of the invisible barrier above small arenas' edge. */
     public static final int CEILING = 40;
     /** Where the lobby island is, west of the arena grid. */
-    public static final int LOBBY_X = -1400, LOBBY_Z = 0;
+    public static final int LOBBY_X = -2200, LOBBY_Z = 0;
 
     /** One arena position on the grid. */
     public record Slot(int index, ArenaTheme theme, boolean large, int radius) {
@@ -152,6 +152,12 @@ public final class ArenaGenerator {
         Slot s = a.slot < 0 ? null : slots.get(a.slot);
         if (s == null) return -1;
         return model(s).surface(x - s.cx(), z - s.cz()) + 1;
+    }
+
+    /** Is this location in the lobby area of the arena world? */
+    public boolean inLobbyRegion(Location l) {
+        return world != null && l.getWorld() != null && l.getWorld().equals(world)
+                && Math.abs(l.getX() - LOBBY_X) <= 90 && Math.abs(l.getZ() - LOBBY_Z) <= 90;
     }
 
     public Location lobbySpawn() {

@@ -24,6 +24,10 @@ commands:
     description: Teleport to the lobby spawn.
     aliases: [lobby, hub]
     usage: /<command>
+  build:
+    description: Turn builder mode on or off (lets you build and break in the lobby).
+    aliases: [buildmode]
+    usage: /<command>
   setspawn:
     description: Set the lobby / world spawn to your location.
     usage: /<command>
@@ -60,7 +64,7 @@ permissions:
     description: Reload and administer Mint PvP.
     default: op
   mintpvp.build:
-    description: Build, break and drop items in the lobby.
+    description: Allows /build (builder mode) to build, break and drop items in the lobby.
     default: op
   mintpvp.spectate:
     description: Spectate duels.

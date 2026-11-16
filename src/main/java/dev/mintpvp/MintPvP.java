@@ -99,7 +99,7 @@ public final class MintPvP extends JavaPlugin {
         }
 
         SpawnCommands spawnCommands = new SpawnCommands(this);
-        for (String name : new String[] {"spawn", "setspawn"}) {
+        for (String name : new String[] {"spawn", "setspawn", "build"}) {
             var cmd = getCommand(name);
             if (cmd != null) cmd.setExecutor(spawnCommands);
         }

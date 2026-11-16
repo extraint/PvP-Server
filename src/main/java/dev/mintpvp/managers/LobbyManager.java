@@ -20,9 +20,31 @@ public final class LobbyManager {
 
     private final MintPvP plugin;
     private final Map<UUID, Long> cooldown = new HashMap<>();
+    private final java.util.Set<UUID> builders = new java.util.HashSet<>();
 
     public LobbyManager(MintPvP plugin) {
         this.plugin = plugin;
+    }
+
+    /**
+     * Builder mode: off for everyone by default, even ops. Only players with mintpvp.build can turn it on
+     * (/build), and it turns itself off when they leave. While it is on they can build and break in the lobby.
+     */
+    public boolean isBuilder(Player p) {
+        return builders.contains(p.getUniqueId()) && p.hasPermission("mintpvp.build");
+    }
+
+    /** @return true if builder mode is now on */
+    public boolean toggleBuilder(Player p) {
+        if (!builders.remove(p.getUniqueId())) {
+            builders.add(p.getUniqueId());
+            return true;
+        }
+        return false;
+    }
+
+    public void builderOff(UUID id) {
+        builders.remove(id);
     }
 
     public boolean givesItems() {
