@@ -18,7 +18,7 @@ import java.util.Locale;
 /** /party ... and /pc (party chat). */
 public final class PartyCommands implements CommandExecutor, TabCompleter {
 
-    private static final List<String> SUBS = List.of("create", "invite", "accept", "deny", "leave", "kick", "disband", "promote", "list", "chat", "duel", "help");
+    private static final List<String> SUBS = List.of("create", "invite", "accept", "deny", "leave", "kick", "disband", "promote", "list", "chat", "duel", "ffa", "help");
 
     private final MintPvP plugin;
 
@@ -69,6 +69,12 @@ public final class PartyCommands implements CommandExecutor, TabCompleter {
                 if (args.length < 2) p.sendMessage(t.error("usage: /party chat <message>"));
                 else parties.chat(p, String.join(" ", Arrays.copyOfRange(args, 1, args.length)));
             }
+            case "ffa", "freeforall" -> {
+                String kit = arg1;
+                if (kit != null && plugin.kits().get(kit) == null) { p.sendMessage(t.error("that kit doesn't exist.")); return true; }
+                if (kit == null) PartyGui.ffaKit(plugin, p, () -> new PartyGui(plugin, p).open(p));
+                else plugin.duels().startPartyFfa(p, kit);
+            }
             case "duel", "fight", "challenge" -> {
                 if (arg1 == null) {
                     PartyGui.challengeParty(plugin, p, () -> new PartyGui(plugin, p).open(p));
@@ -96,6 +102,7 @@ public final class PartyCommands implements CommandExecutor, TabCompleter {
         p.sendMessage(t.usage("/party disband", "end the party (leader)"));
         p.sendMessage(t.usage("/party list", "show the members"));
         p.sendMessage(t.usage("/party duel <player> [kit]", "challenge another party (leader)"));
+        p.sendMessage(t.usage("/party ffa [kit]", "free-for-all inside your party (leader)"));
         p.sendMessage(t.usage("/pc <message>", "party chat"));
     }
 
@@ -104,9 +111,9 @@ public final class PartyCommands implements CommandExecutor, TabCompleter {
         List<String> out = new ArrayList<>();
         if (cmd.getName().equalsIgnoreCase("party")) {
             if (args.length == 1) out.addAll(SUBS);
-            else if (args.length == 2 && List.of("invite", "add", "accept", "deny", "kick", "promote", "duel").contains(args[0].toLowerCase(Locale.ROOT))) {
+            else if (args.length == 2 && List.of("invite", "add", "accept", "deny", "kick", "promote", "duel", "ffa").contains(args[0].toLowerCase(Locale.ROOT))) {
                 Bukkit.getOnlinePlayers().forEach(pl -> out.add(pl.getName()));
-            } else if (args.length == 3 && args[0].equalsIgnoreCase("duel")) {
+            } else if ((args.length == 3 && args[0].equalsIgnoreCase("duel")) || (args.length == 2 && args[0].equalsIgnoreCase("ffa"))) {
                 plugin.kits().all().forEach(k -> out.add(k.id));
             }
         }

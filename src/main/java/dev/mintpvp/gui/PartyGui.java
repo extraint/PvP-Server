@@ -86,6 +86,13 @@ public final class PartyGui extends Gui {
                             Component.empty(), t.text("click to set up", t.secondary())).glow().build(),
                     e -> new TeamsGui(plugin, p, null, () -> new PartyGui(plugin, p).open(p)).open(p));
         }
+        if (leader && party.members.size() >= Math.max(3, plugin.getConfig().getInt("party.ffa-min-players", 3))) {
+            set(42, Items.of(Material.TNT).name(t.text("✦ party free-for-all", t.primary()))
+                    .lore(t.text("everyone in the party fights", t.accent()),
+                            t.text("each other - last one standing wins", t.accent()),
+                            Component.empty(), t.text("click to pick a kit", t.secondary())).glow().build(),
+                    e -> ffaKit(plugin, p, () -> new PartyGui(plugin, p).open(p)));
+        }
         set(32, Items.of(Material.OAK_DOOR).name(t.text("leave party", t.secondary())).build(), e -> {
             plugin.parties().leave(p, false);
             new PartyGui(plugin, p).open(p);
@@ -98,6 +105,17 @@ public final class PartyGui extends Gui {
             });
         }
         set(40, Items.of(Material.BARRIER).name(t.text("close", t.secondary())).build(), e -> p.closeInventory());
+    }
+
+    /** Pick a kit, then start a free-for-all among the party. */
+    public static void ffaKit(MintPvP plugin, Player p, Runnable back) {
+        Theme t = plugin.theme();
+        Guis.pickKit(plugin, p, "party free-for-all", back,
+                kit -> List.of(t.text("click to start", t.secondary())),
+                kit -> {
+                    p.closeInventory();
+                    plugin.duels().startPartyFfa(p, kit.id);
+                });
     }
 
     /** Pick another party (shown by its leader), then a kit, then send the challenge. */

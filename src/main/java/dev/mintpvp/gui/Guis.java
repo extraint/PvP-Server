@@ -119,28 +119,6 @@ public final class Guis {
         });
     }
 
-    /** Pick a kit, then join that kit's free-for-all lobby (clicking your own lobby leaves it). */
-    public static void ffaKits(MintPvP plugin, Player p, Runnable back) {
-        Theme t = plugin.theme();
-        pickKit(plugin, p, "free-for-all", back, kit -> {
-            List<Component> lore = new ArrayList<>();
-            lore.add(t.text(plugin.ffa().count(kit) + " waiting", t.accent()));
-            lore.add(t.text("starts at " + plugin.getConfig().getInt("ffa.min-players", 3) + "+ players", t.muted()));
-            lore.add(Component.empty());
-            lore.add(t.text(plugin.ffa().kitOf(p.getUniqueId()) == kit ? "click to leave" : "click to join", t.secondary()));
-            return lore;
-        }, kit -> {
-            p.closeInventory();
-            if (plugin.ffa().kitOf(p.getUniqueId()) == kit) {
-                plugin.ffa().leave(p.getUniqueId());
-                p.sendMessage(t.info("you left the free-for-all lobby."));
-            } else {
-                plugin.ffa().leave(p.getUniqueId());
-                plugin.ffa().join(p, kit);
-            }
-        });
-    }
-
     /** Pick a player, then a kit, then send the duel request. */
     public static void challenge(MintPvP plugin, Player p, Runnable back) {
         challenge(plugin, p, back, false);

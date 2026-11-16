@@ -110,6 +110,6 @@ final class ArenaWorldGenerator extends ChunkGenerator {
 
     @Override
     public Location getFixedSpawnLocation(World world, Random random) {
-        return new Location(world, ArenaGenerator.LOBBY_X + 0.5, ArenaGenerator.FLOOR_Y + 1, ArenaGenerator.LOBBY_Z + 0.5);
+        return new Location(world, ArenaGenerator.LOBBY_X + 0.5, ArenaGenerator.FLOOR_Y + 1, ArenaGenerator.LOBBY_Z + LobbyDesign.SPAWN_DZ + 0.5);
     }
 }

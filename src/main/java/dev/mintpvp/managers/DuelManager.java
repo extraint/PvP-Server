@@ -100,7 +100,7 @@ public final class DuelManager {
         /** "A vs B", "A's party vs B's party", or "free-for-all (6 players)". */
         public String title() {
             return switch (mode) {
-                case FFA -> "free-for-all (" + players.size() + " players)";
+                case FFA -> "party free-for-all (" + players.size() + " players)";
                 default -> teamNames.get(0) + " vs " + teamNames.get(1);
             };
         }
@@ -226,7 +226,6 @@ public final class DuelManager {
         if (isSpectating(id)) return "spectating";
         if (plugin.combat().isTagged(id)) return "in combat";
         if (plugin.queue().isQueued(id)) return "in a queue";
-        if (plugin.ffa().isIn(id)) return "waiting for a free-for-all";
         return null;
     }
 
@@ -237,7 +236,6 @@ public final class DuelManager {
         if (plugin.parties().blocks(from, "start a 1v1 duel")) return;
         if (plugin.parties().inParty(to.getUniqueId())) { from.sendMessage(t.error("that player is in a party.")); return; }
         if (plugin.queue().isQueued(from.getUniqueId())) { from.sendMessage(t.error("leave the queue first (/queue leave).")); return; }
-        if (plugin.ffa().isIn(from.getUniqueId())) { from.sendMessage(t.error("leave the free-for-all first (/ffa leave).")); return; }
         if (ranked && !plugin.queue().rankedEnabled()) { from.sendMessage(t.error("ranked is disabled right now.")); return; }
         if (ranked && overRankedLimit(from.getUniqueId(), to.getUniqueId())) {
             from.sendMessage(t.error("you've already played a lot of ranked duels against that player this hour - try someone else or the queue."));
@@ -467,22 +465,35 @@ public final class DuelManager {
         return true;
     }
 
-    /** Starts a free-for-all. @return false if no arena is free yet. */
-    public boolean startFfa(List<Player> players, Kit kit) {
-        boolean large = players.size() >= plugin.getConfig().getInt("ffa.large-arena-min-players", 5);
+    /**
+     * A party leader starts a free-for-all among their own party: everyone fights everyone, the last
+     * player standing wins.
+     */
+    public void startPartyFfa(Player leader, String kitId) {
+        Theme t = plugin.theme();
+        var party = plugin.parties().partyOf(leader.getUniqueId());
+        if (party == null || !party.leader.equals(leader.getUniqueId())) { leader.sendMessage(t.error("only the party leader can start a party free-for-all.")); return; }
+        int min = Math.max(3, plugin.getConfig().getInt("party.ffa-min-players", 3));
+        if (party.members.size() < min) { leader.sendMessage(t.error("a free-for-all needs at least " + min + " players in the party.")); return; }
+        Kit kit = kitId == null ? plugin.kits().defaultKit() : plugin.kits().get(kitId);
+        if (kit == null) { leader.sendMessage(t.error("that kit doesn't exist.")); return; }
+        String why = partyBusy(party);
+        if (why != null) { leader.sendMessage(t.error("your party can't play right now: " + why)); return; }
+        boolean large = party.members.size() >= plugin.getConfig().getInt("party.ffa-large-arena-min-players", 5);
         Arena arena = plugin.arenas().randomFree(large).orElse(null);
         if (arena == null) {
             plugin.generator().requestExtra(large);
-            return false;
+            leader.sendMessage(t.error(noArenaReason()));
+            return;
         }
         List<List<Player>> teams = new ArrayList<>();
         List<String> names = new ArrayList<>();
-        for (Player p : players) {
+        for (UUID id : party.members) {
+            Player p = Bukkit.getPlayer(id);
             teams.add(List.of(p));
             names.add(p.getName());
         }
         start(Mode.FFA, teams, names, arena, kit, false);
-        return true;
     }
 
     public void deny(Player target, String fromName) {
@@ -550,7 +561,6 @@ public final class DuelManager {
         }
         for (Player p : duel.players) {
             plugin.queue().leave(p.getUniqueId());
-            plugin.ffa().leave(p.getUniqueId());
         }
         arena.inUse = true;
         for (Player p : duel.players) {
@@ -578,7 +588,7 @@ public final class DuelManager {
         if (plugin.getConfig().getBoolean("duel.announce-start", true)) {
             Theme t = plugin.theme();
             String label = switch (mode) {
-                case FFA -> "free-for-all (" + duel.players.size() + " players, " + kit.display + ")";
+                case FFA -> "party free-for-all (" + duel.players.size() + " players, " + kit.display + ")";
                 case PARTY -> "party duel " + teams.get(0).size() + "v" + teams.get(1).size() + " (" + kit.display + ")";
                 default -> (ranked ? "ranked " : "") + kit.display + " duel";
             };
@@ -615,7 +625,7 @@ public final class DuelManager {
                 p.playSound(p.getLocation(), Sound.BLOCK_NOTE_BLOCK_PLING, 1f, 2f);
             }
             int max = plugin.getConfig().getInt("duel.max-duration-seconds", 300);
-            if (mode == Mode.FFA) max = plugin.getConfig().getInt("ffa.max-duration-seconds", max);
+            if (mode == Mode.FFA) max = plugin.getConfig().getInt("party.ffa-max-duration-seconds", max);
             if (max > 0) {
                 duel.timeout = Bukkit.getScheduler().runTaskLater(plugin, () -> timeUp(duel), max * 20L);
             }
@@ -701,7 +711,6 @@ public final class DuelManager {
         if (plugin.combat().isTagged(id)) { sp.sendMessage(t.error("you can't spectate while in combat.")); return; }
         if (plugin.parties().blocks(sp, "spectate")) return;
         if (plugin.queue().isQueued(id)) { sp.sendMessage(t.error("leave the queue first (/queue leave).")); return; }
-        if (plugin.ffa().isIn(id)) { sp.sendMessage(t.error("leave the free-for-all first (/ffa leave).")); return; }
         Duel d = find(query);
         if (d == null) { sp.sendMessage(t.error("no running duel found for that player or arena.")); return; }
         int max = plugin.getConfig().getInt("duel.max-spectators", 20);
@@ -908,7 +917,7 @@ public final class DuelManager {
             plugin.getLogger().info("Match " + duel.title() + " on " + duel.arena.name + ": " + duel.teamName(winTeam) + " won");
             Component msg = switch (duel.mode) {
                 case FFA -> t.info(t.raw(duel.teamName(winTeam), t.primary())
-                        .append(t.text(" won the free-for-all (" + duel.players.size() + " players)!", t.accent())));
+                        .append(t.text(" won the party free-for-all (" + duel.players.size() + " players)!", t.accent())));
                 case PARTY -> t.info(t.raw(duel.teamName(winTeam), t.primary())
                         .append(t.text(" defeated ", t.accent()))
                         .append(t.raw(duel.teamName(1 - winTeam), t.secondary()))

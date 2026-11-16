@@ -33,7 +33,7 @@ public final class ArenaGenerator {
     /** Height of the invisible barrier above small arenas' edge. */
     public static final int CEILING = 40;
     /** Where the lobby island is, west of the arena grid. */
-    public static final int LOBBY_X = -700, LOBBY_Z = 0;
+    public static final int LOBBY_X = -1400, LOBBY_Z = 0;
 
     /** One arena position on the grid. */
     public record Slot(int index, ArenaTheme theme, boolean large, int radius) {
@@ -125,11 +125,17 @@ public final class ArenaGenerator {
         world.setStorm(false);
         world.setThundering(false);
 
-        if (lobbyEnabled() && !plugin.spawn().isSet()) {
-            plugin.spawn().set(lobbySpawn());
-            plugin.getLogger().info("Lobby generated and set as the server spawn.");
+        if (lobbyEnabled()) {
+            Location current = plugin.spawn().isSet() ? plugin.spawn().get() : null;
+            Location lobby = lobbySpawn();
+            // no spawn yet, or the spawn is still in an older generated lobby: use the current lobby
+            boolean oldLobby = current != null && world.equals(current.getWorld()) && current.getX() < -300 && current.distance(lobby) > 100;
+            if (current == null || oldLobby) {
+                plugin.spawn().set(lobby);
+                plugin.getLogger().info("Lobby generated and set as the server spawn.");
+            }
         }
-        for (int dx = -3; dx <= 3; dx++) for (int dz = -3; dz <= 3; dz++) world.getChunkAtAsync((LOBBY_X >> 4) + dx, (LOBBY_Z >> 4) + dz);
+        for (int dx = -4; dx <= 4; dx++) for (int dz = -4; dz <= 4; dz++) world.getChunkAtAsync((LOBBY_X >> 4) + dx, (LOBBY_Z >> 4) + dz);
         fillPool();
     }
 
@@ -149,7 +155,8 @@ public final class ArenaGenerator {
     }
 
     public Location lobbySpawn() {
-        return world == null ? null : new Location(world, LOBBY_X + 0.5, FLOOR_Y + 1, LOBBY_Z + 0.5, 0f, 0f);
+        // just south of the fountain, facing north (towards the fountain and the sign)
+        return world == null ? null : new Location(world, LOBBY_X + 0.5, FLOOR_Y + 1, LOBBY_Z + LobbyDesign.SPAWN_DZ + 0.5, 180f, 0f);
     }
 
     private void registerLobby() {

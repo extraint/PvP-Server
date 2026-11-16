@@ -58,7 +58,6 @@ public final class PartyManager {
         if (plugin.duels().inDuel(id)) { p.sendMessage(t.error("you can't " + what + " during a duel.")); return true; }
         if (plugin.duels().isSpectating(id)) { p.sendMessage(t.error("stop spectating first (/spectate leave).")); return true; }
         if (plugin.queue().isQueued(id)) { p.sendMessage(t.error("leave the queue first (/queue leave).")); return true; }
-        if (plugin.ffa().isIn(id)) { p.sendMessage(t.error("leave the free-for-all lobby first (/ffa leave).")); return true; }
         return false;
     }
 

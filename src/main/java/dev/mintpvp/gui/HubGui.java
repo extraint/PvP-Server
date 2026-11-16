@@ -97,14 +97,6 @@ public final class HubGui extends Gui {
                         Component.empty(),
                         t.text("click to open", t.secondary()))
                 .build(), e -> new PartyGui(plugin, p).open(p));
-        set(15, Items.of(Material.TNT)
-                .name(t.text("✦ free-for-all", t.primary()))
-                .lore(t.text("everyone for themselves - last", t.accent()),
-                        t.text("one standing wins", t.accent()),
-                        Component.empty(),
-                        t.text("click to pick a kit", t.secondary()))
-                .build(), e -> Guis.ffaKits(plugin, p, () -> new HubGui(plugin, p).open(p)));
-
         if (mine != null) {
             set(13, Items.of(Material.REDSTONE)
                     .name(t.text("leave queue", t.secondary()))

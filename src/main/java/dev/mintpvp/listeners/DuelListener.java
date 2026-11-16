@@ -221,7 +221,6 @@ public final class DuelListener implements Listener {
     @EventHandler
     public void onQuit(PlayerQuitEvent e) {
         plugin.queue().leave(e.getPlayer().getUniqueId());
-        plugin.ffa().leave(e.getPlayer().getUniqueId());
         plugin.parties().leave(e.getPlayer(), true);
         plugin.duels().stopSpectating(e.getPlayer());
         plugin.duels().forfeit(e.getPlayer());

@@ -8,7 +8,7 @@ A light mint-green, small-caps themed PvP plugin for **Paper 26.3** (Java 25).
 - Instant respawn, keep-inventory
 - Combat tag with action-bar timer, command blocking, combat-log punishment
 - Persistent kills / deaths / K/D / kill streaks, streak announcements
-- Arenas + 1v1 duels, party duels and free-for-alls (see below)
+- Arenas + 1v1 duels, party duels and party free-for-alls (see below)
 - `/stats [player]`, `/leaderboard [kills|kd|streak]`, `/kit`, `/mintpvp reload`
 
 ## Build
@@ -193,7 +193,7 @@ Winner = the other player dies, quits or forfeits. At the time limit (`duel.max-
 draw. A draw can also happen if the server restarts or an error stops the duel, and the message
 says which ("the duel ended in a draw: ..."). Every result is also logged in the server console.
 
-## Parties, party duels and free-for-all
+## Parties, party duels and party free-for-all
 All three run on the same match engine as 1v1 duels (same arenas, countdown, kits, spectating, reset).
 A player who dies is eliminated and watches from spectator mode where they fell; the match ends when one
 team is left. Ranked Elo only applies to 1v1 ranked duels.
@@ -211,11 +211,11 @@ on the same kit; parties can be any size (2v1, 3v1, 3v2...; set `party.allow-une
 teammates can't hurt each other (`party.friendly-fire`), and 7+ players total use a big arena.
 Leaders can also challenge from the menu. Parties live in memory (they end on restart or logout).
 
-### Free-for-all
-`/ffa [kit]` (or the menu) joins that kit's lobby; `/ffa leave` leaves. With `ffa.min-players` (3) a
-countdown of `ffa.start-delay-seconds` (30) starts (instantly when `ffa.max-players` (10) is reached);
-everyone is dropped around the arena (5+ players get a big arena) and the last player standing wins.
-At `ffa.max-duration-seconds` the player with the most health wins.
+### Party free-for-all
+A party leader can start a free-for-all **inside their own party**: `/party ffa [kit]` or the party menu's TNT
+button (needs `party.ffa-min-players`, 3). Everyone fights everyone and the last player standing wins; with
+5+ players it uses a big arena, and at `party.ffa-max-duration-seconds` (420) the player with the most health
+wins. There is no public free-for-all queue.
 
 ### Custom teams and party rules
 - **Custom teams:** in the party menu a leader can click **custom teams** (banner) to split their own party
@@ -224,5 +224,13 @@ At `ffa.max-duration-seconds` the player with the most health wins.
 - **Lobby hotbar:** slot 6 (firework rocket) opens the party menu, so you can make and manage a party
   right from the lobby.
 - **In a party you can only do party things:** while you're in a party you can't join a queue (ranked or
-  unranked), join a free-for-all, start or accept a 1v1 duel or ranked challenge, or spectate. Leave the
+  unranked), start or accept a 1v1 duel or ranked challenge, or spectate. Leave the
   party first (`/party leave`). Kit layouts, stats and the leaderboard still work.
+
+## The lobby
+The generated lobby is a large floating quartz plaza (80 blocks across): a lit fountain monument in the
+middle, lime spokes and rings in a wedge-patterned floor, four small gardens (poplar, cherry, snowy,
+desert), lamp posts, a big lime **MINT PVP** sign on a white wall, a railed edge with an invisible
+barrier above it, and a tapering underside. You spawn just south of the fountain, facing it and the sign.
+It lives in the arena world at x=-1400; servers with the older lobby are moved to this one on start
+(a spawn you set elsewhere with `/setspawn` is left alone).

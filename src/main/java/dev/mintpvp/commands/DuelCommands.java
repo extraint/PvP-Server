@@ -66,7 +66,7 @@ public final class DuelCommands implements CommandExecutor, TabCompleter {
                 p.sendMessage(t.usage("/duel <player> [kit] [arena]", "challenge a player (unranked)"));
                 p.sendMessage(t.usage("/challenge <player> [kit]", "challenge a player to a ranked duel"));
                 p.sendMessage(t.usage("/party", "team up and duel other parties"));
-                p.sendMessage(t.usage("/ffa [kit]", "join a free-for-all"));
+                p.sendMessage(t.usage("/party ffa [kit]", "party free-for-all (leader)"));
                 p.sendMessage(t.usage("/duel accept|deny [player]", "answer a request"));
                 p.sendMessage(t.usage("/duel forfeit", "leave your duel (you lose)"));
                 p.sendMessage(t.usage("/spectate [player|arena|leave]", "watch a duel"));

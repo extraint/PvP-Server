@@ -48,9 +48,6 @@ commands:
   pc:
     description: Party chat.
     usage: /<command> <message>
-  ffa:
-    description: Join a free-for-all lobby.
-    usage: /<command> [kit|leave]
   spectate:
     description: Watch a running duel.
     aliases: [spec, watch]

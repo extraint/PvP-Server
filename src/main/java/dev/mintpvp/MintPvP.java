@@ -2,7 +2,6 @@ package dev.mintpvp;
 
 import dev.mintpvp.arenagen.ArenaGenerator;
 import dev.mintpvp.commands.DuelCommands;
-import dev.mintpvp.commands.FfaCommands;
 import dev.mintpvp.commands.KitCommands;
 import dev.mintpvp.commands.PartyCommands;
 import dev.mintpvp.commands.MintCommands;
@@ -19,7 +18,6 @@ import dev.mintpvp.managers.DuelManager;
 import dev.mintpvp.listeners.CombatListener;
 import dev.mintpvp.listeners.PlayerListener;
 import dev.mintpvp.managers.CombatManager;
-import dev.mintpvp.managers.FfaManager;
 import dev.mintpvp.managers.KitManager;
 import dev.mintpvp.managers.PartyManager;
 import dev.mintpvp.managers.QueueManager;
@@ -40,7 +38,6 @@ public final class MintPvP extends JavaPlugin {
     private DuelManager duels;
     private QueueManager queue;
     private PartyManager parties;
-    private FfaManager ffa;
     private SpawnManager spawn;
     private LobbyManager lobby;
     private GuiManager guis;
@@ -58,7 +55,6 @@ public final class MintPvP extends JavaPlugin {
         duels = new DuelManager(this);
         queue = new QueueManager(this);
         parties = new PartyManager(this);
-        ffa = new FfaManager(this);
         spawn = new SpawnManager(this);
         lobby = new LobbyManager(this);
         guis = new GuiManager(this);
@@ -116,16 +112,8 @@ public final class MintPvP extends JavaPlugin {
                 cmd.setTabCompleter(partyCommands);
             }
         }
-        FfaCommands ffaCommands = new FfaCommands(this);
-        var ffaCmd = getCommand("ffa");
-        if (ffaCmd != null) {
-            ffaCmd.setExecutor(ffaCommands);
-            ffaCmd.setTabCompleter(ffaCommands);
-        }
-
         boards.start();
         queue.start();
-        ffa.start();
         generator.start();
         // autosave stats every 5 minutes
         getServer().getScheduler().runTaskTimerAsynchronously(this, () -> stats.save(), 6000L, 6000L);
@@ -136,7 +124,6 @@ public final class MintPvP extends JavaPlugin {
     public void onDisable() {
         if (generator != null) generator.stop();
         if (guis != null) guis.shutdown();
-        if (ffa != null) ffa.stop();
         if (queue != null) queue.stop();
         if (duels != null) duels.shutdown();
         if (kits != null) kits.saveLayouts();
@@ -160,7 +147,6 @@ public final class MintPvP extends JavaPlugin {
     public DuelManager duels() { return duels; }
     public QueueManager queue() { return queue; }
     public PartyManager parties() { return parties; }
-    public FfaManager ffa() { return ffa; }
     public SpawnManager spawn() { return spawn; }
     public LobbyManager lobby() { return lobby; }
 }
