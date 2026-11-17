@@ -67,7 +67,7 @@ public final class MintPvP extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new ArenaBuildListener(this), this);
 
         MintCommands commands = new MintCommands(this);
-        for (String name : new String[] {"mintpvp", "stats", "leaderboard"}) {
+        for (String name : new String[] {"mintpvp", "stats", "leaderboard", "tiers"}) {
             var cmd = getCommand(name);
             if (cmd != null) {
                 cmd.setExecutor(commands);

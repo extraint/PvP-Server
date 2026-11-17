@@ -12,6 +12,10 @@ commands:
   stats:
     description: View PvP stats.
     usage: /<command> [player]
+  tiers:
+    description: See your tier in every kit.
+    aliases: [tier]
+    usage: /<command>
   leaderboard:
     description: View the top players.
     aliases: [lb, top]

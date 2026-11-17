@@ -71,6 +71,7 @@ public final class DuelCommands implements CommandExecutor, TabCompleter {
                 p.sendMessage(t.usage("/duel forfeit", "leave your duel (you lose)"));
                 p.sendMessage(t.usage("/spectate [player|arena|leave]", "watch a duel"));
             }
+            case "rematch" -> plugin.duels().rematch(p);
             case "forfeit" -> {
                 if (!plugin.duels().inDuel(p.getUniqueId())) p.sendMessage(t.error("you're not in a duel."));
                 else plugin.duels().forfeit(p);

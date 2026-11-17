@@ -79,8 +79,10 @@ public final class HubGui extends Gui {
                         t.line("kills", String.valueOf(s.kills)),
                         t.line("deaths", String.valueOf(s.deaths)),
                         t.line("k/d", String.format(Locale.ROOT, "%.2f", s.kd())),
-                        t.line("best streak", String.valueOf(s.bestStreak)))
-                .build());
+                        t.line("best streak", String.valueOf(s.bestStreak)),
+                        Component.empty(),
+                        t.text("click for kit tiers", t.secondary()))
+                .build(), e -> TierGui.open(plugin, p, () -> new HubGui(plugin, p).open(p)));
 
         set(34, Items.of(Material.ENDER_EYE)
                 .name(t.text("✦ spectate", t.primary()))

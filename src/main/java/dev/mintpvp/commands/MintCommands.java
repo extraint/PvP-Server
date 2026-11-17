@@ -27,6 +27,10 @@ public final class MintCommands implements CommandExecutor, TabCompleter {
             case "mintpvp" -> main(sender, args);
             case "stats" -> stats(sender, args);
             case "leaderboard" -> leaderboard(sender, args);
+            case "tiers" -> {
+                if (sender instanceof Player p) dev.mintpvp.gui.TierGui.open(plugin, p, null);
+                else sender.sendMessage(plugin.theme().error("players only."));
+            }
             default -> { return false; }
         }
         return true;

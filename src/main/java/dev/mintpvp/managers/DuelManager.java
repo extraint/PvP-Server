@@ -128,6 +128,8 @@ public final class DuelManager {
 
     private record SpecSaved(Location loc, GameMode mode) {}
 
+    private record LastMatch(UUID opponent, String kit, boolean ranked, int rounds, long expires) {}
+
     private record Request(UUID from, String kit, String arena, long expires, boolean ranked, boolean party, int rounds) {}
 
     private static final int[][] OFFSETS = spawnOffsets();
@@ -140,6 +142,7 @@ public final class DuelManager {
     }
 
     private final MintPvP plugin;
+    private final Map<UUID, LastMatch> lastMatch = new HashMap<>();
     private final Map<UUID, Request> requests = new HashMap<>();
     private final Map<UUID, Duel> byPlayer = new HashMap<>();
     private final Map<String, Deque<Long>> rankedPairs = new HashMap<>();
@@ -1046,7 +1049,56 @@ public final class DuelManager {
         }
         restoreWorld(duel);
         for (Player p : duel.players) if (!duel.left.contains(p.getUniqueId())) restore(p, duel.saved.get(p.getUniqueId()));
+        if (duel.mode == Mode.DUEL && count && duel.players.size() == 2) offerRematch(duel);
         releaseArena(duel);
+    }
+
+    /** rematch and requeue buttons */
+    private void offerRematch(Duel duel) {
+        Theme t = plugin.theme();
+        long expires = System.currentTimeMillis() + 120_000L;
+        for (Player p : duel.players) {
+            Player other = duel.opponentOf(p);
+            lastMatch.put(p.getUniqueId(), new LastMatch(other.getUniqueId(), duel.kit.id, duel.ranked, duel.firstTo, expires));
+            if (!p.isOnline()) continue;
+            p.sendMessage(t.info(t.text("again? ", t.accent())
+                    .append(t.text("[rematch]", t.primary()).clickEvent(ClickEvent.runCommand("/duel rematch")))
+                    .append(Component.text(" "))
+                    .append(t.text("[queue again]", t.secondary()).clickEvent(ClickEvent.runCommand("/queue again")))));
+        }
+    }
+
+    private LastMatch lastFor(Player p) {
+        LastMatch m = lastMatch.get(p.getUniqueId());
+        if (m == null || m.expires < System.currentTimeMillis()) {
+            lastMatch.remove(p.getUniqueId());
+            p.sendMessage(plugin.theme().error("no recent match to repeat."));
+            return null;
+        }
+        return m;
+    }
+
+    /** challenge the last opponent again (accepts their rematch request if they sent one) */
+    public void rematch(Player p) {
+        LastMatch m = lastFor(p);
+        if (m == null) return;
+        Player opp = Bukkit.getPlayer(m.opponent);
+        if (opp == null) { p.sendMessage(plugin.theme().error("your last opponent is offline.")); return; }
+        Request theirs = requests.get(p.getUniqueId());
+        if (theirs != null && theirs.from.equals(opp.getUniqueId()) && theirs.expires >= System.currentTimeMillis()) {
+            accept(p, opp.getName());
+            return;
+        }
+        request(p, opp, m.kit, null, m.ranked, m.rounds);
+    }
+
+    /** join the queue for the last match's kit and type */
+    public void queueAgain(Player p) {
+        LastMatch m = lastFor(p);
+        if (m == null) return;
+        var kit = plugin.kits().get(m.kit);
+        if (kit == null) { p.sendMessage(plugin.theme().error("that kit no longer exists.")); return; }
+        plugin.queue().join(p, kit, m.ranked ? QueueManager.Type.RANKED : QueueManager.Type.UNRANKED);
     }
 
     /** release arena */
