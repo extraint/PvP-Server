@@ -9,7 +9,7 @@ A light mint-green, small-caps themed PvP plugin for **Paper 26.3** (Java 25).
 - Combat tag with action-bar timer, command blocking, combat-log punishment
 - Persistent kills / deaths / K/D / kill streaks, streak announcements. Duel, party and free-for-all eliminations count: the last opponent to hit you is credited with the kill (projectiles too), you get a death, and quitting mid-match counts as a death
 - Arenas + 1v1 duels, party duels and party free-for-alls (see below)
-- `/stats [player]`, `/leaderboard [score|wins|kills|kd|streak]`, `/kit`, `/mintpvp reload`
+- `/stats [player]`, `/leaderboard [tier|wins|kills|kd|streak]`, `/kit`, `/mintpvp reload`
 
 ## Build
 ```bash
@@ -94,7 +94,7 @@ admin changed the kit) falls back to the default.
 
 ## Ranked (kit tiers + score)
 `/queue ranked [kit]` or the diamond sword. There is no Elo: every kit has its own **tier**, and your
-overall **score** is the points of your tier in each kit added together.
+overall **tier** is worked out from the points of your tier in each kit added together.
 
 | Tier | LT5 | HT5 | LT4 | HT4 | LT3 | HT3 | LT2 | HT2 | LT1 | HT1 |
 |---|---|---|---|---|---|---|---|---|---|---|
@@ -111,8 +111,11 @@ How tiers move (per kit, all numbers under `ranked:` in `config.yml`):
 - matchmaking pairs players with the closest tier **in that kit**, in a window that starts at 1 tier and widens
   by 1 every 10 s of waiting
 
-After each ranked duel you see the promotion/demotion (or your progress) and your new score.
-`/stats` lists your tier in every kit you've played. `/leaderboard [score|wins|kills|kd|streak]` or the GUI.
+Overall tier titles (by total points): **unranked** 0, **rookie** 3-9, **novice** 10-24, **cadet** 25-49,
+**specialist** 50-99, **ace** 100-199, **master** 200-349, **grandmaster** 350+. They show as e.g. `tier: 86 · specialist`.
+
+After each ranked duel you see the promotion/demotion (or your progress) and your new overall tier.
+`/stats` lists your tier in every kit you've played. `/leaderboard [tier|wins|kills|kd|streak]` or the GUI.
 Tier points are defined in `util/Tier.java`. (Old Elo values in `stats.yml` are ignored.)
 
 ## Rounds ("first to")

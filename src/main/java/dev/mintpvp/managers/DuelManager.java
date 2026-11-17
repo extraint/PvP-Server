@@ -1129,7 +1129,7 @@ public final class DuelManager {
             int need = plugin.getConfig().getInt(c.progress() >= 0 ? "ranked.wins-to-promote" : "ranked.losses-to-demote", 2);
             msg = t.text(kitName + " " + now + " · progress " + c.progress() + "/" + (c.progress() >= 0 ? need : -need), t.accent());
         }
-        msg = msg.append(t.text(" · score " + c.score() + (c.scoreDelta() != 0 ? " (" + (c.scoreDelta() > 0 ? "+" : "") + c.scoreDelta() + ")" : ""), t.muted()));
+        msg = msg.append(t.text(" · tier " + dev.mintpvp.util.Tier.overallLabel(c.score()) + (c.scoreDelta() != 0 ? " (" + (c.scoreDelta() > 0 ? "+" : "") + c.scoreDelta() + ")" : ""), t.muted()));
         p.sendMessage(t.info(msg));
     }
 

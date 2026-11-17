@@ -128,7 +128,7 @@ public final class LobbyManager {
             case "challenge_ranked" -> Guis.challenge(plugin, p, null, true);
             case "menu" -> new HubGui(plugin, p).open(p);
             case "layout" -> Guis.layoutKits(plugin, p, null);
-            case "leaderboard" -> new LeaderboardGui(plugin, p, "score", null).open(p);
+            case "leaderboard" -> new LeaderboardGui(plugin, p, "tier", null).open(p);
             case "spectate" -> Guis.spectateList(plugin, p, null);
             case "stats" -> p.performCommand("stats");
             case "party" -> new dev.mintpvp.gui.PartyGui(plugin, p).open(p);

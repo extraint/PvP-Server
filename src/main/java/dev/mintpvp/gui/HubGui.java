@@ -35,7 +35,7 @@ public final class HubGui extends Gui {
         set(21, Items.of(Material.DIAMOND_SWORD)
                 .name(t.text("✦ queue - ranked", t.primary()))
                 .lore(t.text("kit tiers: lt5 → ht1", t.accent()),
-                        t.line("your score", mineStats.score() + " · best " + Tier.name(mineStats.bestTier())),
+                        t.line("your tier", Tier.overallLabel(mineStats.score())),
                         t.line("ranked", mineStats.rankedWins + "w / " + mineStats.rankedLosses + "l"),
                         Component.empty(),
                         t.text(plugin.queue().rankedEnabled() ? "click to pick a kit" : "currently disabled", t.secondary()))
@@ -66,15 +66,15 @@ public final class HubGui extends Gui {
         StatsManager.Stats s = plugin.stats().get(p.getUniqueId());
         set(30, Items.of(Material.GOLD_INGOT)
                 .name(t.text("✦ leaderboard", t.primary()))
-                .lore(t.text("top players by score, wins,", t.accent()),
+                .lore(t.text("top players by tier, wins,", t.accent()),
                         t.text("kills and streak", t.accent()),
                         Component.empty(),
                         t.text("click to view", t.secondary()))
-                .build(), e -> new LeaderboardGui(plugin, p, "score", () -> new HubGui(plugin, p).open(p)).open(p));
+                .build(), e -> new LeaderboardGui(plugin, p, "tier", () -> new HubGui(plugin, p).open(p)).open(p));
 
         set(32, Items.of(Material.BOOK)
                 .name(t.text("✦ your stats", t.primary()))
-                .lore(t.line("score", s.score() + " · best " + Tier.name(s.bestTier())),
+                .lore(t.line("tier", Tier.overallLabel(s.score())),
                         t.line("duels", s.duelWins + "w / " + s.duelLosses + "l"),
                         t.line("kills", String.valueOf(s.kills)),
                         t.line("deaths", String.valueOf(s.deaths)),

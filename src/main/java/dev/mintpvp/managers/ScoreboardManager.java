@@ -74,7 +74,7 @@ public final class ScoreboardManager {
 
         List<Component> lines = List.of(
                 Component.text(" "),
-                t.line("score", s.score() + " · " + dev.mintpvp.util.Tier.name(s.bestTier())),
+                t.line("tier", dev.mintpvp.util.Tier.overallLabel(s.score())),
                 t.line("kills", String.valueOf(s.kills)),
                 t.line("deaths", String.valueOf(s.deaths)),
                 t.line("k/d", String.format(Locale.ROOT, "%.2f", s.kd())),

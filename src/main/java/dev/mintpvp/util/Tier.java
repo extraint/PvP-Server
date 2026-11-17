@@ -5,7 +5,7 @@ import org.bukkit.Material;
 /**
  * Per-kit rank tiers, named like the usual PvP tier lists: LT = low tier, HT = high tier,
  * 5 is the bottom and 1 is the top (LT5 < HT5 < LT4 < ... < HT1). Every tier is worth points;
- * a player's overall score is the sum of the points of their tier in each kit.
+ * a player's overall tier points are the sum of the points of their tier in each kit.
  */
 public enum Tier {
     LT5("lt5", Material.COPPER_INGOT, 3),
@@ -32,6 +32,23 @@ public enum Tier {
     /** Tier by index, or null for -1 (not placed yet). */
     public static Tier at(int index) {
         return index < 0 || index >= values().length ? null : values()[index];
+    }
+
+    /** Overall rank title for a total of tier points. */
+    public static String overall(int points) {
+        if (points >= 350) return "grandmaster";
+        if (points >= 200) return "master";
+        if (points >= 100) return "ace";
+        if (points >= 50) return "specialist";
+        if (points >= 25) return "cadet";
+        if (points >= 10) return "novice";
+        if (points >= 3) return "rookie";
+        return "unranked";
+    }
+
+    /** "86 · specialist" */
+    public static String overallLabel(int points) {
+        return points + " · " + overall(points);
     }
 
     public static String name(int index) {

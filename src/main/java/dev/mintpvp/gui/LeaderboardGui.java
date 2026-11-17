@@ -19,7 +19,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-/** Top players with tabs for score / duel wins / kills / best streak. */
+/** Top players with tabs for tier / duel wins / kills / best streak. */
 public final class LeaderboardGui extends Gui {
 
     private static final int[] SLOTS = {10, 11, 12, 13, 14, 15, 16, 19, 20, 21, 22, 23, 24, 25, 28, 29, 30, 31, 32, 33, 34};
@@ -51,7 +51,7 @@ public final class LeaderboardGui extends Gui {
                         t.line("best tier", Tier.name(mine.bestTier())))
                 .glow().build());
 
-        tab(t, 37, "score", Material.DIAMOND_SWORD, mode, plugin, viewer, back);
+        tab(t, 37, "tier", Material.DIAMOND_SWORD, mode, plugin, viewer, back);
         tab(t, 39, "wins", Material.IRON_SWORD, mode, plugin, viewer, back);
         tab(t, 41, "kills", Material.SKELETON_SKULL, mode, plugin, viewer, back);
         tab(t, 43, "streak", Material.BLAZE_POWDER, mode, plugin, viewer, back);
@@ -76,7 +76,7 @@ public final class LeaderboardGui extends Gui {
             case "wins" -> "duel wins";
             case "kills" -> "kills";
             case "streak" -> "best streak";
-            default -> "score";
+            default -> "tier";
         };
     }
 
@@ -85,7 +85,7 @@ public final class LeaderboardGui extends Gui {
             case "wins" -> String.valueOf(s.duelWins);
             case "kills" -> String.valueOf(s.kills);
             case "streak" -> String.valueOf(s.bestStreak);
-            default -> s.score() + " · " + Tier.name(s.bestTier());
+            default -> Tier.overallLabel(s.score());
         };
     }
 
