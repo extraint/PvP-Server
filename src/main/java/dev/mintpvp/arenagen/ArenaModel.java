@@ -154,7 +154,7 @@ final class ArenaModel {
             if (!f.k().equals("tree")) continue;
             for (int sx : new int[] {1, -1}) {
                 for (int sz : new int[] {1, -1}) {
-                    int tx = sx * f.x(), tz = sz * f.z();
+                    int tx = sx * ArenaLayout.sc(f.x()), tz = sz * ArenaLayout.sc(f.z());
                     if (!placed.add(tx + "," + tz + f.leaves())) continue;
                     Shapes.tree(out, allow, flat, f.trunk(), f.leaves(), (int) f.r(), f.h(), tx, tz);
                 }

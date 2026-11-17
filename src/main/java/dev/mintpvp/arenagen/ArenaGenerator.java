@@ -83,7 +83,7 @@ public final class ArenaGenerator {
     }
 
     /** Bump this whenever the arena or lobby design changes, so terrain cached in the world is thrown away once. */
-    static final int DESIGN_VERSION = 4;
+    static final int DESIGN_VERSION = 5;
 
     /**
      * Chunks of this world can be saved when they unload, so after a design change old chunks would keep showing
@@ -124,6 +124,9 @@ public final class ArenaGenerator {
         String name = plugin.getConfig().getString("arena-generator.world-name", "mint_arenas_2");
         dropStaleTerrain(name);
 
+        // normal arenas made at an older size can't be reused: forget them, new ones are made at 100 blocks across
+        int resized = plugin.arenas().removeSmallNotRadius(ArenaLayout.RADIUS);
+        if (resized > 0) plugin.getLogger().info("Removed " + resized + " normal arenas of the old size; new 100-block arenas are being made.");
         // arenas from an older generator (other world) can't be used any more: forget them
         int dropped = plugin.arenas().removeGeneratedOutside(name);
         if (dropped > 0) {
@@ -132,7 +135,7 @@ public final class ArenaGenerator {
         for (Arena a : plugin.arenas().all()) {
             ArenaTheme t = ArenaTheme.byId(a.theme);
             if (a.theme == null || t == null || a.slot < 0) continue;
-            register(new Slot(a.slot, t, a.large, a.radius > 0 ? a.radius : 38));
+            register(new Slot(a.slot, t, a.large, a.large ? (a.radius > 0 ? a.radius : 100) : ArenaLayout.RADIUS));
             a.pending = false;
         }
         if (lobbyEnabled()) registerLobby();
@@ -271,7 +274,7 @@ public final class ArenaGenerator {
     private Arena create(ArenaTheme theme, boolean large) {
         int min = Math.max(40, plugin.getConfig().getInt("arena-generator.ranked-radius-min", 100));
         int max = Math.max(min, plugin.getConfig().getInt("arena-generator.ranked-radius-max", 150));
-        int radius = large ? min + rnd.nextInt(max - min + 1) : 38;
+        int radius = large ? min + rnd.nextInt(max - min + 1) : ArenaLayout.RADIUS;
         Slot slot = new Slot(plugin.arenas().nextSlot(), theme, large, radius);
         register(slot);
         int sp = model(slot).spawnX;

@@ -132,7 +132,8 @@ public final class ArenaManager {
         public boolean innerContains(Location l) {
             Location ctr = center();
             if (ctr == null || l.getWorld() == null || !l.getWorld().equals(ctr.getWorld())) return false;
-            double r = radius() - 1.5, dx = l.getX() - ctr.getX(), dz = l.getZ() - ctr.getZ();
+            // blocks can be placed and broken right up to the edge of the playable area
+            double r = radius(), dx = l.getX() - ctr.getX(), dz = l.getZ() - ctr.getZ();
             if (circular()) return dx * dx + dz * dz <= r * r;
             return Math.abs(dx) <= r && Math.abs(dz) <= r;
         }
@@ -309,6 +310,15 @@ public final class ArenaManager {
     public int removeGeneratedOutside(String worldName) {
         int before = arenas.size();
         arenas.values().removeIf(a -> a.theme != null && (a.worldName() == null || !a.worldName().equals(worldName)));
+        int removed = before - arenas.size();
+        if (removed > 0) save();
+        return removed;
+    }
+
+    /** Forgets generated normal (small) arenas whose radius isn't the current one, so they are rebuilt at the new size. */
+    public int removeSmallNotRadius(int radius) {
+        int before = arenas.size();
+        arenas.values().removeIf(a -> a.theme != null && !a.large && a.radius != radius);
         int removed = before - arenas.size();
         if (removed > 0) save();
         return removed;

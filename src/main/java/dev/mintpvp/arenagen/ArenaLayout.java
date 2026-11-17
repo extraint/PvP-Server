@@ -5,7 +5,7 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * The top-down plan of a generated arena: an 81 x 81 grid centred on the arena.
+ * The top-down plan of a generated normal arena: a circle 100 blocks across on a 105 x 105 grid centred on the arena.
  *
  * This is a direct port of the layout code in the approved design preview, using
  * the same deterministic noise, so a built arena matches the preview exactly.
@@ -15,8 +15,23 @@ public final class ArenaLayout {
     /** Ground decorations (flowers, ferns, petals, litter, snow layers). Off: arena floors are clean. */
     static final boolean DECORATIONS = false;
 
-    public static final int N = 81, C = 40, SPAWN_X = 30;
-    public static final double R_PLAY = 37.5, R_WALL = 39.5;
+    public static final int N = 105, C = 52, SPAWN_X = 40;
+    /** Playable radius (100 blocks across) and the outer edge of the invisible barrier ring. */
+    public static final double R_PLAY = 50, R_WALL = 52;
+    /** The hand-designed plan was drawn for a radius of 37.5; positions and floor rings are stretched by this. */
+    static final double SCALE = R_PLAY / 37.5;
+    /** The border radius stored for a normal arena. */
+    public static final int RADIUS = 50;
+
+    /** The inverse: a coordinate of this arena mapped back onto the original plan (for the floor pattern). */
+    static int sc2(int v) {
+        return (int) Math.round(v / SCALE);
+    }
+
+    /** Stretch a coordinate of the original plan to the current arena size. */
+    static int sc(int v) {
+        return (int) Math.round(v * SCALE);
+    }
 
     public static final class Cell {
         /** What you see from above (floor block, or the feature standing on it). */
@@ -148,11 +163,11 @@ public final class ArenaLayout {
                 Cell cell;
                 if (d > R_PLAY) {
                     // no visible wall: the island just continues, sealed by an invisible barrier
-                    cell = new Cell(t.floor().at(Math.abs(dx), Math.abs(dz), d), 0);
+                    cell = new Cell(t.floor().at(sc2(Math.abs(dx)), sc2(Math.abs(dz)), d / SCALE), 0);
                     cell.wall = true;
                 } else {
                     int ax = Math.abs(dx), az = Math.abs(dz);
-                    String b = t.floor().at(ax, az, d);
+                    String b = t.floor().at(sc2(ax), sc2(az), d / SCALE);
                     cell = new Cell(b, 0);
                     String dec = t.decor().at(ax, az, b);
                     if (DECORATIONS && dec != null) cell.dec = dec;
@@ -168,7 +183,7 @@ public final class ArenaLayout {
         for (Feature f : t.features()) {
             for (int sx : new int[] {1, -1}) {
                 for (int sz : new int[] {1, -1}) {
-                    int cx = sx * f.x(), cz = sz * f.z();
+                    int cx = sx * sc(f.x()), cz = sz * sc(f.z());
                     String key = f.k() + cx + "," + cz + f.b() + f.leaves();
                     if (!placed.add(key)) continue;
                     switch (f.k()) {

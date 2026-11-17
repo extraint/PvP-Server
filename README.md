@@ -173,7 +173,7 @@ Five themes: **Plains, Desert, Poplar Grove, Snowy, Cherry Grove**.
 - **Underground:** every arena goes down to bedrock with stone, deepslate, granite/diorite/andesite/tuff
   patches, ores, winding tunnels, big caverns and a few cave entrances from the surface. Everything
   is mirror-symmetric, so both players always get the same ground. Players can dig; see "Reset".
-- **Unranked arenas:** 75 blocks across, hand-designed cover, spawns 60 apart. 2 of each theme on start.
+- **Unranked arenas:** 100 blocks across (a circle), hand-designed cover, spawns 80 apart. 2 of each theme on start.
 - **Ranked arenas:** the same themes at a random radius of **100-150** (200-300 across) with rolling
   hills and scattered cover; spawns are 80% of the radius from the centre. 1 of each theme on start.
   Ranked queue matches and `/challenge` duels use these; unranked uses the small ones.
@@ -203,7 +203,7 @@ the server stops mid-duel, generated arenas are reset on the way out.
 ### Building and height in arenas
 - Duelists **can place and break blocks** in arenas (`duel.allow-building`, default on). Every
   change is recorded and the arena is put back exactly as it was when the duel ends. Nothing
-  can be built or broken on or beyond the border, loot doesn't drop from broken blocks, and
+  can be built or broken beyond the border, but you can build right up to the edge of the playable area. Broken blocks drop their items (`duel.block-drops`), and
   fire, flowing liquid and explosions are recorded and restored too.
 - There is **no height limit** by default (`duel.height-limit: false`), so players can build up
   as high as the world allows. Falling below the world returns them to their spawn. Set
@@ -220,9 +220,9 @@ the server stops mid-duel, generated arenas are reset on the way out.
   can be hurt, and then everyone is sent back. Quitting or forfeiting still ends it straight away.
 
 ### Pearls and walls
-Ender pearls and chorus fruit work in duels as long as you land inside the arena (a pearl that
-would land outside is cancelled). Generated arenas have no visible wall: an invisible barrier
-seals the edge.
+Ender pearls and chorus fruit work in duels as long as you land inside the arena. You can pearl right up to the
+border: a pearl that hits the edge (the invisible barrier) **bounces off** back into the arena instead of taking you
+out. Generated arenas have no visible wall: an invisible barrier seals the edge.
 
 ### How a duel can end
 Winner = the other player dies, quits or forfeits. There is no time limit. A draw only happens if the

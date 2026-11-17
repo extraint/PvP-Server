@@ -3,6 +3,7 @@ package dev.mintpvp.listeners;
 import dev.mintpvp.MintPvP;
 import dev.mintpvp.managers.DuelManager.Duel;
 import dev.mintpvp.managers.DuelManager.State;
+import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Projectile;
 import org.bukkit.event.EventHandler;
@@ -15,6 +16,7 @@ import org.bukkit.event.block.BlockIgniteEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.entity.CreatureSpawnEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
+import org.bukkit.event.entity.ProjectileHitEvent;
 import org.bukkit.event.player.PlayerBucketEmptyEvent;
 import org.bukkit.event.player.PlayerCommandPreprocessEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
@@ -188,6 +190,34 @@ public final class DuelListener implements Listener {
         if (hop && d.state == State.FIGHTING) {
             e.getPlayer().sendActionBar(plugin.theme().text("that would land outside the arena", plugin.theme().secondary()));
         }
+    }
+
+    /**
+     * Ender pearls can be thrown right up to the border, but the border is a wall: a pearl that hits it (the invisible
+     * barrier, or anything outside the playable area) bounces back into the arena instead of teleporting you out.
+     */
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onPearlHit(ProjectileHitEvent e) {
+        if (!(e.getEntity() instanceof org.bukkit.entity.EnderPearl pearl) || !(pearl.getShooter() instanceof Player p)) return;
+        Duel d = plugin.duels().duelOf(p.getUniqueId());
+        var block = e.getHitBlock();
+        var face = e.getHitBlockFace();
+        if (d == null || block == null || face == null) return;
+        boolean wall = block.getType() == org.bukkit.Material.BARRIER
+                || !d.arena.innerContains(block.getLocation().add(0.5, 0.5, 0.5));
+        if (!wall) return;
+        e.setCancelled(true);
+        org.bukkit.util.Vector n = face.getDirection();
+        org.bukkit.util.Vector v = pearl.getVelocity();
+        org.bukkit.util.Vector bounced = v.clone().subtract(n.clone().multiply(2 * v.dot(n))).multiply(0.8);
+        org.bukkit.Location back = block.getRelative(face).getLocation().add(0.5, 0.5, 0.5);
+        Bukkit.getScheduler().runTask(plugin, () -> {
+            if (pearl.isDead() || !pearl.isValid()) return;
+            pearl.teleport(back);
+            pearl.setVelocity(bounced);
+            pearl.getWorld().playSound(back, org.bukkit.Sound.BLOCK_AMETHYST_BLOCK_HIT, 0.8f, 1.4f);
+            pearl.getWorld().spawnParticle(org.bukkit.Particle.END_ROD, back, 6, .15, .15, .15, .02);
+        });
     }
 
     // Building is allowed by default (the arena is restored after the duel); this switches it off.
