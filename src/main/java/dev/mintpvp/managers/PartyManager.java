@@ -75,8 +75,6 @@ public final class PartyManager {
         return true;
     }
 
-    // ---- creating and inviting ------------------------------------------
-
     public Party create(Player p) {
         Theme t = plugin.theme();
         if (byMember.containsKey(p.getUniqueId())) { p.sendMessage(t.error("you're already in a party (/party leave).")); return null; }
@@ -150,8 +148,6 @@ public final class PartyManager {
         Player from = Bukkit.getPlayer(inv.from());
         if (from != null) from.sendMessage(t.info(t.raw(target.getName(), t.primary()).append(t.text(" denied your party invite.", t.accent()))));
     }
-
-    // ---- leaving, kicking, leadership -----------------------------------
 
     /** @param quiet no message to the leaver (used when they log out) */
     public void leave(Player p, boolean quiet) {

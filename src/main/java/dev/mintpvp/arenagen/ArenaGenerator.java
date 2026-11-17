@@ -62,8 +62,6 @@ public final class ArenaGenerator {
         return world;
     }
 
-    // ---- lookups used by the chunk generator (thread-safe) ---------------
-
     Slot slotAt(int x, int z) {
         int col = Math.floorDiv(x + SPACING / 2, SPACING), row = Math.floorDiv(z + SPACING / 2, SPACING);
         if (col < 0 || col >= COLS || row < 0) return null;
@@ -116,8 +114,6 @@ public final class ArenaGenerator {
             plugin.getLogger().warning("Could not clear cached arena chunks: " + e.getMessage());
         }
     }
-
-    // ---- lifecycle ------------------------------------------------------
 
     public void start() {
         if (!enabled()) return;
@@ -215,8 +211,6 @@ public final class ArenaGenerator {
         }
         lobbyBuckets = buckets;
     }
-
-    // ---- pool -----------------------------------------------------------
 
     private void register(Slot s) {
         slots.put(s.index(), s);
@@ -321,8 +315,6 @@ public final class ArenaGenerator {
         create(ArenaTheme.values()[rnd.nextInt(ArenaTheme.values().length)], large);
         return true;
     }
-
-    // ---- reset ----------------------------------------------------------
 
     public boolean resets(Arena a) {
         return world != null && a.theme != null && a.slot >= 0 && a.center() != null && world.equals(a.center().getWorld());

@@ -96,8 +96,6 @@ public final class ArenaBuildListener implements Listener {
         plugin.duels().recordBlock(e.getBlock().getState());
     }
 
-    // ---- things that change blocks without a player: fire, flowing liquid, explosions ----
-
     @EventHandler(ignoreCancelled = true)
     public void onBurn(BlockBurnEvent e) {
         if (anyActive()) plugin.duels().recordBlock(e.getBlock().getState());

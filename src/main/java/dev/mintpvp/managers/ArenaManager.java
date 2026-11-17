@@ -190,8 +190,6 @@ public final class ArenaManager {
         load();
     }
 
-    // ---- persistence ----------------------------------------------------
-
     private void load() {
         if (!file.exists()) return;
         YamlConfiguration y = new YamlConfiguration();
@@ -268,8 +266,6 @@ public final class ArenaManager {
             plugin.getLogger().warning("Could not save arenas.yml: " + e.getMessage());
         }
     }
-
-    // ---- access ---------------------------------------------------------
 
     public Arena get(String name) {
         return arenas.get(name.toLowerCase(Locale.ROOT));

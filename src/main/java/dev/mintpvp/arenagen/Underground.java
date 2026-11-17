@@ -41,8 +41,6 @@ final class Underground {
 
     private Underground() {}
 
-    // ---- noise ----------------------------------------------------------
-
     private static double hash3(int x, int y, int z, int s) {
         int h = x * 374761393 + y * 1274126177 + z * 668265263 + s * 982451653;
         h = (h ^ (h >>> 13)) * 1274126177;
@@ -71,8 +69,6 @@ final class Underground {
         return 0.65 * n3(x, y, z, s) + 0.35 * n3(x * 2.1, y * 2.1, z * 2.1, s + 1);
     }
 
-    // ---- caves ----------------------------------------------------------
-
     /**
      * Entrance shafts: a few vertical openings from the surface down into the caves.
      * Kept away from the spawns and the centre so nobody starts next to a hole.
@@ -93,8 +89,6 @@ final class Underground {
         double b = n3(ax * 0.019, y * 0.03, az * 0.019, 22);
         return Math.abs(a - 0.5) < 0.038 && Math.abs(b - 0.5) < 0.038; // winding tunnels
     }
-
-    // ---- rock + ores ----------------------------------------------------
 
     private static boolean deep(int ax, int y, int az) {
         if (y < 0) return true;

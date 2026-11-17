@@ -95,8 +95,6 @@ public final class KitManager {
         return c;
     }
 
-    // ---- persistence ----------------------------------------------------
-
     private static String encode(ItemStack[] items) {
         return Base64.getEncoder().encodeToString(ItemStack.serializeItemsAsBytes(items));
     }
@@ -163,8 +161,6 @@ public final class KitManager {
         }
     }
 
-    // ---- kits -----------------------------------------------------------
-
     public Kit get(String id) {
         return id == null ? null : kits.get(id.toLowerCase(Locale.ROOT));
     }
@@ -219,8 +215,6 @@ public final class KitManager {
         return first != null ? first : Material.IRON_SWORD;
     }
 
-    // ---- layouts --------------------------------------------------------
-
     /** Same total amount of every item (stack arrangement ignored)? */
     public static boolean sameItems(ItemStack[] a, ItemStack[] b) {
         return Items.tally(a).equals(Items.tally(b));
@@ -248,8 +242,6 @@ public final class KitManager {
         Map<String, ItemStack[]> mine = layouts.get(id);
         if (mine != null && mine.remove(kit.id) != null) saveLayouts();
     }
-
-    // ---- giving ---------------------------------------------------------
 
     public void give(Player p) {
         give(p, defaultKit());

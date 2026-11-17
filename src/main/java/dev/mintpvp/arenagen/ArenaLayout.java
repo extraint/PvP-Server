@@ -71,8 +71,6 @@ public final class ArenaLayout {
 
     private ArenaLayout() {}
 
-    // ---- deterministic noise (identical to the preview's JS) -------------
-
     static double hash(int x, int z, int s) {
         int h = x * 374761393 + z * 668265263 + s * 982451653;
         h = (h ^ (h >>> 13)) * 1274126177;
@@ -92,8 +90,6 @@ public final class ArenaLayout {
     private static boolean ring(double d, double r0, double r1) {
         return d > r0 && d <= r1;
     }
-
-    // ---- themes ---------------------------------------------------------
 
     public static Spec spec(ArenaTheme t) {
         return switch (t) {

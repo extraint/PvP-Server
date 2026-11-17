@@ -55,8 +55,6 @@ final class ArenaModel {
         }
     }
 
-    // ---- queries used by the chunk generator -----------------------------
-
     /** Is this column part of the arena (playable floor or edge ring)? */
     boolean inside(int dx, int dz) {
         return Math.hypot(dx, dz) <= rWall;
@@ -143,8 +141,6 @@ final class ArenaModel {
         return Blocks.data(c.b);
     }
 
-    // ---- cover: small arenas ---------------------------------------------
-
     private Map<Long, BlockData> buildSmallOverlay() {
         Map<Long, BlockData> out = new HashMap<>();
         BiPredicate<Integer, Integer> allow = (x, z) -> ArenaLayout.inside(x, z) && !ArenaLayout.nearSpawn(x, z);
@@ -162,8 +158,6 @@ final class ArenaModel {
         }
         return out;
     }
-
-    // ---- cover: large arenas ---------------------------------------------
 
     private Map<Long, BlockData> buildLargeOverlay(int radius) {
         Map<Long, BlockData> out = new HashMap<>();

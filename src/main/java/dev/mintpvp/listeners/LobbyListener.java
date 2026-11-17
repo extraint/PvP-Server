@@ -138,8 +138,6 @@ public final class LobbyListener implements Listener {
         Bukkit.getScheduler().runTask(plugin, () -> plugin.lobby().give(p));
     }
 
-    // ---- the rest of the building protection: buckets, frames, fire, explosions, the lobby itself ----
-
     @EventHandler(ignoreCancelled = true)
     public void onBucketFill(PlayerBucketFillEvent e) {
         if (locked(e.getPlayer()) && !canBuild(e.getPlayer())) e.setCancelled(true);

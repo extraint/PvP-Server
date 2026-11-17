@@ -208,8 +208,6 @@ public final class DuelManager {
         return spectating.get(id);
     }
 
-    // ---- requests -------------------------------------------------------
-
     public void request(Player from, Player to, String kitId, String arenaName) {
         request(from, to, kitId, arenaName, false);
     }
@@ -532,8 +530,6 @@ public final class DuelManager {
         if (from != null) from.sendMessage(t.info(t.raw(target.getName(), t.primary()).append(t.text(" denied your duel request.", t.accent()))));
     }
 
-    // ---- lifecycle ------------------------------------------------------
-
     private Component found(Player opponent, boolean ranked, Kit kit) {
         Theme t = plugin.theme();
         Component c = t.text("match found! opponent: ", t.accent()).append(t.raw(opponent.getName(), t.primary()));
@@ -667,8 +663,6 @@ public final class DuelManager {
         } catch (RuntimeException ex) { duel.countdown.cancel(); fail(duel, ex); } }, 0L, 20L);
     }
 
-    // ---- where everyone starts -------------------------------------------
-
     private void computeSpawns(Duel duel, List<List<Player>> teams) {
         Arena arena = duel.arena;
         if (duel.mode == Mode.FFA) {
@@ -722,8 +716,6 @@ public final class DuelManager {
         wb.setWarningDistance(5);
         p.setWorldBorder(wb);
     }
-
-    // ---- spectating -----------------------------------------------------
 
     /** Finds a running match by a participant's name or by arena name. */
     public Duel find(String query) {
@@ -797,8 +789,6 @@ public final class DuelManager {
                         && e.customName() == null)
                 .forEach(org.bukkit.entity.Entity::remove);
     }
-
-    // ---- results --------------------------------------------------------
 
     /** Total health (with absorption) of the living members of each team. */
     private Map<Integer, Double> teamHealth(Duel d) {

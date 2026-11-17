@@ -50,8 +50,6 @@ public final class LobbyDesign {
 
     private LobbyDesign() {}
 
-    // ---- shape of the plaza ----------------------------------------------
-
     /** Terrace level of a column: 3 on the dais, stepping down to 0 on the plaza. */
     private static int level(int dx, int dz) {
         double d = Math.hypot(dx, dz);
@@ -109,8 +107,6 @@ public final class LobbyDesign {
         if (d instanceof Stairs s) s.setFacing(facing);
         return d;
     }
-
-    // ---- the whole thing -------------------------------------------------
 
     public static void place(Map<Long, BlockData> out, Function<Material, BlockData> data, int cx, int cz, int y0) {
         Map<Long, BlockData> rel = new HashMap<>(); // things built with Shapes, in centre-relative coordinates
@@ -280,8 +276,6 @@ public final class LobbyDesign {
         out.put(Pack.key(x, y0 + 11, z - 1), data.apply(Material.LIME_STAINED_GLASS));
     }
 
-    // ---- the sign ----------------------------------------------------------
-
     private static void sign(Map<Long, BlockData> out, Function<Material, BlockData> data, int cx, int cz, int y0) {
         int wz = cz - 27;
         // a dark teal panel in a glowing sea-lantern frame, on a quartz plinth
@@ -345,8 +339,6 @@ public final class LobbyDesign {
             x += 11;
         }
     }
-
-    // ---- gardens and floating islets ------------------------------------
 
     private static void gardens(Map<Long, BlockData> rel, int y0) {
         BiPredicate<Integer, Integer> any = (x, z) -> true;
