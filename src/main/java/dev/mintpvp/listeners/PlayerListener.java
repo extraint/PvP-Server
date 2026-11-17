@@ -23,6 +23,7 @@ public final class PlayerListener implements Listener {
         Player p = e.getPlayer();
         Theme t = plugin.theme();
         plugin.stats().rememberName(p.getUniqueId(), p.getName());
+        plugin.stats().syncJoin(p.getUniqueId());
 
         e.joinMessage(t.raw("+ ", t.primary()).append(t.raw(p.getName(), t.accent())));
         p.sendMessage(t.info("welcome to " + t.serverName() + ", ")
@@ -46,5 +47,7 @@ public final class PlayerListener implements Listener {
     public void onQuit(PlayerQuitEvent e) {
         Theme t = plugin.theme();
         e.quitMessage(t.raw("- ", t.muted()).append(t.raw(e.getPlayer().getName(), t.muted())));
+        java.util.UUID id = e.getPlayer().getUniqueId();
+        org.bukkit.Bukkit.getScheduler().runTask(plugin, () -> plugin.stats().flushPlayer(id)); // after the other quit handlers
     }
 }

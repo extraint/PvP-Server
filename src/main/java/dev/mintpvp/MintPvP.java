@@ -48,6 +48,7 @@ public final class MintPvP extends JavaPlugin {
         applyConfig();
 
         stats = new StatsManager(this);
+        stats.start();
         kits = new KitManager(this);
         dev.mintpvp.util.Tier.kitCount = () -> kits.all().size();
         boards = new ScoreboardManager(this);
@@ -129,7 +130,10 @@ public final class MintPvP extends JavaPlugin {
         if (duels != null) duels.shutdown();
         if (kits != null) kits.saveLayouts();
         if (boards != null) boards.stop();
-        if (stats != null) stats.save();
+        if (stats != null) {
+            stats.save();
+            stats.shutdown();
+        }
     }
 
     /** reload config */

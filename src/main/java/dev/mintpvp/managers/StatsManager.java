@@ -58,6 +58,36 @@ public final class StatsManager {
         load();
     }
 
+    private Stats read(org.bukkit.configuration.ConfigurationSection section) {
+        Stats s = new Stats();
+        s.kills = section.getInt("kills");
+        s.deaths = section.getInt("deaths");
+        s.bestStreak = section.getInt("best-streak");
+        s.duelWins = section.getInt("duel-wins");
+        s.duelLosses = section.getInt("duel-losses");
+        var kt = section.getConfigurationSection("kit-tier");
+        if (kt != null) for (String k : kt.getKeys(false)) s.kitTier.put(k, Math.max(0, Math.min(dev.mintpvp.util.Tier.values().length - 1, kt.getInt(k))));
+        var kp = section.getConfigurationSection("kit-progress");
+        if (kp != null) for (String k : kp.getKeys(false)) s.kitProgress.put(k, kp.getInt(k));
+        s.rankedWins = section.getInt("ranked-wins");
+        s.rankedLosses = section.getInt("ranked-losses");
+        s.rankedStreak = section.getInt("ranked-streak");
+        return s;
+    }
+
+    private void write(org.bukkit.configuration.ConfigurationSection y, Stats s) {
+        y.set("kills", s.kills);
+        y.set("deaths", s.deaths);
+        y.set("best-streak", s.bestStreak);
+        y.set("duel-wins", s.duelWins);
+        y.set("duel-losses", s.duelLosses);
+        s.kitTier.forEach((k, v) -> y.set("kit-tier." + k, v));
+        s.kitProgress.forEach((k, v) -> { if (v != 0) y.set("kit-progress." + k, v); });
+        y.set("ranked-wins", s.rankedWins);
+        y.set("ranked-losses", s.rankedLosses);
+        y.set("ranked-streak", s.rankedStreak);
+    }
+
     private void load() {
         if (!file.exists()) return;
         YamlConfiguration y = YamlConfiguration.loadConfiguration(file);
@@ -66,20 +96,7 @@ public final class StatsManager {
         for (String key : section.getKeys(false)) {
             try {
                 UUID id = UUID.fromString(key);
-                Stats s = new Stats();
-                s.kills = section.getInt(key + ".kills");
-                s.deaths = section.getInt(key + ".deaths");
-                s.bestStreak = section.getInt(key + ".best-streak");
-                s.duelWins = section.getInt(key + ".duel-wins");
-                s.duelLosses = section.getInt(key + ".duel-losses");
-                var kt = section.getConfigurationSection(key + ".kit-tier");
-                if (kt != null) for (String k : kt.getKeys(false)) s.kitTier.put(k, Math.max(0, Math.min(dev.mintpvp.util.Tier.values().length - 1, kt.getInt(k))));
-                var kp = section.getConfigurationSection(key + ".kit-progress");
-                if (kp != null) for (String k : kp.getKeys(false)) s.kitProgress.put(k, kp.getInt(k));
-                s.rankedWins = section.getInt(key + ".ranked-wins");
-                s.rankedLosses = section.getInt(key + ".ranked-losses");
-                s.rankedStreak = section.getInt(key + ".ranked-streak");
-                stats.put(id, s);
+                stats.put(id, read(section.getConfigurationSection(key)));
                 names.put(id, section.getString(key + ".name", "unknown"));
             } catch (IllegalArgumentException ignored) {
             }
@@ -88,20 +105,11 @@ public final class StatsManager {
 
     public synchronized void save() {
         YamlConfiguration y = new YamlConfiguration();
-        stats.forEach((id, s) -> {
-            String p = "players." + id;
-            y.set(p + ".name", names.getOrDefault(id, "unknown"));
-            y.set(p + ".kills", s.kills);
-            y.set(p + ".deaths", s.deaths);
-            y.set(p + ".best-streak", s.bestStreak);
-            y.set(p + ".duel-wins", s.duelWins);
-            y.set(p + ".duel-losses", s.duelLosses);
-            s.kitTier.forEach((k, v) -> y.set(p + ".kit-tier." + k, v));
-            s.kitProgress.forEach((k, v) -> { if (v != 0) y.set(p + ".kit-progress." + k, v); });
-            y.set(p + ".ranked-wins", s.rankedWins);
-            y.set(p + ".ranked-losses", s.rankedLosses);
-            y.set(p + ".ranked-streak", s.rankedStreak);
-        });
+        for (var en : new ArrayList<>(stats.entrySet())) {
+            var sec = y.createSection("players." + en.getKey());
+            sec.set("name", names.getOrDefault(en.getKey(), "unknown"));
+            write(sec, en.getValue());
+        }
         try {
             plugin.getDataFolder().mkdirs();
             y.save(file);
@@ -110,11 +118,165 @@ public final class StatsManager {
         }
     }
 
+    // shared database sync
+
+    private StatsDb db;
+    private final java.util.Set<UUID> dirty = java.util.concurrent.ConcurrentHashMap.newKeySet();
+    private long lastPull;
+
+    private String encode(UUID id) {
+        YamlConfiguration y = new YamlConfiguration();
+        write(y, get(id));
+        return y.saveToString();
+    }
+
+    private Stats decode(String data) throws org.bukkit.configuration.InvalidConfigurationException {
+        YamlConfiguration y = new YamlConfiguration();
+        y.loadFromString(data);
+        return read(y);
+    }
+
+    private void touch(UUID id) {
+        if (db != null) dirty.add(id);
+    }
+
+    /** start the shared database (storage.type: mysql) */
+    public void start() {
+        var cfg = plugin.getConfig();
+        if (!cfg.getString("storage.type", "yaml").equalsIgnoreCase("mysql")) return;
+        String url = cfg.getString("storage.jdbc-url", "");
+        String user = cfg.getString("storage.mysql.user", "");
+        String pass = cfg.getString("storage.mysql.password", "");
+        if (url.isEmpty()) {
+            url = "jdbc:mysql://" + cfg.getString("storage.mysql.host", "localhost") + ":" + cfg.getInt("storage.mysql.port", 3306)
+                    + "/" + cfg.getString("storage.mysql.database", "mintpvp")
+                    + "?sslMode=PREFERRED&allowPublicKeyRetrieval=true&connectTimeout=5000&socketTimeout=15000&characterEncoding=utf8";
+        }
+        StatsDb d = new StatsDb(url, user, pass);
+        try {
+            d.connect();
+            var rows = d.fetch(0);
+            java.util.Set<UUID> inDb = new java.util.HashSet<>();
+            for (var r : rows) {
+                inDb.add(r.id());
+                applyRow(r);
+            }
+            db = d;
+            for (UUID id : new ArrayList<>(stats.keySet())) if (!inDb.contains(id)) dirty.add(id); // upload local-only players
+            flush(true);
+            plugin.getLogger().info("Shared stats database connected (" + rows.size() + " players).");
+        } catch (Exception e) {
+            plugin.getLogger().severe("Could not connect to the stats database, using local stats.yml only: " + e.getMessage());
+            d.close();
+            return;
+        }
+        var sched = plugin.getServer().getScheduler();
+        sched.runTaskTimer(plugin, () -> flush(false), 200L, 200L);
+        long pullTicks = Math.max(5, cfg.getInt("storage.pull-seconds", 60)) * 20L;
+        sched.runTaskTimerAsynchronously(plugin, this::pull, pullTicks, pullTicks);
+    }
+
+    private void applyRow(StatsDb.Row r) {
+        if (dirty.contains(r.id())) return;
+        try {
+            Stats parsed = decode(r.data());
+            Stats cur = stats.computeIfAbsent(r.id(), k -> new Stats());
+            cur.kills = parsed.kills;
+            cur.deaths = parsed.deaths;
+            cur.bestStreak = parsed.bestStreak;
+            cur.duelWins = parsed.duelWins;
+            cur.duelLosses = parsed.duelLosses;
+            cur.rankedWins = parsed.rankedWins;
+            cur.rankedLosses = parsed.rankedLosses;
+            cur.rankedStreak = parsed.rankedStreak;
+            cur.kitTier.clear();
+            cur.kitTier.putAll(parsed.kitTier);
+            cur.kitProgress.clear();
+            cur.kitProgress.putAll(parsed.kitProgress);
+            if (r.name() != null) names.put(r.id(), r.name());
+            lastPull = Math.max(lastPull, r.updated());
+        } catch (Exception e) {
+            plugin.getLogger().warning("Skipped a bad stats row for " + r.id() + ": " + e.getMessage());
+        }
+    }
+
+    /** pull recent changes from the database (async), then apply them on the main thread */
+    private void pull() {
+        StatsDb d = db;
+        if (d == null) return;
+        try {
+            var rows = d.fetch(Math.max(0, lastPull - 60_000L));
+            plugin.getServer().getScheduler().runTask(plugin, () -> rows.forEach(this::applyRow));
+        } catch (Exception e) {
+            plugin.getLogger().warning("Stats pull failed: " + e.getMessage());
+        }
+    }
+
+    /** write changed players to the database; sync = on this thread */
+    private void flush(boolean sync) {
+        StatsDb d = db;
+        if (d == null || dirty.isEmpty()) return;
+        long now = System.currentTimeMillis();
+        List<Object[]> batch = new ArrayList<>();
+        for (UUID id : new ArrayList<>(dirty)) {
+            dirty.remove(id);
+            batch.add(new Object[] {id, names.getOrDefault(id, "unknown"), encode(id)});
+        }
+        Runnable write = () -> {
+            for (Object[] b : batch) {
+                try {
+                    d.upsert((UUID) b[0], (String) b[1], (String) b[2], now);
+                } catch (Exception e) {
+                    dirty.add((UUID) b[0]);
+                    plugin.getLogger().warning("Stats write failed: " + e.getMessage());
+                }
+            }
+        };
+        if (sync || !plugin.isEnabled()) write.run();
+        else plugin.getServer().getScheduler().runTaskAsynchronously(plugin, write);
+    }
+
+    /** load one player's latest stats when they join (the other server may have just saved them) */
+    public void syncJoin(UUID id) {
+        StatsDb d = db;
+        if (d == null) return;
+        for (long delay : new long[] {10L, 100L}) {
+            plugin.getServer().getScheduler().runTaskLaterAsynchronously(plugin, () -> {
+                try {
+                    var row = d.fetchOne(id);
+                    if (row != null) plugin.getServer().getScheduler().runTask(plugin, () -> applyRow(row));
+                } catch (Exception e) {
+                    plugin.getLogger().warning("Stats load failed: " + e.getMessage());
+                }
+            }, delay);
+        }
+    }
+
+    /** save a leaving player right away so the other server sees it */
+    public void flushPlayer(UUID id) {
+        StatsDb d = db;
+        if (d == null) return;
+        dirty.remove(id);
+        try {
+            d.upsert(id, names.getOrDefault(id, "unknown"), encode(id), System.currentTimeMillis());
+        } catch (Exception e) {
+            dirty.add(id);
+            plugin.getLogger().warning("Stats write failed: " + e.getMessage());
+        }
+    }
+
+    public void shutdown() {
+        flush(true);
+        if (db != null) db.close();
+        db = null;
+    }
+
     public Stats get(UUID id) {
         return stats.computeIfAbsent(id, k -> new Stats());
     }
 
     public void rememberName(UUID id, String name) {
+        touch(id);
         names.put(id, name);
     }
 
@@ -130,6 +292,8 @@ public final class StatsManager {
 
     /** new streak */
     public int recordKill(UUID killer, UUID victim) {
+        touch(killer);
+        touch(victim);
         Stats k = get(killer);
         k.kills++;
         k.streak++;
@@ -139,14 +303,18 @@ public final class StatsManager {
     }
 
     public void addDuelWin(UUID id) {
+        touch(id);
         get(id).duelWins++;
     }
 
     public void addDuelLoss(UUID id) {
+        touch(id);
         get(id).duelLosses++;
     }
 
     public void recordDuel(UUID winner, UUID loser) {
+        touch(winner);
+        touch(loser);
         get(winner).duelWins++;
         get(loser).duelLosses++;
     }
@@ -165,6 +333,8 @@ public final class StatsManager {
 
     /** apply ranked result */
     public TierChange[] recordRanked(UUID winner, UUID loser, boolean draw, String kitId) {
+        touch(winner);
+        touch(loser);
         Stats sw = get(winner), sl = get(loser);
         int tw = sw.tierIndex(kitId), tl = sl.tierIndex(kitId);
         int scoreW = sw.score(), scoreL = sl.score();
@@ -219,6 +389,7 @@ public final class StatsManager {
 
     /** admin set tier */
     public void setTier(UUID id, String kitId, int tierIndex) {
+        touch(id);
         Stats s = get(id);
         if (tierIndex < 0) s.kitTier.remove(kitId);
         else s.kitTier.put(kitId, Math.min(tierIndex, dev.mintpvp.util.Tier.values().length - 1));
@@ -227,6 +398,7 @@ public final class StatsManager {
     }
 
     public void recordDeath(UUID victim) {
+        touch(victim);
         Stats v = get(victim);
         v.deaths++;
         v.streak = 0;

@@ -95,5 +95,15 @@ party:
 region:
   this: na  # na or eu
   servers:
-    na: ""  # na address
+    na: mintpvp.playfps.nl
     eu: mintpvp.playserver.pro
+
+storage:
+  type: yaml  # yaml or mysql
+  pull-seconds: 60  # refresh from database
+  mysql:
+    host: localhost
+    port: 3306
+    database: mintpvp
+    user: ""
+    password: ""
