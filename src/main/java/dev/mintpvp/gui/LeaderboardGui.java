@@ -53,6 +53,9 @@ public final class LeaderboardGui extends Gui {
 
         tab(t, 37, "tier", Material.DIAMOND_SWORD, mode, plugin, viewer, back);
         tab(t, 39, "wins", Material.IRON_SWORD, mode, plugin, viewer, back);
+        set(40, Items.of(Material.BOOK).name(t.text("✦ kit tiers", t.primary()))
+                .lore(t.text("your tier in every kit", t.accent()), t.text("and the top players per kit", t.accent()))
+                .glow().build(), e -> TierGui.open(plugin, viewer, () -> new LeaderboardGui(plugin, viewer, mode, back).open(viewer)));
         tab(t, 41, "kills", Material.SKELETON_SKULL, mode, plugin, viewer, back);
         tab(t, 43, "streak", Material.BLAZE_POWDER, mode, plugin, viewer, back);
 

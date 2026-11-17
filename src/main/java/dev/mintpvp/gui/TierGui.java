@@ -50,7 +50,7 @@ public final class TierGui {
             }
             lore.add(Component.empty());
             lore.add(t.text("click for top players", t.secondary()));
-            ItemStack icon = Items.of(tier != null ? tier.icon : kit.icon).name(t.text(kit.display, t.primary())).lore(lore).build();
+            ItemStack icon = Items.of(kit.icon).name(t.text(kit.display, t.primary())).lore(lore).build();
             entries.add(new PagedGui.Entry(icon, e -> top(plugin, p, kit, () -> open(plugin, p, back))));
         }
         new PagedGui(plugin, t.title("tiers"), entries, back, "no kits yet").open(p);

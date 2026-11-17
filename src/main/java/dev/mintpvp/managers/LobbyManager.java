@@ -84,7 +84,7 @@ public final class LobbyManager {
         inv.setItem(6, Items.of(Material.ENDER_CHEST).name(t.text("✦ edit kit layout", t.primary()))
                 .lore(t.text("right-click to arrange your kits", t.accent())).tag("layout").build());
         inv.setItem(7, Items.of(Material.GOLD_INGOT).name(t.text("✦ leaderboard", t.primary()))
-                .lore(t.text("right-click to see the top players", t.accent())).tag("leaderboard").build());
+                .lore(t.text("right-click: top players and kit tiers", t.accent())).tag("leaderboard").build());
         inv.setItem(8, Items.of(Material.COMPASS).name(t.text("✦ region", t.primary()))
                 .lore(t.text("right-click to switch na / eu", t.accent())).tag("region").build());
         inv.setHeldItemSlot(0);
