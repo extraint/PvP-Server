@@ -26,7 +26,7 @@ public final class SpawnCommands implements CommandExecutor {
         if (cmd.getName().equalsIgnoreCase("build")) {
             if (!p.hasPermission("mintpvp.build")) { p.sendMessage(t.error("no permission.")); return true; }
             boolean on = plugin.lobby().toggleBuilder(p);
-            p.sendMessage(on ? t.info("builder mode is ON - you can build and break in the lobby. run /build again to turn it off.")
+            p.sendMessage(on ? t.info("builder mode is ON - you are in creative: take any item, build and break. /kit create <name> saves your inventory as a kit. run /build again to turn it off (you get the lobby hotbar back).")
                     : t.info("builder mode is OFF."));
             return true;
         }

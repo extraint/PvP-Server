@@ -136,6 +136,10 @@ straight away.
 - Options: `duel.round-options`, `duel.max-rounds`. Rounds apply to 1v1 duels (not parties; the unranked queue is a single round).
 
 ## Spawn & lobby
+**Items for kits:** admins with `mintpvp.build` run `/build` in the lobby: builder mode puts them in **creative** (any item,
+build/break, move inventory), then `/kit create <name>` saves their inventory as a kit. `/build` again returns them to
+survival with the lobby hotbar (`lobby.builder-creative`). It also turns off by itself when they leave or start a match.
+
 ```
 /setspawn     # admin: sets the lobby spawn AND the world spawn
 /spawn        # (aliases /lobby, /hub) back to spawn, not during duels or combat

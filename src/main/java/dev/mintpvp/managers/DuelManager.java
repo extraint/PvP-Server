@@ -604,6 +604,7 @@ public final class DuelManager {
         computeSpawns(duel, teams);
 
         for (Player p : duel.players) {
+            plugin.lobby().builderOff(p); // an admin in builder mode (creative) is back in survival before the match
             duel.saved.put(p.getUniqueId(), new Saved(p.getLocation(), p.getInventory().getContents().clone(),
                     p.getGameMode(), p.getHealth(), p.getFoodLevel(), p.getSaturation(),
                     p.getLevel(), p.getExp(), new ArrayList<>(p.getActivePotionEffects())));

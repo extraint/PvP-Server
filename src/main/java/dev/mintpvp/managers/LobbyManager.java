@@ -34,13 +34,27 @@ public final class LobbyManager {
         return builders.contains(p.getUniqueId()) && p.hasPermission("mintpvp.build");
     }
 
-    /** @return true if builder mode is now on */
+    /**
+     * @return true if builder mode is now on. Builder mode puts the admin in creative mode (config
+     * lobby.builder-creative) so they can take any item, e.g. to build a kit; turning it off returns them to
+     * survival with the lobby hotbar.
+     */
     public boolean toggleBuilder(Player p) {
         if (!builders.remove(p.getUniqueId())) {
             builders.add(p.getUniqueId());
+            if (plugin.getConfig().getBoolean("lobby.builder-creative", true)) p.setGameMode(org.bukkit.GameMode.CREATIVE);
             return true;
         }
+        if (p.getGameMode() == org.bukkit.GameMode.CREATIVE) p.setGameMode(org.bukkit.GameMode.SURVIVAL);
+        give(p);
         return false;
+    }
+
+    /** Builder mode off because the player left: back to survival (their inventory is left alone). */
+    public void builderOff(Player p) {
+        if (builders.remove(p.getUniqueId()) && p.getGameMode() == org.bukkit.GameMode.CREATIVE) {
+            p.setGameMode(org.bukkit.GameMode.SURVIVAL);
+        }
     }
 
     public void builderOff(UUID id) {

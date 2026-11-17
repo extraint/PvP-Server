@@ -68,6 +68,7 @@ spawn:
   teleport-on-respawn: true
 
 lobby:
+  builder-creative: true     # /build also puts admins in creative mode so they can take any item (for making kits)
   # Gives the hotbar menu (iron sword = queue, etc.) on join and respawn.
   # WARNING: this REPLACES the player's inventory. Turn it off on a survival/SMP world.
   give-items: true
