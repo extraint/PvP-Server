@@ -111,8 +111,11 @@ How tiers move (per kit, all numbers under `ranked:` in `config.yml`):
 - matchmaking pairs players with the closest tier **in that kit**, in a window that starts at 1 tier and widens
   by 1 every 10 s of waiting
 
-Overall tier titles (by total points): **unranked** 0, **rookie** 3-9, **novice** 10-24, **cadet** 25-49,
-**specialist** 50-99, **ace** 100-199, **master** 200-349, **grandmaster** 350+. They show as e.g. `tier: 86 · specialist`.
+Overall tier titles use your **average tier points per kit** (kits you haven't played count as 0), so adding kits
+doesn't inflate your rank: **unranked** under 3, **rookie** 3+ (about LT5 everywhere), **novice** 8+ (HT5 everywhere),
+**cadet** 16+ (between LT4 and HT4), **specialist** 28+ (LT3), **ace** 50+ (LT2), **master** 80+ (between HT2 and
+LT1), **grandmaster** 105+ (almost HT1 everywhere). They show as e.g. `tier: novice · 56 pts`; the leaderboard
+sorts by total points.
 
 After each ranked duel you see the promotion/demotion (or your progress) and your new overall tier.
 `/stats` lists your tier in every kit you've played. `/leaderboard [tier|wins|kills|kd|streak]` or the GUI.

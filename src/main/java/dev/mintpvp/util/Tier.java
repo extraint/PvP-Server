@@ -34,21 +34,28 @@ public enum Tier {
         return index < 0 || index >= values().length ? null : values()[index];
     }
 
-    /** Overall rank title for a total of tier points. */
-    public static String overall(int points) {
-        if (points >= 350) return "grandmaster";
-        if (points >= 200) return "master";
-        if (points >= 100) return "ace";
-        if (points >= 50) return "specialist";
-        if (points >= 25) return "cadet";
-        if (points >= 10) return "novice";
-        if (points >= 3) return "rookie";
+    /** How many kits exist (set by the plugin); the overall title looks at the average over all of them. */
+    public static java.util.function.IntSupplier kitCount = () -> 1;
+
+    /**
+     * Overall rank title. It uses the AVERAGE tier points per kit (kits you haven't played count as 0), so having
+     * more kits doesn't inflate it: HT5 in every kit is novice, LT3 in every kit is specialist, and so on.
+     */
+    public static String overall(int totalPoints) {
+        double avg = totalPoints / (double) Math.max(1, kitCount.getAsInt());
+        if (avg >= 105) return "grandmaster";
+        if (avg >= 80) return "master";
+        if (avg >= 50) return "ace";
+        if (avg >= 28) return "specialist";
+        if (avg >= 16) return "cadet";
+        if (avg >= 8) return "novice";
+        if (avg >= 3) return "rookie";
         return "unranked";
     }
 
-    /** "86 · specialist" */
+    /** "novice · 56 pts" */
     public static String overallLabel(int points) {
-        return points + " · " + overall(points);
+        return overall(points) + " · " + points + " pts";
     }
 
     public static String name(int index) {
