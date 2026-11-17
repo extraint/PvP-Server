@@ -86,8 +86,8 @@ public final class ArenaLayout {
                     (ax, az, d) -> ring(d, 17.6, 18.8) ? "path" : (smooth(ax, az, 11, 6) > .72 ? "coarse" : "grass"),
                     (ax, az, b) -> b.equals("grass") ? (hash(ax, az, 12) < .035 ? "dandelion" : hash(ax, az, 13) < .03 ? "poppy" : null) : null,
                     "mossycobble", "oaklog", false, List.of(
-                    Feature.box(9, 0, 0, 1, 2, "hay"),
-                    Feature.tree(14, 16, "oaklog", "oakleaves", 2, 5)));
+                    Feature.tree(14, 16, "oaklog", "oakleaves", 2, 5),
+                    Feature.tree(8, 4, "oaklog", "oakleaves", 2, 5)));
             case DESERT -> new Spec(
                     (ax, az, d) -> ring(d, 17.6, 18.8) ? "smooth" : (smooth(ax, az, 21, 7) > .78 ? "smooth" : "sand"),
                     (ax, az, b) -> b.equals("sand") && hash(ax, az, 22) < .025 ? "deadbush" : null,

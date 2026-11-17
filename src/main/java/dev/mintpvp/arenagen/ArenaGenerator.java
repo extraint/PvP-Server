@@ -83,7 +83,7 @@ public final class ArenaGenerator {
     }
 
     /** Bump this whenever the arena or lobby design changes, so terrain cached in the world is thrown away once. */
-    static final int DESIGN_VERSION = 3;
+    static final int DESIGN_VERSION = 4;
 
     /**
      * Chunks of this world can be saved when they unload, so after a design change old chunks would keep showing

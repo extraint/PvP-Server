@@ -61,17 +61,7 @@ final class ArenaWorldGenerator extends ChunkGenerator {
         int s = m.surface(dx, dz);
         boolean ring = m.ring(dx, dz);
         boolean edge = d > m.rWall - 3;
-        // surface shafts into the caves only in the small arenas: on a big ranked map they become a field of holes
-        boolean sink = !m.large && !ring && d < m.rPlay - 4 && Underground.sinkhole(ax, az, d, m.spawnDistance(dx, dz));
-
-        if (sink) {
-            // an entrance shaft: solid rock all the way up, open from the surface down into the caves
-            for (int y = minY; y <= s; y++) {
-                BlockData b = Underground.block(ax, y, az, s, true, false, minY);
-                if (b != null) data.setBlock(lx, y, lz, b);
-            }
-            return;
-        }
+        // no surface shafts: the ground is solid on top (caves only start a few blocks below)
 
         for (int y = minY; y <= s - 4; y++) {
             BlockData b = Underground.block(ax, y, az, s, false, edge, minY);

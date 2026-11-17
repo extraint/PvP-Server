@@ -166,7 +166,7 @@ Five themes: **Plains, Desert, Poplar Grove, Snowy, Cherry Grove**.
 - **Ranked arenas:** the same themes at a random radius of **100-150** (200-300 across) with rolling
   hills and scattered cover; spawns are 80% of the radius from the centre. 1 of each theme on start.
   Ranked queue matches and `/challenge` duels use these; unranked uses the small ones.
-- No visible walls and no ground decorations: an invisible barrier seals the edge. Cover is only trees, hay bales (plains), dunes and snow drifts: no walls, boulders, pillars or ice spikes. When the arena or lobby design changes, the cached arena chunks are cleared once on the next start (`DESIGN_VERSION` in `ArenaGenerator`).
+- No visible walls and no ground decorations: an invisible barrier seals the edge. Cover is only trees, dunes and snow drifts: no walls, boulders, pillars, ice spikes or hay bales, and no surface shafts. When the arena or lobby design changes, the cached arena chunks are cleared once on the next start (`DESIGN_VERSION` in `ArenaGenerator`).
 - More arenas are made on demand when all are busy, up to `arena-generator.max-total` (30).
 - The **locator bar** is on in the arena world, so players can see each other.
 

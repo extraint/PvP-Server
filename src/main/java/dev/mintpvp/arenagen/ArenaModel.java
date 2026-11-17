@@ -200,8 +200,7 @@ final class ArenaModel {
         boolean alongX = u > .5;
         switch (theme) {
             case PLAINS -> {
-                if (t < .7) Shapes.tree(out, allow, surf, "oaklog", "oakleaves", 2, 4 + (int) (u * 3), x, z);
-                else Shapes.box(out, allow, surf, x, z, (int) (u * 2), (int) ((1 - u) * 2), 1 + (int) (u * 2), Blocks.data("hay"));
+                Shapes.tree(out, allow, surf, "oaklog", "oakleaves", 2, 4 + (int) (u * 3), x, z);
             }
             case DESERT -> {
                 Shapes.mound(out, allow, surf, x, z, 3.5 + u * 2, 2 + (int) (u * 2), Blocks.data("dune"));
