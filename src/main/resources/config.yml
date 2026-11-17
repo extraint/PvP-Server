@@ -84,7 +84,7 @@ arena-generator:
   max-total: 30  # on-demand arena cap
 
 party:
-  max-size: 6
+  max-players: 30  # party size cap
   invite-expire-seconds: 60
   allow-uneven-teams: true  # allow uneven teams
   friendly-fire: false  # teammate damage

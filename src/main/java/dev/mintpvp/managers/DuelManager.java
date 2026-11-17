@@ -130,7 +130,14 @@ public final class DuelManager {
 
     private record Request(UUID from, String kit, String arena, long expires, boolean ranked, boolean party, int rounds) {}
 
-    private static final int[][] OFFSETS = {{0, 0}, {2, 0}, {-2, 0}, {0, 2}, {0, -2}, {2, 2}, {-2, 2}, {2, -2}, {-2, -2}};
+    private static final int[][] OFFSETS = spawnOffsets();
+
+    private static int[][] spawnOffsets() {
+        List<int[]> all = new ArrayList<>();
+        for (int a = -3; a <= 3; a++) for (int b = -3; b <= 3; b++) all.add(new int[] {a * 2, b * 2});
+        all.sort(java.util.Comparator.comparingInt((int[] o) -> o[0] * o[0] + o[1] * o[1]));
+        return all.toArray(new int[0][]);
+    }
 
     private final MintPvP plugin;
     private final Map<UUID, Request> requests = new HashMap<>();

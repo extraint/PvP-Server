@@ -37,7 +37,7 @@ public final class PartyManager {
     }
 
     public int maxSize() {
-        return Math.max(2, plugin.getConfig().getInt("party.max-size", 6));
+        return Math.max(2, plugin.getConfig().getInt("party.max-players", 30));
     }
 
     public List<Player> online(Party party) {

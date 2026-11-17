@@ -23,13 +23,13 @@ import java.util.UUID;
 /** team split */
 public final class TeamsGui extends Gui {
 
-    private static final int[] SLOTS = {10, 11, 12, 13, 14, 15, 16, 19, 20, 21, 22, 23, 24, 25};
+    private static final int[] SLOTS = java.util.stream.IntStream.rangeClosed(9, 44).toArray();
 
     /** true = blue */
     private final Map<UUID, Boolean> blue = new LinkedHashMap<>();
 
     public TeamsGui(MintPvP plugin, Player leader, Map<UUID, Boolean> existing, Runnable back) {
-        super(plugin, 5, plugin.theme().title("custom teams"));
+        super(plugin, 6, plugin.theme().title("custom teams"));
         Theme t = plugin.theme();
         frame(true);
         Party party = plugin.parties().partyOf(leader.getUniqueId());
@@ -72,7 +72,7 @@ public final class TeamsGui extends Gui {
             });
         }
 
-        set(28, Items.of(Material.SUGAR).name(t.text("✦ shuffle", t.primary()))
+        set(46, Items.of(Material.SUGAR).name(t.text("✦ shuffle", t.primary()))
                 .lore(t.text("mix the teams up evenly", t.accent())).build(), e -> {
             List<UUID> ids = new ArrayList<>(blue.keySet());
             Collections.shuffle(ids);
@@ -82,7 +82,7 @@ public final class TeamsGui extends Gui {
         });
 
         boolean ok = reds > 0 && blues > 0;
-        set(32, Items.of(ok ? Material.EMERALD : Material.BARRIER)
+        set(49, Items.of(ok ? Material.EMERALD : Material.BARRIER)
                 .name(t.text(ok ? "✦ pick a kit and start" : "each team needs a player", ok ? t.primary() : t.muted()))
                 .lore(t.text(reds + " vs " + blues, t.accent())).glow().build(), ok ? e ->
                 Guis.pickKit(plugin, leader, "choose kit", () -> new TeamsGui(plugin, leader, blue, back).open(leader),
@@ -102,9 +102,9 @@ public final class TeamsGui extends Gui {
                         }) : null);
 
         if (back != null) {
-            set(40, Items.of(Material.SPECTRAL_ARROW).name(t.text("« back", t.secondary())).build(), e -> back.run());
+            set(52, Items.of(Material.SPECTRAL_ARROW).name(t.text("« back", t.secondary())).build(), e -> back.run());
         } else {
-            set(40, Items.of(Material.BARRIER).name(t.text("close", t.secondary())).build(), e -> leader.closeInventory());
+            set(52, Items.of(Material.BARRIER).name(t.text("close", t.secondary())).build(), e -> leader.closeInventory());
         }
     }
 }

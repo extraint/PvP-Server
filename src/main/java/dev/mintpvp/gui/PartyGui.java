@@ -20,10 +20,10 @@ import java.util.UUID;
 /** party menu */
 public final class PartyGui extends Gui {
 
-    private static final int[] SLOTS = {10, 11, 12, 13, 14, 15, 16, 19, 20, 21, 22, 23, 24, 25};
+    private static final int[] SLOTS = java.util.stream.IntStream.rangeClosed(9, 44).toArray();
 
     public PartyGui(MintPvP plugin, Player p) {
-        super(plugin, 5, plugin.theme().title("party"));
+        super(plugin, 6, plugin.theme().title("party"));
         Theme t = plugin.theme();
         frame(true);
         Party party = plugin.parties().partyOf(p.getUniqueId());
@@ -36,7 +36,7 @@ public final class PartyGui extends Gui {
                 plugin.parties().create(p);
                 new PartyGui(plugin, p).open(p);
             });
-            set(40, Items.of(Material.BARRIER).name(t.text("close", t.secondary())).build(), e -> p.closeInventory());
+            set(49, Items.of(Material.BARRIER).name(t.text("close", t.secondary())).build(), e -> p.closeInventory());
             return;
         }
 
@@ -69,42 +69,42 @@ public final class PartyGui extends Gui {
         }
 
         if (leader) {
-            set(28, Items.of(Material.PAPER).name(t.text("✦ invite a player", t.primary()))
+            set(46, Items.of(Material.PAPER).name(t.text("✦ invite a player", t.primary()))
                     .lore(t.text("pick someone online", t.accent())).build(),
                     e -> Guis.pickPlayer(plugin, p, "invite", () -> new PartyGui(plugin, p).open(p), target -> {
                         plugin.parties().invite(p, target);
                         new PartyGui(plugin, p).open(p);
                     }));
-            set(30, Items.of(Material.CROSSBOW).name(t.text("✦ challenge a party", t.primary()))
+            set(47, Items.of(Material.CROSSBOW).name(t.text("✦ challenge a party", t.primary()))
                     .lore(t.text("duel another party", t.accent()), Component.empty(), t.text("click to choose", t.secondary())).glow().build(),
                     e -> challengeParty(plugin, p, () -> new PartyGui(plugin, p).open(p)));
         }
         if (leader && party.members.size() >= 2) {
-            set(38, Items.of(Material.WHITE_BANNER).name(t.text("✦ custom teams", t.primary()))
+            set(48, Items.of(Material.WHITE_BANNER).name(t.text("✦ custom teams", t.primary()))
                     .lore(t.text("split your party into two teams", t.accent()),
                             t.text("of any size (2v1, 3v2...) and play", t.accent()),
                             Component.empty(), t.text("click to set up", t.secondary())).glow().build(),
                     e -> new TeamsGui(plugin, p, null, () -> new PartyGui(plugin, p).open(p)).open(p));
         }
         if (leader && party.members.size() >= Math.max(3, plugin.getConfig().getInt("party.ffa-min-players", 3))) {
-            set(42, Items.of(Material.TNT).name(t.text("✦ party free-for-all", t.primary()))
+            set(50, Items.of(Material.TNT).name(t.text("✦ party free-for-all", t.primary()))
                     .lore(t.text("everyone in the party fights", t.accent()),
                             t.text("each other - last one standing wins", t.accent()),
                             Component.empty(), t.text("click to pick a kit", t.secondary())).glow().build(),
                     e -> ffaKit(plugin, p, () -> new PartyGui(plugin, p).open(p)));
         }
-        set(32, Items.of(Material.OAK_DOOR).name(t.text("leave party", t.secondary())).build(), e -> {
+        set(51, Items.of(Material.OAK_DOOR).name(t.text("leave party", t.secondary())).build(), e -> {
             plugin.parties().leave(p, false);
             new PartyGui(plugin, p).open(p);
         });
         if (leader) {
-            set(34, Items.of(Material.TNT).name(t.text("disband party", t.secondary()))
+            set(52, Items.of(Material.TNT).name(t.text("disband party", t.secondary()))
                     .lore(t.text("removes everyone", t.muted())).build(), e -> {
                 plugin.parties().disband(p);
                 new PartyGui(plugin, p).open(p);
             });
         }
-        set(40, Items.of(Material.BARRIER).name(t.text("close", t.secondary())).build(), e -> p.closeInventory());
+        set(49, Items.of(Material.BARRIER).name(t.text("close", t.secondary())).build(), e -> p.closeInventory());
     }
 
     /** party free-for-all */
