@@ -348,21 +348,36 @@ public final class ArenaGenerator {
         // loose items, arrows and anything else that isn't a player
         world.getNearbyEntities(a.box(), e -> !(e instanceof org.bukkit.entity.Player)).forEach(org.bukkit.entity.Entity::remove);
 
-        List<org.bukkit.ChunkSnapshot> snaps = new ArrayList<>();
-        for (int x = x0; x <= x1; x++) {
-            for (int z = z0; z <= z1; z++) {
-                if (world.isChunkLoaded(x, z)) snaps.add(world.getChunkAt(x, z).getChunkSnapshot());
+        // normal arenas are small enough to load every chunk first, so a chunk that unloaded with changes saved in it
+        // (falling blocks, decayed leaves, ...) is still compared and put back; ranked arenas only use loaded chunks
+        List<CompletableFuture<?>> loads = new ArrayList<>();
+        if (!a.large) {
+            for (int x = x0; x <= x1; x++) {
+                for (int z = z0; z <= z1; z++) {
+                    if (!world.isChunkLoaded(x, z)) loads.add(world.getChunkAtAsync(x, z));
+                }
             }
         }
-        Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
-            List<Fix> fixes = new ArrayList<>();
-            try {
-                for (org.bukkit.ChunkSnapshot snap : snaps) diff(snap, fixes);
-            } catch (RuntimeException e) {
-                plugin.getLogger().log(java.util.logging.Level.WARNING, "Arena reset scan failed for " + a.name, e);
-            }
-            Bukkit.getScheduler().runTask(plugin, () -> applyFixes(a, fixes, 0, done));
-        });
+        final int fx0 = x0, fx1 = x1, fz0 = z0, fz1 = z1;
+        CompletableFuture.allOf(loads.toArray(new CompletableFuture[0])).whenComplete((v, err) ->
+                Bukkit.getScheduler().runTask(plugin, () -> {
+                    if (!plugin.isEnabled()) { done.run(); return; }
+                    List<org.bukkit.ChunkSnapshot> snaps = new ArrayList<>();
+                    for (int x = fx0; x <= fx1; x++) {
+                        for (int z = fz0; z <= fz1; z++) {
+                            if (world.isChunkLoaded(x, z)) snaps.add(world.getChunkAt(x, z).getChunkSnapshot());
+                        }
+                    }
+                    Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
+                        List<Fix> fixes = new ArrayList<>();
+                        try {
+                            for (org.bukkit.ChunkSnapshot snap : snaps) diff(snap, fixes);
+                        } catch (RuntimeException e) {
+                            plugin.getLogger().log(java.util.logging.Level.WARNING, "Arena reset scan failed for " + a.name, e);
+                        }
+                        Bukkit.getScheduler().runTask(plugin, () -> applyFixes(a, fixes, 0, done));
+                    });
+                }));
     }
 
     /** Resets an arena right now, on the calling (main) thread. Used on shutdown, when tasks can't be scheduled. */

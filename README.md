@@ -128,7 +128,7 @@ Admins (`mintpvp.admin`) set tiers with `/mintpvp tier set <player> <kit|all> <l
 the same. Shortcuts: `/duel <player> <kit>` skips to the rounds menu, and `/duel <player> <kit> <rounds>` sends it
 straight away.
 - The first player to win N rounds wins the match. After each round there is a short pause
-  (`duel.round-delay-seconds`), then the arena's changed blocks are restored, both players get a fresh kit and
+  (`duel.round-delay-seconds`), then a generated arena is **fully reset** (everything that differs from the original: placed/broken blocks, decayed leaves, falling blocks, liquids, fire), both players get a fresh kit and
   are put back at their spawns for a countdown (`duel.round-countdown-seconds`).
 - There is no time limit. Quitting between or during rounds forfeits the match.
 - Ranked tiers and duel wins/losses count once, for the whole match; kills and deaths count every round.

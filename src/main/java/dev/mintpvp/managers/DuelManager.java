@@ -910,11 +910,35 @@ public final class DuelManager {
         }
         d.ending = Bukkit.getScheduler().runTaskLater(plugin, () -> {
             try {
-                nextRound(d);
+                resetThenNextRound(d);
             } catch (RuntimeException ex) {
                 fail(d, ex);
             }
         }, delay * 20L);
+    }
+
+    /**
+     * Between rounds a generated arena is put back completely (everything that differs from the generator is
+     * fixed: placed/broken blocks, leaves that decayed, falling sand, liquids, fire), not just the blocks that were
+     * recorded. Players wait in the break until it is done.
+     */
+    private void resetThenNextRound(Duel d) {
+        if (d.ended) return;
+        restoreWorld(d);
+        if (plugin.isEnabled() && plugin.generator().resets(d.arena)) {
+            Theme t = plugin.theme();
+            for (Player p : d.players) if (byPlayer.get(p.getUniqueId()) == d) p.sendActionBar(t.text("resetting the arena...", t.accent()));
+            plugin.generator().reset(d.arena, () -> {
+                if (d.ended) return;
+                try {
+                    nextRound(d);
+                } catch (RuntimeException ex) {
+                    fail(d, ex);
+                }
+            });
+        } else {
+            nextRound(d);
+        }
     }
 
     /** Puts everyone back at their spawn with a fresh kit, restores the arena's changed blocks and counts down. */
