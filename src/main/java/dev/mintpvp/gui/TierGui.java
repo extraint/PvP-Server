@@ -46,7 +46,7 @@ public final class TierGui {
                 lore.add(t.line("tier", tier.label + " · " + tier.points + " pts"));
                 int prog = s.kitProgress.getOrDefault(kit.id, 0);
                 int need = plugin.getConfig().getInt(prog >= 0 ? "ranked.wins-to-promote" : "ranked.losses-to-demote", 2);
-                lore.add(t.line(prog >= 0 ? "promotion" : "demotion", Math.abs(prog) + " / " + need));
+                lore.add(t.line(prog >= 0 ? "promotion" : "demotion", dev.mintpvp.managers.StatsManager.progressText(prog, need)));
             }
             lore.add(Component.empty());
             lore.add(t.text("click for top players", t.secondary()));

@@ -152,6 +152,15 @@ public final class StatsManager {
     }
 
     /** tier change */
+    /** Progress is counted in half wins: a full win is UNITS. */
+    public static final int UNITS = 2;
+
+    /** "1.5 / 2" for progress units out of a number of wins. */
+    public static String progressText(int units, int wins) {
+        double v = Math.abs(units) / (double) UNITS;
+        return (v == Math.floor(v) ? String.valueOf((int) v) : String.valueOf(v)) + " / " + wins;
+    }
+
     public record TierChange(String kitId, int oldTier, int newTier, int progress, int scoreDelta, int score, boolean placement) {}
 
     /** apply ranked result */
@@ -166,8 +175,8 @@ public final class StatsManager {
                     new TierChange(kitId, tl, tl, sl.kitProgress.getOrDefault(kitId, 0), 0, scoreL, false)};
         }
         var c = plugin.getConfig();
-        int promote = Math.max(1, c.getInt("ranked.wins-to-promote", 2));
-        int demote = Math.max(1, c.getInt("ranked.losses-to-demote", 2));
+        int promote = Math.max(1, c.getInt("ranked.wins-to-promote", 2)) * UNITS;
+        int demote = Math.max(1, c.getInt("ranked.losses-to-demote", 2)) * UNITS;
         int streakAt = c.getInt("ranked.streak-bonus-at", 3);
         int top = dev.mintpvp.util.Tier.values().length - 1;
 
@@ -179,9 +188,10 @@ public final class StatsManager {
         if (placeW) {
             sw.kitTier.put(kitId, 0);
             sw.kitProgress.put(kitId, 0);
-        } else if (tl >= tw) {
-            int gain = tl >= tw + 2 ? 2 : 1;
-            if (streakAt > 0 && sw.rankedStreak >= streakAt) gain++;
+        } else {
+            // a win over your tier or higher is a full win (two over a much higher one); over a lower tier it is half a win
+            int gain = tl >= tw + 2 ? 2 * UNITS : tl >= tw ? UNITS : 1;
+            if (streakAt > 0 && sw.rankedStreak >= streakAt) gain += UNITS;
             int prog = sw.kitProgress.getOrDefault(kitId, 0) + gain;
             if (prog >= promote && tw < top) {
                 sw.kitTier.put(kitId, tw + 1);
@@ -195,7 +205,7 @@ public final class StatsManager {
             sl.kitTier.put(kitId, 0);
             sl.kitProgress.put(kitId, 0);
         } else if (tw <= tl) {
-            int prog = sl.kitProgress.getOrDefault(kitId, 0) - 1;
+            int prog = sl.kitProgress.getOrDefault(kitId, 0) - UNITS;
             if (prog <= -demote) {
                 if (tl > 0) sl.kitTier.put(kitId, tl - 1);
                 prog = 0;

@@ -1135,7 +1135,7 @@ public final class DuelManager {
             msg = t.text(kitName + " demoted: " + dev.mintpvp.util.Tier.name(c.oldTier()) + " → " + now, t.secondary());
         } else {
             int need = plugin.getConfig().getInt(c.progress() >= 0 ? "ranked.wins-to-promote" : "ranked.losses-to-demote", 2);
-            msg = t.text(kitName + " " + now + " · progress " + c.progress() + "/" + (c.progress() >= 0 ? need : -need), t.accent());
+            msg = t.text(kitName + " " + now + " · " + (c.progress() >= 0 ? "promotion " : "demotion ") + StatsManager.progressText(c.progress(), need), t.accent());
         }
         msg = msg.append(t.text(" · tier " + dev.mintpvp.util.Tier.overallLabel(c.score()) + (c.scoreDelta() != 0 ? " (" + (c.scoreDelta() > 0 ? "+" : "") + c.scoreDelta() + ")" : ""), t.muted()));
         p.sendMessage(t.info(msg));
