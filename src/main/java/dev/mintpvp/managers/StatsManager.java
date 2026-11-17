@@ -121,6 +121,9 @@ public final class StatsManager {
     // shared database sync
 
     private StatsDb db;
+    private volatile String dbError = "";
+    private volatile long lastWriteAt, lastPullAt;
+    private volatile int dbPlayers;
     private final java.util.Set<UUID> dirty = java.util.concurrent.ConcurrentHashMap.newKeySet();
     private long lastPull;
 
@@ -162,10 +165,13 @@ public final class StatsManager {
                 applyRow(r);
             }
             db = d;
+            dbPlayers = rows.size();
+            lastPullAt = System.currentTimeMillis();
             for (UUID id : new ArrayList<>(stats.keySet())) if (!inDb.contains(id)) dirty.add(id); // upload local-only players
             flush(true);
             plugin.getLogger().info("Shared stats database connected (" + rows.size() + " players).");
         } catch (Exception e) {
+            dbError = String.valueOf(e.getMessage());
             plugin.getLogger().severe("Could not connect to the stats database, using local stats.yml only: " + e.getMessage());
             d.close();
             return;
@@ -206,8 +212,10 @@ public final class StatsManager {
         if (d == null) return;
         try {
             var rows = d.fetch(Math.max(0, lastPull - 60_000L));
+            lastPullAt = System.currentTimeMillis();
             plugin.getServer().getScheduler().runTask(plugin, () -> rows.forEach(this::applyRow));
         } catch (Exception e) {
+            dbError = String.valueOf(e.getMessage());
             plugin.getLogger().warning("Stats pull failed: " + e.getMessage());
         }
     }
@@ -226,8 +234,10 @@ public final class StatsManager {
             for (Object[] b : batch) {
                 try {
                     d.upsert((UUID) b[0], (String) b[1], (String) b[2], now);
+                    lastWriteAt = now;
                 } catch (Exception e) {
                     dirty.add((UUID) b[0]);
+                    dbError = String.valueOf(e.getMessage());
                     plugin.getLogger().warning("Stats write failed: " + e.getMessage());
                 }
             }
@@ -250,6 +260,25 @@ public final class StatsManager {
                 }
             }, delay);
         }
+    }
+
+    /** status lines for /mintpvp db */
+    public List<String> dbStatus() {
+        List<String> out = new ArrayList<>();
+        boolean wanted = plugin.getConfig().getString("storage.type", "yaml").equalsIgnoreCase("mysql");
+        if (!wanted) {
+            out.add("storage: local file only (storage.type is not mysql)");
+            return out;
+        }
+        out.add("storage: shared database " + (db != null ? "connected" : "NOT connected"));
+        if (db != null) {
+            long now = System.currentTimeMillis();
+            out.add("players in database at start: " + dbPlayers + ", waiting to save: " + dirty.size());
+            out.add("last save: " + (lastWriteAt == 0 ? "none yet" : (now - lastWriteAt) / 1000 + "s ago"));
+            out.add("last refresh: " + (lastPullAt == 0 ? "none yet" : (now - lastPullAt) / 1000 + "s ago"));
+        }
+        if (!dbError.isEmpty()) out.add("last error: " + dbError);
+        return out;
     }
 
     /** save a leaving player right away so the other server sees it */

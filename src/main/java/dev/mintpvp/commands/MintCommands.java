@@ -56,6 +56,15 @@ public final class MintCommands implements CommandExecutor, TabCompleter {
             s.sendMessage(t.info("config reloaded."));
             return;
         }
+        if (args.length > 0 && args[0].equalsIgnoreCase("db")) {
+            if (!s.hasPermission("mintpvp.admin")) {
+                s.sendMessage(t.error("no permission."));
+                return;
+            }
+            s.sendMessage(t.info("stats database"));
+            for (String line : plugin.stats().dbStatus()) s.sendMessage(t.raw(line, t.accent()));
+            return;
+        }
         if (args.length > 0 && args[0].equalsIgnoreCase("tier")) {
             if (!s.hasPermission("mintpvp.admin")) {
                 s.sendMessage(t.error("no permission."));
@@ -73,6 +82,7 @@ public final class MintCommands implements CommandExecutor, TabCompleter {
         s.sendMessage(t.usage("/kit", "edit your kit layouts"));
         if (s.hasPermission("mintpvp.admin")) {
             s.sendMessage(t.usage("/mintpvp reload", "reload config"));
+            s.sendMessage(t.usage("/mintpvp db", "stats database status"));
             s.sendMessage(t.usage("/mintpvp tier <set|reset|info> ...", "set players' kit tiers"));
             s.sendMessage(t.usage("/arena", "manage duel arenas"));
         }
@@ -212,7 +222,7 @@ public final class MintCommands implements CommandExecutor, TabCompleter {
         if (args.length != 1) return List.of();
         String prefix = args[0].toLowerCase(Locale.ROOT);
         List<String> options = switch (cmd.getName().toLowerCase(Locale.ROOT)) {
-            case "mintpvp" -> s.hasPermission("mintpvp.admin") ? List.of("help", "reload", "tier") : List.of("help");
+            case "mintpvp" -> s.hasPermission("mintpvp.admin") ? List.of("help", "reload", "tier", "db") : List.of("help");
             case "leaderboard" -> List.of("tier", "wins", "kills", "kd", "streak");
             case "stats" -> Bukkit.getOnlinePlayers().stream().map(Player::getName).toList();
             default -> List.of();
