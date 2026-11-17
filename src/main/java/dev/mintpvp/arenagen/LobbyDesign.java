@@ -12,24 +12,18 @@ import java.util.function.BiPredicate;
 import java.util.function.Function;
 import java.util.function.IntBinaryOperator;
 
-/**
- * The mint lobby: a large floating quartz plaza. A three-step terraced dais rises in the middle with a
- * lit fountain and a beacon on top, ringed by a flowering hedge. Around it: mint-teal rings, lamp posts,
- * flower planters, crystal spires, four themed gardens (poplar, cherry, snowy, desert), a huge "MINT PVP"
- * sign wall, a railed edge with an invisible barrier above it, a tapering underside, and floating islets in
- * the sky. The spawn is on the south side, facing the dais and the sign.
- */
+/** lobby plaza */
 public final class LobbyDesign {
 
-    /** Platform radius (the rail sits on the outer 1.5 blocks). */
+    /** platform radius */
     public static final int R = 40;
     public static final int BARRIER_TOP = 60;
-    /** The spawn is this many blocks south of the centre. */
+    /** spawn offset */
     public static final int SPAWN_DZ = 22;
-    /** Height of the dais top above the plaza. */
+    /** dais height */
     private static final int DAIS = 3;
 
-    /** Garden centres (dx, dz) and what grows in them. */
+    /** garden centres */
     private static final int[][] GARDENS = {{-24, -14}, {24, -14}, {-24, 14}, {24, 14}};
     private static final String[] GARDEN_KIND = {"poplar", "cherry", "snowy", "desert"};
     private static final double GARDEN_R = 9.5;
@@ -50,7 +44,7 @@ public final class LobbyDesign {
 
     private LobbyDesign() {}
 
-    /** Terrace level of a column: 3 on the dais, stepping down to 0 on the plaza. */
+    /** terrace level */
     private static int level(int dx, int dz) {
         double d = Math.hypot(dx, dz);
         if (d <= 8) return 3;
@@ -68,7 +62,7 @@ public final class LobbyDesign {
         return false;
     }
 
-    /** The block on top of the plaza at this column (null = the fountain pool). */
+    /** plaza top block */
     private static Material top(int dx, int dz) {
         double d = Math.hypot(dx, dz), ang = Math.atan2(dz, dx);
         for (int i = 0; i < GARDENS.length; i++) {
@@ -88,7 +82,7 @@ public final class LobbyDesign {
         if (d <= 6) return Material.QUARTZ_BRICKS;
         if (d <= 16) {
             boolean spoke = d * Math.abs(Math.sin(4 * ang)) / 4 < 0.9;
-            boolean ringLine = (d > 6 && d <= 7) || (d > 10 && d <= 11) || (d > 14 && d <= 15); // just inside each step edge
+            boolean ringLine = (d > 6 && d <= 7) || (d > 10 && d <= 11) || (d > 14 && d <= 15);
             return ringLine || spoke ? Material.LIME_CONCRETE : Material.SMOOTH_QUARTZ;
         }
         if (d <= 35) {
@@ -109,7 +103,7 @@ public final class LobbyDesign {
     }
 
     public static void place(Map<Long, BlockData> out, Function<Material, BlockData> data, int cx, int cz, int y0) {
-        Map<Long, BlockData> rel = new HashMap<>(); // things built with Shapes, in centre-relative coordinates
+        Map<Long, BlockData> rel = new HashMap<>();
         BlockData pillar = Blocks.axis(Material.QUARTZ_PILLAR, Axis.Y);
         int yc = y0 + DAIS;
 
@@ -123,17 +117,17 @@ public final class LobbyDesign {
                 Material top = top(dx, dz);
                 double ang = Math.atan2(dz, dx);
 
-                if (top == null) { // the fountain pool: water over a quartz floor, lit from below
+                if (top == null) { // fountain pool
                     out.put(Pack.key(x, ytop, z), data.apply(Material.WATER));
                     out.put(Pack.key(x, ytop - 1, z), data.apply(Material.WATER));
                     boolean light = d > 2.6 && d < 3.8 && Math.abs(Math.sin(2 * ang)) < 0.25;
                     out.put(Pack.key(x, ytop - 2, z), data.apply(light ? Material.SEA_LANTERN : Material.QUARTZ_BLOCK));
                     for (int y = y0 - 2; y < ytop - 2; y++) out.put(Pack.key(x, y, z), data.apply(Material.QUARTZ_BLOCK));
                 } else {
-                    // a step edge becomes a stair that climbs towards the higher ground
+                    // stair at step edge
                     BlockData topBlock = data.apply(top);
                     if (lvl > 0) {
-                        // the stair climbs towards the centre: prefer the lower neighbour straight outward
+                        // face the centre
                         int ox = Math.abs(dx) >= Math.abs(dz) ? Integer.signum(dx) : 0;
                         int oz = ox == 0 ? Integer.signum(dz) : 0;
                         BlockFace face = null;
@@ -141,7 +135,7 @@ public final class LobbyDesign {
                             face = ox > 0 ? BlockFace.WEST : ox < 0 ? BlockFace.EAST : oz > 0 ? BlockFace.NORTH : BlockFace.SOUTH;
                         } else {
                             int[][] n = {{0, -1, 0}, {0, 1, 1}, {-1, 0, 2}, {1, 0, 3}};
-                            BlockFace[] up = {BlockFace.SOUTH, BlockFace.NORTH, BlockFace.EAST, BlockFace.WEST}; // away from the lower neighbour
+                            BlockFace[] up = {BlockFace.SOUTH, BlockFace.NORTH, BlockFace.EAST, BlockFace.WEST};
                             for (int[] o : n) {
                                 if (level(dx + o[0], dz + o[1]) == lvl - 1) {
                                     face = up[o[2]];
@@ -156,10 +150,10 @@ public final class LobbyDesign {
                     Material body = garden && top != Material.LIME_CONCRETE ? Material.DIRT : Material.QUARTZ_BLOCK;
                     for (int y = y0 - 1; y < ytop; y++) out.put(Pack.key(x, y, z), data.apply(y == y0 - 1 || lvl == 0 ? body : Material.QUARTZ_BLOCK));
                     out.put(Pack.key(x, y0 - 2, z), data.apply(Material.SMOOTH_QUARTZ));
-                    if (d > 4.5 && d <= 6) out.put(Pack.key(x, ytop + 1, z), data.apply(Material.QUARTZ_SLAB)); // pool lip
+                    if (d > 4.5 && d <= 6) out.put(Pack.key(x, ytop + 1, z), data.apply(Material.QUARTZ_SLAB));
                 }
 
-                // tapering underside, so it reads as a floating island
+                // floating underside
                 for (int k = 1; k <= 16; k++) {
                     if (d <= R - 2.4 * k) {
                         Material m = ArenaLayout.hash(dx, dz + k * 7, 230) < 0.015 ? Material.SEA_LANTERN
@@ -168,7 +162,7 @@ public final class LobbyDesign {
                     }
                 }
 
-                // railed edge with lanterns every 30 degrees, and the barrier above it
+                // rail and lanterns
                 if (d > 38.5) {
                     out.put(Pack.key(x, y0 + 1, z), data.apply(Material.QUARTZ_BRICKS));
                     out.put(Pack.key(x, y0 + 2, z), data.apply(Material.QUARTZ_BRICKS));
@@ -178,7 +172,7 @@ public final class LobbyDesign {
                     for (int y = y0 + 4; y <= y0 + BARRIER_TOP; y++) out.put(Pack.key(x, y, z), data.apply(Material.BARRIER));
                 }
 
-                // flowering hedge around the dais, with a gap at each of the eight spokes
+                // hedge ring
                 if (d > 16.2 && d <= 17.4 && d * Math.abs(Math.sin(4 * ang)) / 4 >= 1.7) {
                     out.put(Pack.key(x, y0 + 1, z), data.apply(Material.FLOWERING_AZALEA_LEAVES));
                     out.put(Pack.key(x, y0 + 2, z), data.apply(Material.FLOWERING_AZALEA_LEAVES));
@@ -186,7 +180,7 @@ public final class LobbyDesign {
             }
         }
 
-        // centre: a beacon on an emerald pedestal in the pool, its beam tinted lime, four tall lantern columns on the rim
+        // centre beacon
         for (int px = -1; px <= 1; px++) {
             for (int pz = -1; pz <= 1; pz++) {
                 out.put(Pack.key(cx + px, yc - 1, cz + pz), data.apply(Material.EMERALD_BLOCK));
@@ -199,12 +193,12 @@ public final class LobbyDesign {
             for (int y = yc + 1; y <= yc + 9; y++) out.put(Pack.key(cx + c[0], y, cz + c[1]), pillar);
             out.put(Pack.key(cx + c[0], yc + 10, cz + c[1]), data.apply(Material.SEA_LANTERN));
         }
-        for (int[] j : new int[][] {{3, 0}, {-3, 0}, {0, 3}, {0, -3}}) { // short fountain jets
+        for (int[] j : new int[][] {{3, 0}, {-3, 0}, {0, 3}, {0, -3}}) {
             for (int y = yc - 1; y <= yc + 1; y++) out.put(Pack.key(cx + j[0], y, cz + j[1]), pillar);
             out.put(Pack.key(cx + j[0], yc + 2, cz + j[1]), data.apply(Material.SEA_LANTERN));
         }
 
-        // lamp posts on two rings, skipping the gardens and the sign
+        // lamp posts
         for (double ring : new double[] {20.5, 31}) {
             for (int k = 0; k < 12; k++) {
                 double a = Math.toRadians(15 + k * 30);
@@ -215,7 +209,7 @@ public final class LobbyDesign {
             }
         }
 
-        // flower planters flanking the spawn and the sides of the plaza
+        // planters
         int[][] planters = {{22, 0}, {-22, 0}, {12, 23}, {-12, 23}, {20, 12}, {-20, 12}, {0, -22}};
         for (int k = 0; k < planters.length; k++) {
             int px = planters[k][0], pz = planters[k][1];
@@ -223,7 +217,7 @@ public final class LobbyDesign {
             planter(out, data, cx + px - 1, cz + pz - 1, y0, k);
         }
 
-        // benches facing the dais, just outside the hedge, between the spokes
+        // benches
         for (int k = 0; k < 8; k++) {
             double a = Math.toRadians(22.5 + k * 45);
             int bx = (int) Math.round(18.9 * Math.cos(a)), bz = (int) Math.round(18.9 * Math.sin(a));
@@ -234,7 +228,7 @@ public final class LobbyDesign {
             out.put(Pack.key(cx + bx + (horizontal ? 0 : 1), y0 + 1, cz + bz + (horizontal ? 1 : 0)), stairs(data, outward));
         }
 
-        // crystal spires at the east, west and south edges
+        // crystal spires
         for (int[] s : new int[][] {{31, 0}, {-31, 0}, {0, 31}}) spire(out, data, cx + s[0], cz + s[1], y0);
 
         sign(out, data, cx, cz, y0);
@@ -278,20 +272,20 @@ public final class LobbyDesign {
 
     private static void sign(Map<Long, BlockData> out, Function<Material, BlockData> data, int cx, int cz, int y0) {
         int wz = cz - 27;
-        // a dark teal panel in a glowing sea-lantern frame, on a quartz plinth
+        // sign panel
         for (int x = -23; x <= 23; x++) {
             for (int y = 1; y <= 29; y++) {
                 Material m;
                 if (y <= 2) m = Material.QUARTZ_BRICKS;
                 else if (Math.abs(x) == 23 || y == 3 || y == 29) m = Material.SEA_LANTERN;
-                else if (Math.abs(x) == 22 || y == 4 || y == 28) m = Material.LIME_CONCRETE; // thin mint inner border
-                else if (y == 15 && Math.abs(x) <= 20) m = Material.LIME_CONCRETE;            // divider between the two words
+                else if (Math.abs(x) == 22 || y == 4 || y == 28) m = Material.LIME_CONCRETE;
+                else if (y == 15 && Math.abs(x) <= 20) m = Material.LIME_CONCRETE;
                 else m = Material.DARK_PRISMARINE;
                 out.put(Pack.key(cx + x, y0 + y, wz), data.apply(m));
                 out.put(Pack.key(cx + x, y0 + y, wz - 1), data.apply(m));
             }
         }
-        // crest on top: stepped mint crown with a lantern jewel
+        // crest
         for (int x = -8; x <= 8; x++) out.put(Pack.key(cx + x, y0 + 30, wz), data.apply(Material.QUARTZ_BRICKS));
         for (int x = -5; x <= 5; x++) out.put(Pack.key(cx + x, y0 + 31, wz), data.apply(Material.LIME_CONCRETE));
         for (int x = -2; x <= 2; x++) out.put(Pack.key(cx + x, y0 + 32, wz), data.apply(Material.SEA_LANTERN));
@@ -304,7 +298,7 @@ public final class LobbyDesign {
             out.put(Pack.key(cx + side, y0 + 31, wz), data.apply(Material.SEA_LANTERN));
             out.put(Pack.key(cx + side, y0 + 31, wz - 1), data.apply(Material.SEA_LANTERN));
         }
-        // flower bed and hedge along the foot of the sign
+        // flower bed
         for (int x = -21; x <= 21; x++) {
             out.put(Pack.key(cx + x, y0 + 1, wz + 1), data.apply(Material.GRASS_BLOCK));
             out.put(Pack.key(cx + x, y0 + 1, wz + 2), data.apply(Material.GRASS_BLOCK));
@@ -316,7 +310,7 @@ public final class LobbyDesign {
         text(out, data, "PVP", cx, wz + 1, y0 + 5);
     }
 
-    /** Draws a line of 5x5 letters, each pixel a 2x2 block, centred on x = cx. Rows go up from {@code yBottom}. */
+    /** draw letters */
     private static void text(Map<Long, BlockData> out, Function<Material, BlockData> data, String s, int cx, int z, int yBottom) {
         int width = s.length() * 11 - 1;
         int x = cx - width / 2;
@@ -330,7 +324,7 @@ public final class LobbyDesign {
                     for (int px = 0; px < 2; px++) {
                         for (int py = 0; py < 2; py++) {
                             int bx = x + c * 2 + px, by = yBottom + (4 - r) * 2 + py;
-                            out.put(Pack.key(bx + 1, by - 1, z - 1), shade); // drop shadow on the panel behind
+                            out.put(Pack.key(bx + 1, by - 1, z - 1), shade);
                             out.put(Pack.key(bx, by, z), lime);
                         }
                     }
@@ -358,7 +352,7 @@ public final class LobbyDesign {
                     Shapes.tree(rel, any, flat, "cherrylog", "cherry", 3, 6, gx - 3, gz + 3);
                     Shapes.tree(rel, any, flat, "cherrylog", "cherry", 3, 5, gx + 4, gz - 3);
                     Shapes.tree(rel, any, flat, "cherrylog", "cherry", 2, 5, gx - 5, gz - 4);
-                    for (int k = 0; k < 40; k++) { // petals and tulips in the grass
+                    for (int k = 0; k < 40; k++) {
                         int px = gx + (int) (ArenaLayout.hash(k, 1, 220) * 18 - 9), pz = gz + (int) (ArenaLayout.hash(k, 2, 220) * 18 - 9);
                         if (Math.hypot(px - gx, pz - gz) >= GARDEN_R - 1) continue;
                         Material m = k % 3 == 0 ? Material.PINK_TULIP : k % 3 == 1 ? Material.PINK_PETALS : Material.WHITE_TULIP;
@@ -389,10 +383,10 @@ public final class LobbyDesign {
         }
     }
 
-    /** A few small floating islands beyond the rail, so the skyline isn't empty. */
+    /** floating islets */
     private static void islets(Map<Long, BlockData> rel, Function<Material, BlockData> data, int y0) {
         BiPredicate<Integer, Integer> any = (x, z) -> true;
-        // {angle degrees, distance, height above the plaza, radius, tree kind}
+        // islet data
         double[][] spec = {{25, 62, 6, 6, 0}, {115, 66, 12, 7, 1}, {205, 60, 3, 5, 2}, {295, 68, 9, 6, 0}, {160, 74, 17, 4, 1}};
         for (double[] s : spec) {
             double a = Math.toRadians(s[0]);

@@ -12,7 +12,7 @@ import org.bukkit.entity.Player;
 
 import java.util.*;
 
-/** /mintpvp, /stats, /leaderboard, /kit */
+/** stats commands */
 public final class MintCommands implements CommandExecutor, TabCompleter {
 
     private final MintPvP plugin;
@@ -66,7 +66,7 @@ public final class MintCommands implements CommandExecutor, TabCompleter {
         }
     }
 
-    /** /mintpvp tier set <player> <kit|all> <tier|unranked> · reset <player> [kit|all] · info <player> */
+    /** admin tier command */
     private void adminTier(CommandSender s, String[] args) {
         Theme t = plugin.theme();
         String sub = args.length > 1 ? args[1].toLowerCase(Locale.ROOT) : "";

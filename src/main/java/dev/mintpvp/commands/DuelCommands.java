@@ -15,7 +15,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
-/** /duel and /arena */
+/** duel commands */
 public final class DuelCommands implements CommandExecutor, TabCompleter {
 
     private final MintPvP plugin;
@@ -28,7 +28,7 @@ public final class DuelCommands implements CommandExecutor, TabCompleter {
     public boolean onCommand(CommandSender sender, Command cmd, String label, String[] args) {
         Theme t = plugin.theme();
         if (!(sender instanceof Player p)) {
-            // the read-only arena commands also work from the console
+            // console-safe
             if (cmd.getName().equalsIgnoreCase("arena") && args.length > 0 && args[0].equalsIgnoreCase("list")) {
                 listArenas(sender);
             } else if (cmd.getName().equalsIgnoreCase("arena") && args.length > 1 && args[0].equalsIgnoreCase("reset")) {
@@ -80,7 +80,6 @@ public final class DuelCommands implements CommandExecutor, TabCompleter {
                 if (target == null) { p.sendMessage(t.error("player not found.")); return; }
                 String kit = args.length > 1 ? args[1] : null;
                 if (kit != null && plugin.kits().get(kit) == null) { p.sendMessage(t.error("that kit doesn't exist.")); return; }
-                // /duel <player> [kit] [arena|rounds]: anything left out is picked in a menu (kit, then rounds)
                 String arena = null;
                 Integer rounds = null;
                 if (args.length > 2) {
@@ -101,7 +100,7 @@ public final class DuelCommands implements CommandExecutor, TabCompleter {
         }
     }
 
-    /** /challenge <player> [kit]: a ranked duel request (accepted with /duel accept). */
+    /** ranked challenge */
     private void challenge(Player p, String[] args) {
         Theme t = plugin.theme();
         if (!p.hasPermission("mintpvp.duel")) { p.sendMessage(t.error("no permission.")); return; }
@@ -160,7 +159,7 @@ public final class DuelCommands implements CommandExecutor, TabCompleter {
         Arena a = plugin.arenas().get(name);
         if (a == null || !plugin.generator().resets(a)) { s.sendMessage(t.error("only generated arenas can be reset.")); return; }
         if (a.inUse) { s.sendMessage(t.error("that arena is in use.")); return; }
-        a.inUse = true; // locked until it has been reset
+        a.inUse = true;
         s.sendMessage(t.info("resetting " + a.name + "..."));
         plugin.generator().reset(a, () -> {
             a.inUse = false;

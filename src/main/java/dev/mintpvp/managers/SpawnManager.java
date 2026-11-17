@@ -11,11 +11,7 @@ import org.bukkit.configuration.file.YamlConfiguration;
 import java.io.File;
 import java.io.IOException;
 
-/**
- * The lobby / world spawn, stored in spawn.yml and mirrored to the world's spawn point.
- * Stored by world name and resolved on use, so a spawn in a world that loads later
- * (like the generated lobby world) still works after a restart.
- */
+/** spawn storage */
 public final class SpawnManager {
 
     private final MintPvP plugin;
@@ -41,12 +37,12 @@ public final class SpawnManager {
             return;
         }
         ConfigurationSection s = y.getConfigurationSection("spawn");
-        if (s != null && s.isString("name")) { // current format
+        if (s != null && s.isString("name")) {
             world = s.getString("name");
             x = s.getDouble("x");
             y2(s);
             set = true;
-        } else if (y.get("spawn") instanceof Location l && l.getWorld() != null) { // older format
+        } else if (y.get("spawn") instanceof Location l && l.getWorld() != null) {
             remember(l);
         }
     }
@@ -77,7 +73,7 @@ public final class SpawnManager {
         return set && resolve() != null;
     }
 
-    /** The saved spawn, or the main world's spawn if none was set (or its world isn't loaded). */
+    /** saved spawn */
     public Location get() {
         Location l = set ? resolve() : null;
         return l != null ? l : Bukkit.getWorlds().get(0).getSpawnLocation();

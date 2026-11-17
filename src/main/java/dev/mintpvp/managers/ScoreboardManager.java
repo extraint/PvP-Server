@@ -16,7 +16,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 
-/** Mint-green small-caps sidebar + combat-timer action bar. */
+/** sidebar */
 public final class ScoreboardManager {
 
     private final MintPvP plugin;
@@ -66,7 +66,6 @@ public final class ScoreboardManager {
         Theme t = plugin.theme();
         StatsManager.Stats s = plugin.stats().get(p.getUniqueId());
 
-        // fresh scoreboard each tick keeps this simple and flicker-free enough at 1hz
         Scoreboard board = Bukkit.getScoreboardManager().getNewScoreboard();
         Objective obj = board.registerNewObjective("mint", Criteria.DUMMY, t.text(t.serverName(), t.primary()));
         obj.setDisplaySlot(DisplaySlot.SIDEBAR);
@@ -87,7 +86,6 @@ public final class ScoreboardManager {
 
         int score = lines.size();
         for (int i = 0; i < lines.size(); i++) {
-            // unique invisible entry per line; the visible text is the custom name
             String entry = "§" + Integer.toHexString(i);
             var line = obj.getScore(entry);
             line.customName(lines.get(i));

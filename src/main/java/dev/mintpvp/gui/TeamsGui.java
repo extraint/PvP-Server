@@ -20,15 +20,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-/**
- * The party leader splits the party into a red and a blue team by clicking members, then picks a
- * kit and starts. Any sizes work: 2v1, 3v1, 3v2...
- */
+/** team split */
 public final class TeamsGui extends Gui {
 
     private static final int[] SLOTS = {10, 11, 12, 13, 14, 15, 16, 19, 20, 21, 22, 23, 24, 25};
 
-    /** true = blue team, false = red team. */
+    /** true = blue */
     private final Map<UUID, Boolean> blue = new LinkedHashMap<>();
 
     public TeamsGui(MintPvP plugin, Player leader, Map<UUID, Boolean> existing, Runnable back) {
@@ -41,7 +38,6 @@ public final class TeamsGui extends Gui {
             return;
         }
 
-        // keep earlier choices; new members alternate between the teams
         int n = 0;
         for (UUID id : party.members) {
             boolean b = existing != null && existing.containsKey(id) ? existing.get(id) : n % 2 == 1;

@@ -7,7 +7,7 @@ import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
-/** /spawn and /setspawn */
+/** spawn commands */
 public final class SpawnCommands implements CommandExecutor {
 
     private final MintPvP plugin;

@@ -18,10 +18,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
 
-/**
- * Base class for Mint PvP menus: a dark background, a mint border with an
- * animated shimmer that travels around it, and per-slot click handlers.
- */
+/** menu base */
 public class Gui implements InventoryHolder {
 
     private static final ItemStack FILLER = Items.of(Material.BLACK_STAINED_GLASS_PANE).blank().build();
@@ -48,7 +45,7 @@ public class Gui implements InventoryHolder {
         return inv;
     }
 
-    /** Dark background + mint border; optionally animate a shimmer around the border. */
+    /** menu frame */
     public void frame(boolean animated) {
         this.animated = animated;
         for (int i = 0; i < inv.getSize(); i++) inv.setItem(i, FILLER);
@@ -61,7 +58,7 @@ public class Gui implements InventoryHolder {
     }
 
     public void set(int slot, ItemStack item, Consumer<InventoryClickEvent> action) {
-        ring.remove(Integer.valueOf(slot)); // pinned slots stop shimmering
+        ring.remove(Integer.valueOf(slot));
         inv.setItem(slot, item);
         if (action != null) actions.put(slot, action);
         else actions.remove(slot);
@@ -71,13 +68,13 @@ public class Gui implements InventoryHolder {
         set(slot, item, null);
     }
 
-    /** Reset an interior slot back to the dark background. */
+    /** clear slot */
     protected void clearSlot(int slot) {
         inv.setItem(slot, FILLER);
         actions.remove(slot);
     }
 
-    /** Mint-coloured static pane for slots that sit on the border but hold nothing. */
+    /** border pane */
     protected void setBorderPane(int slot) {
         set(slot, BASE);
     }
@@ -86,7 +83,7 @@ public class Gui implements InventoryHolder {
         p.openInventory(inv);
     }
 
-    /** Called for clicks inside this GUI's own (top) inventory. The event is already cancelled. */
+    /** click handler */
     public void handleClick(InventoryClickEvent e) {
         Consumer<InventoryClickEvent> a = actions.get(e.getRawSlot());
         if (a == null) return;

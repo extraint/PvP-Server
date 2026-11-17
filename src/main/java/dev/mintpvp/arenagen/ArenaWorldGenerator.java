@@ -14,11 +14,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 
-/**
- * Generates the arena world as chunks load, like a normal world: only the registered arenas
- * (and the lobby) exist, everything else is void. Runs on worker threads, so it only reads
- * immutable data from {@link ArenaGenerator}.
- */
+/** chunk generator */
 final class ArenaWorldGenerator extends ChunkGenerator {
 
     private static final BlockData BARRIER = Blocks.data(Material.BARRIER);
@@ -61,7 +57,7 @@ final class ArenaWorldGenerator extends ChunkGenerator {
         int s = m.surface(dx, dz);
         boolean ring = m.ring(dx, dz);
         boolean edge = d > m.rWall - 3;
-        // no surface shafts: the ground is solid on top (caves only start a few blocks below)
+        // solid ground
 
         for (int y = minY; y <= s - 4; y++) {
             BlockData b = Underground.block(ax, y, az, s, false, edge, minY);

@@ -16,7 +16,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Set;
 
-/** Routes inventory events to Mint GUIs and drives the border animation. */
+/** menu routing */
 public final class GuiManager implements Listener {
 
     private final Set<Gui> open = new HashSet<>();
@@ -44,7 +44,7 @@ public final class GuiManager implements Listener {
     @EventHandler(priority = EventPriority.HIGH)
     public void onClick(InventoryClickEvent e) {
         if (!(e.getView().getTopInventory().getHolder() instanceof Gui g)) return;
-        e.setCancelled(true); // nothing moves unless the GUI explicitly allows it
+        e.setCancelled(true);
         if (e.getClickedInventory() == null || e.getClickedInventory() != e.getView().getTopInventory()) return;
         g.handleClick(e);
     }

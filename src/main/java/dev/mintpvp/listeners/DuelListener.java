@@ -26,7 +26,7 @@ import org.bukkit.event.player.PlayerTeleportEvent;
 import java.util.List;
 import java.util.Locale;
 
-/** Keeps duels isolated: lethal damage ends the duel instead of killing. */
+/** duel isolation */
 public final class DuelListener implements Listener {
 
     private final MintPvP plugin;
@@ -35,7 +35,7 @@ public final class DuelListener implements Listener {
         this.plugin = plugin;
     }
 
-    /** Remember who last hurt whom inside a match, so eliminations can credit a kill. */
+    /** track last hit */
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void trackHit(EntityDamageByEntityEvent e) {
         if (!(e.getEntity() instanceof Player victim)) return;
@@ -48,7 +48,7 @@ public final class DuelListener implements Listener {
         d.lastHitBy.put(victim.getUniqueId(), attacker.getUniqueId());
     }
 
-    /** Outsiders can't hit duelists and duelists can't hit outsiders. */
+    /** isolate fights */
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onHit(EntityDamageByEntityEvent e) {
         if (!(e.getEntity() instanceof Player victim)) return;
@@ -61,13 +61,12 @@ public final class DuelListener implements Listener {
         if ((dv != null || da != null) && dv != da) {
             e.setCancelled(true);
         } else if (dv != null && !victim.equals(attacker)) {
-            // inside one match: eliminated players can't hurt or be hurt, and teammates don't hit each other
             boolean friendly = dv.sameTeam(attacker, victim) && !plugin.getConfig().getBoolean("party.friendly-fire", false);
             if (!dv.isAlive(attacker) || !dv.isAlive(victim) || friendly) e.setCancelled(true);
         }
     }
 
-    /** Lethal damage in a duel ends it (no death screen, no item loss). */
+    /** lethal damage */
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onDamage(EntityDamageEvent e) {
         if (!(e.getEntity() instanceof Player victim)) return;
@@ -78,8 +77,7 @@ public final class DuelListener implements Listener {
             return;
         }
         if (victim.getHealth() - e.getFinalDamage() <= 0) {
-            // A totem of undying in either hand saves the player: let the game pop it
-            // instead of ending the duel. (The void and /kill ignore totems.)
+            // totem saves
             if (savedByTotem(victim, e.getCause())) return;
             e.setCancelled(true);
             plugin.duels().eliminate(d, victim, false);
@@ -96,7 +94,7 @@ public final class DuelListener implements Listener {
                 || inv.getItemInOffHand().getType() == org.bukkit.Material.TOTEM_OF_UNDYING;
     }
 
-    /** Safety net for deaths that bypass the damage check (e.g. /kill). */
+    /** death safety net */
     @EventHandler(priority = EventPriority.LOWEST)
     public void onDeath(PlayerDeathEvent e) {
         Player p = e.getEntity();
@@ -111,13 +109,12 @@ public final class DuelListener implements Listener {
         plugin.duels().eliminate(d, p, false);
     }
 
-    /** Enforces the arena border and the countdown freeze. */
+    /** border and freeze */
     @EventHandler(ignoreCancelled = true)
     public void onMove(PlayerMoveEvent e) {
         Player p = e.getPlayer();
         Duel sd = plugin.duels().spectatedDuel(p.getUniqueId());
         if (sd != null) {
-            // spectators fly freely but stay inside the arena volume
             if (!sd.arena.contains(e.getTo())) {
                 if (sd.arena.contains(e.getFrom())) e.setTo(e.getFrom().clone().setDirection(e.getTo().getDirection()));
                 else p.teleport(sd.arena.center());
@@ -138,7 +135,6 @@ public final class DuelListener implements Listener {
             return;
         }
         if (to.getY() < d.arena.minY()) {
-            // fell off a ledge / into a ravine below the arena floor
             returnToSpawn(p, d);
             p.sendActionBar(plugin.theme().text("out of bounds - back to your spawn", plugin.theme().secondary()));
             return;
@@ -159,7 +155,7 @@ public final class DuelListener implements Listener {
         p.setVelocity(new org.bukkit.util.Vector(0, 0, 0));
     }
 
-    /** No mobs spawn inside an arena while a duel is running there. */
+    /** no mob spawns */
     @EventHandler(ignoreCancelled = true)
     public void onMobSpawn(CreatureSpawnEvent e) {
         if (e.getSpawnReason() == CreatureSpawnEvent.SpawnReason.CUSTOM) return;
@@ -167,7 +163,7 @@ public final class DuelListener implements Listener {
         if (plugin.arenas().activeAt(e.getLocation()).isPresent()) e.setCancelled(true);
     }
 
-    /** No teleporting in or out of a duel except by this plugin. */
+    /** teleport lock */
     @EventHandler(ignoreCancelled = true)
     public void onTeleport(PlayerTeleportEvent e) {
         Duel sd = plugin.duels().spectatedDuel(e.getPlayer().getUniqueId());
@@ -182,7 +178,6 @@ public final class DuelListener implements Listener {
         if (d == null) return;
         var cause = e.getCause();
         if (cause == PlayerTeleportEvent.TeleportCause.PLUGIN) return;
-        // ender pearls and chorus fruit work normally, as long as you land inside the arena
         boolean hop = cause == PlayerTeleportEvent.TeleportCause.ENDER_PEARL
                 || cause == PlayerTeleportEvent.TeleportCause.CHORUS_FRUIT;
         if (hop && d.state == State.FIGHTING && e.getTo() != null && d.arena.innerContains(e.getTo())) return;
@@ -192,10 +187,7 @@ public final class DuelListener implements Listener {
         }
     }
 
-    /**
-     * Ender pearls can be thrown right up to the border, but the border is a wall: a pearl that hits it (the invisible
-     * barrier, or anything outside the playable area) bounces back into the arena instead of teleporting you out.
-     */
+    /** pearl bounce */
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onPearlHit(ProjectileHitEvent e) {
         if (!(e.getEntity() instanceof org.bukkit.entity.EnderPearl pearl) || !(pearl.getShooter() instanceof Player p)) return;
@@ -220,7 +212,6 @@ public final class DuelListener implements Listener {
         });
     }
 
-    // Building is allowed by default (the arena is restored after the duel); this switches it off.
     private boolean protectedTerrain(Player p) {
         return p != null && plugin.duels().inDuel(p.getUniqueId())
                 && !plugin.getConfig().getBoolean("duel.allow-building", true);

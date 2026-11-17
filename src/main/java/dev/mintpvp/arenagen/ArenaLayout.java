@@ -4,39 +4,34 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-/**
- * The top-down plan of a generated normal arena: a circle 100 blocks across on a 105 x 105 grid centred on the arena.
- *
- * This is a direct port of the layout code in the approved design preview, using
- * the same deterministic noise, so a built arena matches the preview exactly.
- */
+/** normal arena plan */
 public final class ArenaLayout {
 
-    /** Ground decorations (flowers, ferns, petals, litter, snow layers). Off: arena floors are clean. */
+    /** ground decorations */
     static final boolean DECORATIONS = false;
 
     public static final int N = 105, C = 52, SPAWN_X = 40;
-    /** Playable radius (100 blocks across) and the outer edge of the invisible barrier ring. */
+    /** play and wall radius */
     public static final double R_PLAY = 50, R_WALL = 52;
-    /** The hand-designed plan was drawn for a radius of 37.5; positions and floor rings are stretched by this. */
+    /** plan scale */
     static final double SCALE = R_PLAY / 37.5;
-    /** The border radius stored for a normal arena. */
+    /** border radius */
     public static final int RADIUS = 50;
 
-    /** The inverse: a coordinate of this arena mapped back onto the original plan (for the floor pattern). */
+    /** plan coordinate */
     static int sc2(int v) {
         return (int) Math.round(v / SCALE);
     }
 
-    /** Stretch a coordinate of the original plan to the current arena size. */
+    /** scaled coordinate */
     static int sc(int v) {
         return (int) Math.round(v * SCALE);
     }
 
     public static final class Cell {
-        /** What you see from above (floor block, or the feature standing on it). */
+        /** top-down block */
         public String b;
-        /** Height of the feature above the floor (0 = bare floor). */
+        /** feature height */
         public int h;
         public String dec, under, floor;
         public boolean wall;
@@ -48,7 +43,6 @@ public final class ArenaLayout {
         }
     }
 
-    /** k = box | mound | tree. */
     public record Feature(String k, int x, int z, int hw, int hd, int h, String b, String trunk, String leaves, double r) {
         static Feature box(int x, int z, int hw, int hd, int h, String b) {
             return new Feature("box", x, z, hw, hd, h, b, null, null, 0);
@@ -147,7 +141,7 @@ public final class ArenaLayout {
         return Math.hypot(Math.abs(dx) - SPAWN_X, dz) < 3.6;
     }
 
-    /** Builds the grid. Index with {@code (dz + C) * N + (dx + C)}; null = void. */
+    /** build grid */
     public static Cell[] build(ArenaTheme theme) {
         Spec t = spec(theme);
         Cell[] cells = new Cell[N * N];
@@ -158,7 +152,7 @@ public final class ArenaLayout {
                 if (d > R_WALL) continue;
                 Cell cell;
                 if (d > R_PLAY) {
-                    // no visible wall: the island just continues, sealed by an invisible barrier
+                    // invisible barrier edge
                     cell = new Cell(t.floor().at(sc2(Math.abs(dx)), sc2(Math.abs(dz)), d / SCALE), 0);
                     cell.wall = true;
                 } else {

@@ -17,7 +17,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
-/** The party menu: members, invite, challenge another party, leave / disband. */
+/** party menu */
 public final class PartyGui extends Gui {
 
     private static final int[] SLOTS = {10, 11, 12, 13, 14, 15, 16, 19, 20, 21, 22, 23, 24, 25};
@@ -107,7 +107,7 @@ public final class PartyGui extends Gui {
         set(40, Items.of(Material.BARRIER).name(t.text("close", t.secondary())).build(), e -> p.closeInventory());
     }
 
-    /** Pick a kit, then start a free-for-all among the party. */
+    /** party free-for-all */
     public static void ffaKit(MintPvP plugin, Player p, Runnable back) {
         Theme t = plugin.theme();
         Guis.pickKit(plugin, p, "party free-for-all", back,
@@ -118,7 +118,7 @@ public final class PartyGui extends Gui {
                 });
     }
 
-    /** Pick another party (shown by its leader), then a kit, then send the challenge. */
+    /** party challenge */
     public static void challengeParty(MintPvP plugin, Player p, Runnable back) {
         Theme t = plugin.theme();
         Party mine = plugin.parties().partyOf(p.getUniqueId());

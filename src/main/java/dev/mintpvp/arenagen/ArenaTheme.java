@@ -5,7 +5,7 @@ import org.bukkit.block.Biome;
 
 import java.util.Locale;
 
-/** The five pre-made arena themes. */
+/** arena themes */
 public enum ArenaTheme {
     PLAINS("plains", "Plains", Material.GRASS_BLOCK, Material.DIRT),
     DESERT("desert", "Desert", Material.SAND, Material.SANDSTONE),
@@ -16,7 +16,7 @@ public enum ArenaTheme {
     public final String id;
     public final String display;
     public final Material icon;
-    /** Block used under the top floor layer and under the walls. */
+    /** under-floor block */
     public final Material sub;
 
     ArenaTheme(String id, String display, Material icon, Material sub) {

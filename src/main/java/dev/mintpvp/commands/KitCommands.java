@@ -17,10 +17,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
-/**
- * /kit            - open the layout editor (everyone)
- * /kit create|delete|seticon|update|edit|list|admin - kit management (mintpvp.admin)
- */
+/** kit commands */
 public final class KitCommands implements CommandExecutor, TabCompleter {
 
     private static final List<String> ADMIN_SUBS = List.of("create", "delete", "seticon", "update", "edit", "list", "admin");

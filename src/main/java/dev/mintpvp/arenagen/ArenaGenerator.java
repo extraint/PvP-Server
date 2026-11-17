@@ -20,22 +20,17 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 
-/**
- * Owns the arena world. Arenas are slots on a grid in a custom-generated world (terrain is made
- * as chunks load, so there is nothing to "build"): the pool is topped up on start, more are added
- * on demand, and after every duel a generated arena is reset by dropping its chunks unsaved so they
- * regenerate fresh.
- */
+/** arena world */
 public final class ArenaGenerator {
 
     public static final int SPACING = 500, COLS = 10;
     public static final int FLOOR_Y = ArenaModel.BASE_Y;
-    /** Height of the invisible barrier above small arenas' edge. */
+    /** barrier height */
     public static final int CEILING = 40;
-    /** Where the lobby island is, west of the arena grid. */
+    /** lobby location */
     public static final int LOBBY_X = -2400, LOBBY_Z = 0;
 
-    /** One arena position on the grid. */
+    /** grid slot */
     public record Slot(int index, ArenaTheme theme, boolean large, int radius) {
         public int cx() { return (index % COLS) * SPACING; }
 
@@ -80,14 +75,10 @@ public final class ArenaGenerator {
         return ((long) cx << 32) | (cz & 0xFFFFFFFFL);
     }
 
-    /** Bump this whenever the arena or lobby design changes, so terrain cached in the world is thrown away once. */
+    /** bump on design change */
     static final int DESIGN_VERSION = 5;
 
-    /**
-     * Chunks of this world can be saved when they unload, so after a design change old chunks would keep showing
-     * the old arenas. When the design version changes, delete the cached chunk files (before the world loads);
-     * everything is regenerated from the generator.
-     */
+    /** clear stale chunks */
     private void dropStaleTerrain(String worldName) {
         java.nio.file.Path marker = plugin.getDataFolder().toPath().resolve("arena-design.version");
         try {
@@ -120,10 +111,10 @@ public final class ArenaGenerator {
         String name = plugin.getConfig().getString("arena-generator.world-name", "mint_arenas_2");
         dropStaleTerrain(name);
 
-        // normal arenas made at an older size can't be reused: forget them, new ones are made at 100 blocks across
+        // drop old-size arenas
         int resized = plugin.arenas().removeSmallNotRadius(ArenaLayout.RADIUS);
         if (resized > 0) plugin.getLogger().info("Removed " + resized + " normal arenas of the old size; new 100-block arenas are being made.");
-        // arenas from an older generator (other world) can't be used any more: forget them
+        // drop old-world arenas
         int dropped = plugin.arenas().removeGeneratedOutside(name);
         if (dropped > 0) {
             plugin.getLogger().info("Removed " + dropped + " generated arenas from the old arena world; new ones are being made in '" + name + "'. You can delete the old world folder.");
@@ -148,14 +139,13 @@ public final class ArenaGenerator {
             plugin.getLogger().severe("Could not create the arena world '" + name + "'.");
             return;
         }
-        // The terrain is a pure function of the generator, so it never needs saving. Not saving is also
-        // what lets a reset (dropping the chunks) bring an arena back to its original state.
+        // never saved
         world.setAutoSave(false);
         world.setGameRule(GameRules.SPAWN_MOBS, false);
         world.setGameRule(GameRules.SPAWN_MONSTERS, false);
         world.setGameRule(GameRules.ADVANCE_TIME, false);
         world.setGameRule(GameRules.ADVANCE_WEATHER, false);
-        world.setGameRule(GameRules.LOCATOR_BAR, true); // players can see each other on the locator bar
+        world.setGameRule(GameRules.LOCATOR_BAR, true); // locator bar
         world.setTime(6000);
         world.setStorm(false);
         world.setThundering(false);
@@ -163,7 +153,7 @@ public final class ArenaGenerator {
         if (lobbyEnabled()) {
             Location current = plugin.spawn().isSet() ? plugin.spawn().get() : null;
             Location lobby = lobbySpawn();
-            // no spawn yet, or the spawn is still in an older generated lobby: use the current lobby
+            // use current lobby
             boolean oldLobby = current != null && world.equals(current.getWorld()) && current.getX() < -300 && current.distance(lobby) > 100;
             if (current == null || oldLobby) {
                 plugin.spawn().set(lobby);
@@ -175,28 +165,27 @@ public final class ArenaGenerator {
     }
 
     public void stop() {
-        // nothing to clean up: the world is never saved
     }
 
     private boolean lobbyEnabled() {
         return plugin.getConfig().getBoolean("arena-generator.lobby", true);
     }
 
-    /** Standing height (ground + 1) at a world x/z inside a generated arena, or -1 for other arenas. */
+    /** standing height */
     public int standY(Arena a, int x, int z) {
         Slot s = a.slot < 0 ? null : slots.get(a.slot);
         if (s == null) return -1;
         return model(s).surface(x - s.cx(), z - s.cz()) + 1;
     }
 
-    /** Is this location in the lobby area of the arena world? */
+    /** in lobby area? */
     public boolean inLobbyRegion(Location l) {
         return world != null && l.getWorld() != null && l.getWorld().equals(world)
                 && Math.abs(l.getX() - LOBBY_X) <= 90 && Math.abs(l.getZ() - LOBBY_Z) <= 90;
     }
 
     public Location lobbySpawn() {
-        // just south of the fountain, facing north (towards the fountain and the sign)
+        // south of fountain
         return world == null ? null : new Location(world, LOBBY_X + 0.5, FLOOR_Y + 1, LOBBY_Z + LobbyDesign.SPAWN_DZ + 0.5, 180f, 0f);
     }
 
@@ -205,7 +194,7 @@ public final class ArenaGenerator {
         LobbyDesign.place(out, Blocks::data, LOBBY_X, LOBBY_Z, FLOOR_Y);
         Map<Long, Map<Long, BlockData>> buckets = new HashMap<>();
         for (var e : out.entrySet()) {
-            if (e.getValue().getMaterial().isAir()) continue; // the void needs no clearing
+            if (e.getValue().getMaterial().isAir()) continue;
             long k = e.getKey();
             buckets.computeIfAbsent(chunkKey(Pack.x(k) >> 4, Pack.z(k) >> 4), kk -> new HashMap<>()).put(k, e.getValue());
         }
@@ -279,7 +268,7 @@ public final class ArenaGenerator {
         return a;
     }
 
-    /** Generates the chunks around the spawns and centre in the background, then marks the arena ready. */
+    /** load chunks, mark ready */
     private void warm(Arena a, Slot slot, int spawnX) {
         Set<Long> chunks = new HashSet<>();
         int[][] spots = {{slot.cx() - spawnX, slot.cz()}, {slot.cx() + spawnX, slot.cz()}, {slot.cx(), slot.cz()}};
@@ -296,7 +285,7 @@ public final class ArenaGenerator {
                 }));
     }
 
-    /** Queues new arenas (admin command). @return how many were made. */
+    /** queue new arenas */
     public int generate(ArenaTheme theme, int amount, boolean large) {
         if (world == null) return 0;
         int made = 0;
@@ -307,7 +296,7 @@ public final class ArenaGenerator {
         return made;
     }
 
-    /** Makes one more arena when all are busy. @return true if one exists or is on its way. */
+    /** make extra arena */
     public boolean requestExtra(boolean large) {
         if (!enabled() || world == null) return false;
         if (building()) return true;
@@ -322,12 +311,7 @@ public final class ArenaGenerator {
 
     private record Fix(int x, int y, int z, BlockData data) {}
 
-    /**
-     * Puts a generated arena back exactly as it was. Every loaded chunk of the arena is compared with
-     * what the generator produces for it (in the background), and each block that differs is put back
-     * (a few thousand per tick). This undoes anything: placed or broken blocks, fire, liquids, falling
-     * blocks, explosions. {@code done} runs when everything is back.
-     */
+    /** restore arena fully */
     public void reset(Arena a, Runnable done) {
         if (!resets(a) || !plugin.isEnabled()) {
             done.run();
@@ -337,11 +321,10 @@ public final class ArenaGenerator {
         int r = a.radius() + 4;
         int x0 = (c.getBlockX() - r) >> 4, x1 = (c.getBlockX() + r) >> 4, z0 = (c.getBlockZ() - r) >> 4, z1 = (c.getBlockZ() + r) >> 4;
 
-        // loose items, arrows and anything else that isn't a player
+        // remove loose entities
         world.getNearbyEntities(a.box(), e -> !(e instanceof org.bukkit.entity.Player)).forEach(org.bukkit.entity.Entity::remove);
 
-        // normal arenas are small enough to load every chunk first, so a chunk that unloaded with changes saved in it
-        // (falling blocks, decayed leaves, ...) is still compared and put back; ranked arenas only use loaded chunks
+        // load chunks first
         List<CompletableFuture<?>> loads = new ArrayList<>();
         if (!a.large) {
             for (int x = x0; x <= x1; x++) {
@@ -372,7 +355,7 @@ public final class ArenaGenerator {
                 }));
     }
 
-    /** Resets an arena right now, on the calling (main) thread. Used on shutdown, when tasks can't be scheduled. */
+    /** sync reset for shutdown */
     public void resetSync(Arena a) {
         if (!resets(a)) return;
         var c = a.center();

@@ -9,7 +9,7 @@ import org.bukkit.entity.Player;
 
 import java.util.*;
 
-/** Parties: a leader and up to {@code party.max-size} members who can fight other parties together. */
+/** parties */
 public final class PartyManager {
 
     public static final class Party {
@@ -22,7 +22,7 @@ public final class PartyManager {
 
     private final MintPvP plugin;
     private final Map<UUID, Party> byMember = new HashMap<>();
-    private final Map<UUID, List<Invite>> invites = new HashMap<>(); // keyed by invited player
+    private final Map<UUID, List<Invite>> invites = new HashMap<>();
 
     public PartyManager(MintPvP plugin) {
         this.plugin = plugin;
@@ -65,10 +65,7 @@ public final class PartyManager {
         return byMember.containsKey(id);
     }
 
-    /**
-     * While you're in a party you can only do party things. Returns true (after telling the player)
-     * if this player is in a party and so can't {@code what}.
-     */
+    /** party restriction */
     public boolean blocks(Player p, String what) {
         if (!inParty(p.getUniqueId())) return false;
         p.sendMessage(plugin.theme().error("you're in a party, so you can't " + what + ". leave it first with /party leave (party duels are in /party)."));
@@ -90,7 +87,7 @@ public final class PartyManager {
     public void invite(Player leader, Player target) {
         Theme t = plugin.theme();
         Party party = byMember.get(leader.getUniqueId());
-        if (party == null) party = create(leader); // inviting makes you a party if you aren't in one
+        if (party == null) party = create(leader);
         if (party == null) return;
         if (!party.leader.equals(leader.getUniqueId())) { leader.sendMessage(t.error("only the party leader can invite players.")); return; }
         if (target.equals(leader)) { leader.sendMessage(t.error("you can't invite yourself.")); return; }
@@ -149,7 +146,6 @@ public final class PartyManager {
         if (from != null) from.sendMessage(t.info(t.raw(target.getName(), t.primary()).append(t.text(" denied your party invite.", t.accent()))));
     }
 
-    /** @param quiet no message to the leaver (used when they log out) */
     public void leave(Player p, boolean quiet) {
         Theme t = plugin.theme();
         Party party = byMember.get(p.getUniqueId());
@@ -164,7 +160,7 @@ public final class PartyManager {
         }
     }
 
-    /** Removes a member; passes leadership on, or disbands an empty party. */
+    /** remove member */
     private void remove(Party party, UUID id) {
         party.members.remove(id);
         byMember.remove(id);

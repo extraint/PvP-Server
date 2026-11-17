@@ -19,7 +19,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 
-/** Combat tagging, kill/death handling, streaks. */
+/** combat and kills */
 public final class CombatListener implements Listener {
 
     private final MintPvP plugin;

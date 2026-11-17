@@ -1,6 +1,6 @@
 package dev.mintpvp.util;
 
-/** Converts plain text into unicode small caps (ᴍɪɴᴛ ᴘᴠᴘ). */
+/** small caps */
 public final class SmallCaps {
 
     private static final String LOWER = "abcdefghijklmnopqrstuvwxyz";

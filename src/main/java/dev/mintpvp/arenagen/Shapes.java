@@ -9,11 +9,7 @@ import java.util.Map;
 import java.util.function.BiPredicate;
 import java.util.function.IntBinaryOperator;
 
-/**
- * Cover pieces (trees, boulders, pillars, walls...) written into a sparse overlay map.
- * Coordinates are relative to the arena centre (x, z) with absolute y. {@code surf}
- * gives the ground height at an (x, z); {@code allow} says where blocks may go.
- */
+/** cover pieces */
 final class Shapes {
 
     private Shapes() {}
@@ -22,7 +18,7 @@ final class Shapes {
         if (allow.test(x, z)) out.put(Pack.key(x, y, z), d);
     }
 
-    /** A column of one block type, h blocks tall, on top of the ground. */
+    /** column */
     static void column(Map<Long, BlockData> out, BiPredicate<Integer, Integer> allow, IntBinaryOperator surf,
                        int x, int z, int h, BlockData d) {
         int y0 = surf.applyAsInt(x, z);
@@ -45,7 +41,7 @@ final class Shapes {
         }
     }
 
-    /** A rounded boulder sitting slightly in the ground. */
+    /** boulder */
     static void boulder(Map<Long, BlockData> out, BiPredicate<Integer, Integer> allow, IntBinaryOperator surf,
                         int cx, int cz, double r, BlockData d) {
         int y0 = surf.applyAsInt(cx, cz);
@@ -59,7 +55,7 @@ final class Shapes {
         }
     }
 
-    /** A straight run of blocks along X or Z, h high, leaving every {@code gapEvery}th one out (0 = solid). */
+    /** wall run */
     static void wall(Map<Long, BlockData> out, BiPredicate<Integer, Integer> allow, IntBinaryOperator surf,
                      int cx, int cz, int len, boolean alongX, int h, int gapEvery, BlockData d) {
         for (int i = 0; i < len; i++) {
@@ -69,7 +65,7 @@ final class Shapes {
         }
     }
 
-    /** A log lying on the ground. */
+    /** fallen log */
     static void fallenLog(Map<Long, BlockData> out, BiPredicate<Integer, Integer> allow, IntBinaryOperator surf,
                           int cx, int cz, int len, boolean alongX, String logKey) {
         BlockData d = Blocks.log(logKey, alongX ? Axis.X : Axis.Z);
@@ -79,12 +75,12 @@ final class Shapes {
         }
     }
 
-    /** Trunk + canopy. The canopy shape depends on the trunk type. */
+    /** tree */
     static void tree(Map<Long, BlockData> out, BiPredicate<Integer, Integer> allow, IntBinaryOperator surf,
                      String trunk, String leaves, int r, int h, int tx, int tz) {
         int y0 = surf.applyAsInt(tx, tz);
         BlockData leaf = Blocks.data(leaves);
-        List<int[]> layers = new ArrayList<>(); // {height above ground, radius}
+        List<int[]> layers = new ArrayList<>();
         switch (trunk) {
             case "poplarlog" -> {
                 for (int y = 4; y <= h; y++) layers.add(new int[] {y, r});
@@ -114,7 +110,7 @@ final class Shapes {
             for (int x = tx - lr; x <= tx + lr; x++) {
                 for (int z = tz - lr; z <= tz + lr; z++) {
                     if (Math.hypot(x - tx, z - tz) > lr + .35) continue;
-                    if (x == tx && z == tz && ly <= h) continue; // trunk goes here
+                    if (x == tx && z == tz && ly <= h) continue;
                     put(out, allow, x, y0 + ly, z, leaf);
                 }
             }

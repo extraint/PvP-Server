@@ -18,11 +18,7 @@ import org.bukkit.event.entity.EntityExplodeEvent;
 import org.bukkit.event.player.PlayerBucketEmptyEvent;
 import org.bukkit.event.player.PlayerBucketFillEvent;
 
-/**
- * Lets duelists build and break inside an arena, and records every change so the
- * arena is put back exactly as it was when the duel ends. Nothing can be built or
- * broken on or beyond the border (that keeps walls and the outside intact).
- */
+/** arena building */
 public final class ArenaBuildListener implements Listener {
 
     private final MintPvP plugin;
@@ -35,7 +31,7 @@ public final class ArenaBuildListener implements Listener {
         return plugin.arenas().all().stream().anyMatch(a -> a.inUse);
     }
 
-    /** True if this player is in a duel and the block is not safely inside their arena. */
+    /** outside bounds? */
     private boolean outOfBounds(Player p, Block b) {
         var duel = plugin.duels().duelOf(p.getUniqueId());
         if (duel == null) return false;
@@ -61,7 +57,6 @@ public final class ArenaBuildListener implements Listener {
             return;
         }
         plugin.duels().recordBlock(e.getBlock().getState());
-        // drops are on by default (loose items are cleared when the arena is put back); xp is never dropped
         if (!plugin.getConfig().getBoolean("duel.block-drops", true)) e.setDropItems(false);
         e.setExpToDrop(0);
     }
@@ -114,7 +109,7 @@ public final class ArenaBuildListener implements Listener {
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onExplode(EntityExplodeEvent e) {
         if (!anyActive()) return;
-        // keep the border and walls intact, record the rest so it's put back
+        // keep border intact
         e.blockList().removeIf(b -> plugin.arenas().activeAt(b.getLocation()).map(a -> !a.innerContains(b.getLocation().add(0.5, 0.5, 0.5))).orElse(false));
         e.blockList().forEach(b -> plugin.duels().recordBlock(b.getState()));
     }

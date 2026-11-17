@@ -14,14 +14,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.*;
 
-/**
- * Admin-defined kits (captured from an inventory) plus per-player layouts.
- *
- * A kit stores 41 slots in Bukkit's PlayerInventory order: 0-35 storage
- * (0-8 hotbar), 36 boots, 37 leggings, 38 chestplate, 39 helmet, 40 offhand.
- * Players may rearrange slots 0-35 of any kit; the arrangement is stored
- * separately and only used while it still contains exactly the kit's items.
- */
+/** kits and layouts */
 public final class KitManager {
 
     public static final int SIZE = 41;
@@ -31,7 +24,7 @@ public final class KitManager {
         public final String id;
         public String display;
         public Material icon;
-        public ItemStack[] contents; // length SIZE, never null entries
+        public ItemStack[] contents;
 
         Kit(String id, String display, Material icon, ItemStack[] contents) {
             this.id = id;
@@ -174,7 +167,7 @@ public final class KitManager {
         return k != null ? k : kits.values().iterator().next();
     }
 
-    /** Creates a kit from a player's current inventory. Null if the id is taken or the inventory is empty. */
+    /** create kit */
     public Kit create(String id, Player from) {
         id = id.toLowerCase(Locale.ROOT);
         if (kits.containsKey(id)) return null;
@@ -186,14 +179,14 @@ public final class KitManager {
         return k;
     }
 
-    /** Re-captures a kit from a player's inventory; invalidates stale player layouts. */
+    /** recapture kit */
     public void recapture(Kit kit, Player from) {
         kit.contents = normalize(from.getInventory().getContents());
         saveKits();
     }
 
     public boolean delete(String id) {
-        if (kits.size() <= 1) return false; // always keep one kit
+        if (kits.size() <= 1) return false;
         Kit k = kits.remove(id.toLowerCase(Locale.ROOT));
         if (k == null) return false;
         layouts.values().forEach(m -> m.remove(k.id));
@@ -215,12 +208,12 @@ public final class KitManager {
         return first != null ? first : Material.IRON_SWORD;
     }
 
-    /** Same total amount of every item (stack arrangement ignored)? */
+    /** same items? */
     public static boolean sameItems(ItemStack[] a, ItemStack[] b) {
         return Items.tally(a).equals(Items.tally(b));
     }
 
-    /** The 36 storage slots this player should receive for a kit. */
+    /** player layout */
     public ItemStack[] layoutOf(UUID id, Kit kit) {
         Map<String, ItemStack[]> mine = layouts.get(id);
         ItemStack[] custom = mine == null ? null : mine.get(kit.id);
@@ -247,7 +240,7 @@ public final class KitManager {
         give(p, defaultKit());
     }
 
-    /** Replaces the player's inventory with the kit, using their saved layout. */
+    /** give kit */
     public void give(Player p, Kit kit) {
         PlayerInventory inv = p.getInventory();
         ItemStack[] all = new ItemStack[SIZE];

@@ -9,11 +9,7 @@ import org.bukkit.scheduler.BukkitTask;
 
 import java.util.*;
 
-/**
- * Random matchmaking, one queue per kit and type.
- * Unranked pairs the two longest-waiting players. Ranked pairs players whose tier in the kit
- * is within a window that starts narrow and widens the longer they wait.
- */
+/** matchmaking */
 public final class QueueManager {
 
     public enum Type { UNRANKED, RANKED }
@@ -57,7 +53,7 @@ public final class QueueManager {
         return queued.size();
     }
 
-    /** Allowed tier difference (in tiers) for a ranked entry, widening with wait time. */
+    /** tier window */
     public int window(Entry e) {
         var c = plugin.getConfig();
         int base = c.getInt("ranked.window-base", 1);
@@ -132,7 +128,6 @@ public final class QueueManager {
             if (!ranked) {
                 b = pool.get(1);
             } else {
-                // closest tier in this kit within either player's (wait-widened) window
                 int tierA = plugin.stats().get(a.getUniqueId()).tierIndex(kit.id);
                 int bestDiff = Integer.MAX_VALUE;
                 for (int i = 1; i < pool.size(); i++) {
@@ -145,13 +140,13 @@ public final class QueueManager {
                     }
                 }
             }
-            if (b == null) { // nobody close enough for the longest waiter yet
+            if (b == null) {
                 pool.remove(0);
                 continue;
             }
             pool.remove(a);
             pool.remove(b);
-            if (!plugin.duels().startMatch(a, b, kit, ranked)) return; // no free arena: retry next tick
+            if (!plugin.duels().startMatch(a, b, kit, ranked)) return;
         }
     }
 }

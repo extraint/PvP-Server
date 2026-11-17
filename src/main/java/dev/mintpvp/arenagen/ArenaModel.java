@@ -10,29 +10,22 @@ import java.util.Set;
 import java.util.function.BiPredicate;
 import java.util.function.IntBinaryOperator;
 
-/**
- * Everything the world generator needs to know about one arena: its surface, the top block of
- * each column, and the cover pieces standing on it. Built once per arena and shared.
- *
- * Small arenas (unranked) use the hand-designed 75-block layout. Large arenas (ranked,
- * radius 100-150) use the same themes with rolling terrain and cover scattered on a jittered
- * grid; both are mirror-symmetric so the two sides are always equal.
- */
+/** arena shape data */
 final class ArenaModel {
 
     static final int BASE_Y = 64;
-    /** Feature blocks that are plain columns straight from the small layout plan. */
+    /** column features */
     private static final Set<String> COLUMNS = Set.of("hay", "cobble", "cut", "pillar", "dune", "fallen", "drift", "spike", "gardenwall");
 
     final ArenaTheme theme;
     final boolean large;
-    /** Playable radius and the outer edge of the invisible barrier ring. */
+    /** play and wall radius */
     final double rPlay, rWall;
     final int spawnX;
-    /** Highest block the barrier ring reaches. */
+    /** barrier top */
     final int barrierTop;
 
-    private final Cell[] cells; // small arenas only
+    private final Cell[] cells;
     private final Map<Long, BlockData> overlay;
 
     ArenaModel(ArenaTheme theme, boolean large, int radius) {
@@ -55,7 +48,7 @@ final class ArenaModel {
         }
     }
 
-    /** Is this column part of the arena (playable floor or edge ring)? */
+    /** inside arena? */
     boolean inside(int dx, int dz) {
         return Math.hypot(dx, dz) <= rWall;
     }
@@ -72,12 +65,12 @@ final class ArenaModel {
         return overlay.get(Pack.key(dx, y, dz));
     }
 
-    /** Distance from this column to the nearest spawn pad. */
+    /** spawn distance */
     double spawnDistance(int dx, int dz) {
         return Math.hypot(Math.abs(dx) - spawnX, dz);
     }
 
-    /** Ground height (the top block's y). */
+    /** ground height */
     int surface(int dx, int dz) {
         if (!large) return BASE_Y;
         int ax = Math.abs(dx), az = Math.abs(dz);
@@ -91,7 +84,7 @@ final class ArenaModel {
         double n = (ArenaLayout.smooth(ax, az, 101, 38) - .5) * 2 * amp + (ArenaLayout.smooth(ax, az, 102, 15) - .5) * amp * 0.7;
         double flatSpawn = clamp((Math.hypot(ax - spawnX, az) - 7) / 12.0);
         double flatCentre = clamp((Math.hypot(ax, az) - 5) / 12.0);
-        double flatEdge = 1 - clamp((Math.hypot(ax, az) - (rPlay - 10)) / 8.0); // ease down to flat at the rim
+        double flatEdge = 1 - clamp((Math.hypot(ax, az) - (rPlay - 10)) / 8.0);
         n *= flatSpawn * flatCentre * flatEdge;
         return BASE_Y + (int) Math.round(n);
     }
@@ -100,7 +93,7 @@ final class ArenaModel {
         return Math.max(0, Math.min(1, v));
     }
 
-    /** The block on top of the ground at this column. */
+    /** top block */
     BlockData top(int dx, int dz) {
         return Blocks.data(floorKey(dx, dz));
     }
@@ -126,12 +119,12 @@ final class ArenaModel {
         };
     }
 
-    /** Material of the 3 layers under the top block. */
+    /** subsurface block */
     BlockData sub() {
         return Blocks.data(theme.sub);
     }
 
-    /** A column-type cover piece from the small plan at this height above the ground, or null. */
+    /** feature block */
     BlockData featureAt(int dx, int dz, int rel) {
         if (large || rel < 1) return null;
         Cell c = cells[(dz + ArenaLayout.C) * ArenaLayout.N + (dx + ArenaLayout.C)];
@@ -177,7 +170,7 @@ final class ArenaModel {
                 if (ArenaLayout.hash(gx, gz, seed) > density) continue;
                 int fx = gx * cell + (int) (ArenaLayout.hash(gx, gz, seed + 1) * cell);
                 int fz = gz * cell + (int) (ArenaLayout.hash(gx, gz, seed + 2) * cell);
-                if (fx < 5 || fz < 5) continue; // keep lanes along both axes open
+                if (fx < 5 || fz < 5) continue;
                 double d = Math.hypot(fx, fz);
                 if (d > rPlay - 6 || d < 8 || Math.hypot(fx - spawnX, fz) < 14) continue;
                 double t = ArenaLayout.hash(gx, gz, seed + 3), u = ArenaLayout.hash(gx, gz, seed + 4);

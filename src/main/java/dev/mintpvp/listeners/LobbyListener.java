@@ -37,7 +37,7 @@ import org.bukkit.event.player.PlayerRespawnEvent;
 import org.bukkit.event.player.PlayerSwapHandItemsEvent;
 import org.bukkit.inventory.EquipmentSlot;
 
-/** Hotbar menu clicks and lobby protection (no damage, hunger, building or item juggling). */
+/** lobby protection */
 public final class LobbyListener implements Listener {
 
     private final MintPvP plugin;
@@ -51,7 +51,7 @@ public final class LobbyListener implements Listener {
     }
 
     private boolean canBuild(Player p) {
-        return plugin.lobby().isBuilder(p); // builder mode (/build), off by default even for ops
+        return plugin.lobby().isBuilder(p);
     }
 
     private boolean inLobbyArea(org.bukkit.Location l) {
@@ -64,7 +64,7 @@ public final class LobbyListener implements Listener {
         if (e.getAction() != Action.RIGHT_CLICK_AIR && e.getAction() != Action.RIGHT_CLICK_BLOCK) return;
         String id = Items.tagOf(e.getItem());
         if (id == null) return;
-        e.setCancelled(true); // e.g. don't place the ender chest
+        e.setCancelled(true);
         plugin.lobby().handle(e.getPlayer(), id);
     }
 
@@ -116,7 +116,7 @@ public final class LobbyListener implements Listener {
         if (locked(e.getPlayer()) && !canBuild(e.getPlayer())) e.setCancelled(true);
     }
 
-    /** Lobby items can't be moved around in the inventory screen. GUIs handle their own clicks. */
+    /** lock lobby inventory */
     @EventHandler(ignoreCancelled = true)
     public void onClick(InventoryClickEvent e) {
         if (!(e.getWhoClicked() instanceof Player p) || !locked(p) || canBuild(p)) return;
@@ -171,15 +171,14 @@ public final class LobbyListener implements Listener {
         if (inLobbyArea(e.getBlock().getLocation()) && (e.getPlayer() == null || !canBuild(e.getPlayer()))) e.setCancelled(true);
     }
 
-    // things that change the lobby by themselves
     @EventHandler(ignoreCancelled = true)
     public void onFlow(BlockFromToEvent e) {
-        if (inLobbyArea(e.getBlock().getLocation())) e.setCancelled(true); // the fountain can't spill
+        if (inLobbyArea(e.getBlock().getLocation())) e.setCancelled(true);
     }
 
     @EventHandler(ignoreCancelled = true)
     public void onFade(BlockFadeEvent e) {
-        if (inLobbyArea(e.getBlock().getLocation())) e.setCancelled(true); // ice and snow don't melt
+        if (inLobbyArea(e.getBlock().getLocation())) e.setCancelled(true);
     }
 
     @EventHandler(ignoreCancelled = true)

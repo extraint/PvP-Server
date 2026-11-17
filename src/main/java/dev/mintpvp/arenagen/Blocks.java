@@ -11,7 +11,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-/** Block lookup for the arena designs: layout keys ("grass", "oaklog"...) to block data. Thread-safe. */
+/** block lookup */
 public final class Blocks {
 
     private static final Map<String, Material> MAT = new HashMap<>();
@@ -58,7 +58,7 @@ public final class Blocks {
     public static BlockData data(Material m) {
         return CACHE.computeIfAbsent(m, k -> {
             BlockData d = k.createBlockData();
-            if (d instanceof Leaves l) l.setPersistent(true); // never decay
+            if (d instanceof Leaves l) l.setPersistent(true);
             return d;
         });
     }
@@ -69,7 +69,7 @@ public final class Blocks {
         return data(m);
     }
 
-    /** A log-like block with the given axis (a fresh copy, safe to keep). */
+    /** log with axis */
     public static BlockData log(String key, Axis axis) {
         BlockData d = data(key).clone();
         if (d instanceof Orientable o) o.setAxis(axis);
@@ -82,7 +82,7 @@ public final class Blocks {
         return d;
     }
 
-    /** For tests/tools: parse a block state string. */
+    /** parse block state */
     static BlockData parse(String s) {
         return Bukkit.createBlockData(s);
     }

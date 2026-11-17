@@ -9,7 +9,7 @@ import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.entity.Player;
 
-/** Join/quit presentation, kit + scoreboard on join. */
+/** join and quit */
 public final class PlayerListener implements Listener {
 
     private final MintPvP plugin;

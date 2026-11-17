@@ -14,7 +14,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-/** Small fluent item builder for GUI icons, plus item helpers. */
+/** item builder */
 public final class Items {
 
     private static final NamespacedKey TAG = NamespacedKey.fromString("mintpvp:item");
@@ -52,7 +52,7 @@ public final class Items {
         return this;
     }
 
-    /** Pane/filler with no tooltip at all. */
+    /** blank pane */
     public Items blank() {
         meta.setHideTooltip(true);
         return this;
@@ -63,13 +63,13 @@ public final class Items {
         return this;
     }
 
-    /** Marks the item so listeners can recognise it (lobby menu items). */
+    /** tag item */
     public Items tag(String id) {
         meta.getPersistentDataContainer().set(TAG, PersistentDataType.STRING, id);
         return this;
     }
 
-    /** The tag set with {@link #tag}, or null for ordinary items. */
+    /** item tag */
     public static String tagOf(ItemStack i) {
         if (isEmpty(i) || !i.hasItemMeta()) return null;
         return i.getItemMeta().getPersistentDataContainer().get(TAG, PersistentDataType.STRING);
@@ -90,7 +90,7 @@ public final class Items {
         return c.decorationIfAbsent(TextDecoration.ITALIC, TextDecoration.State.FALSE);
     }
 
-    /** Total amount per item type (ignoring stack layout), for layout validation. */
+    /** item totals */
     public static Map<ItemStack, Integer> tally(ItemStack[] items) {
         Map<ItemStack, Integer> out = new HashMap<>();
         for (ItemStack i : items) {

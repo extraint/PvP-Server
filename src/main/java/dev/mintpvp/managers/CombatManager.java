@@ -4,7 +4,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
-/** Tracks combat tags so players can't log out or run commands mid-fight. */
+/** combat tags */
 public final class CombatManager {
 
     private final Map<UUID, Long> tagged = new HashMap<>();
@@ -14,7 +14,7 @@ public final class CombatManager {
         this.durationMs = seconds * 1000L;
     }
 
-    /** @return true if this call newly tagged the player. */
+    /** newly tagged? */
     public boolean tag(UUID id) {
         boolean fresh = !isTagged(id);
         tagged.put(id, System.currentTimeMillis() + durationMs);

@@ -19,12 +19,12 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.function.Consumer;
 
-/** Reusable pickers shared by the hub, queue and challenge flows. */
+/** shared pickers */
 public final class Guis {
 
     private Guis() {}
 
-    /** The icon shown for a kit anywhere in the GUIs. */
+    /** kit icon */
     public static ItemStack kitIcon(MintPvP plugin, Kit kit, List<Component> extra) {
         Theme t = plugin.theme();
         List<Component> lore = new ArrayList<>();
@@ -33,7 +33,7 @@ public final class Guis {
         return Items.of(kit.icon).name(t.text(kit.display, t.primary())).lore(lore).build();
     }
 
-    /** Paged list of every kit; {@code detail} adds extra lore lines per kit. */
+    /** kit list */
     public static void pickKit(MintPvP plugin, Player p, String title, Runnable back,
                                java.util.function.Function<Kit, List<Component>> detail, Consumer<Kit> onPick) {
         List<PagedGui.Entry> entries = new ArrayList<>();
@@ -43,7 +43,7 @@ public final class Guis {
         new PagedGui(plugin, plugin.theme().title(title), entries, back, "no kits yet").open(p);
     }
 
-    /** Paged list of online players (excluding the viewer). */
+    /** player list */
     public static void pickPlayer(MintPvP plugin, Player p, String title, Runnable back, Consumer<Player> onPick) {
         Theme t = plugin.theme();
         List<PagedGui.Entry> entries = new ArrayList<>();
@@ -64,7 +64,7 @@ public final class Guis {
         new PagedGui(plugin, t.title(title), entries, back, "no other players online").open(p);
     }
 
-    /** Running duels, click to spectate. */
+    /** running duels */
     public static void spectateList(MintPvP plugin, Player p, Runnable back) {
         Theme t = plugin.theme();
         List<PagedGui.Entry> entries = new ArrayList<>();
@@ -85,7 +85,7 @@ public final class Guis {
         new PagedGui(plugin, t.title("spectate"), entries, back, "no duels running").open(p);
     }
 
-    /** Pick a kit, then join that queue (clicking your own queue leaves it). */
+    /** queue picker */
     public static void queueKits(MintPvP plugin, Player p, QueueManager.Type type, Runnable back) {
         Theme t = plugin.theme();
         boolean ranked = type == QueueManager.Type.RANKED;
@@ -118,18 +118,18 @@ public final class Guis {
         });
     }
 
-    /** Pick a player, then a kit, then send the duel request. */
+    /** challenge flow */
     public static void challenge(MintPvP plugin, Player p, Runnable back) {
         challenge(plugin, p, back, false);
     }
 
-    /** Same flow; ranked = true sends a ranked challenge (the result changes both players' kit tier). */
+    /** ranked challenge flow */
     public static void challenge(MintPvP plugin, Player p, Runnable back, boolean ranked) {
         pickPlayer(plugin, p, ranked ? "ranked challenge" : "challenge", back, target -> kitAndRounds(plugin, p, target, ranked,
                 () -> challenge(plugin, p, back, ranked)));
     }
 
-    /** Pick a kit, then how many rounds (first to N), then send the duel request. */
+    /** kit then rounds */
     public static void kitAndRounds(MintPvP plugin, Player p, Player target, boolean ranked, Runnable back) {
         pickKit(plugin, p, "choose kit", back,
                 kit -> List.of(plugin.theme().text(ranked ? "first to " + plugin.duels().rankedRounds() + " · click to send" : "click to pick the rounds", plugin.theme().secondary())),
@@ -148,12 +148,12 @@ public final class Guis {
         plugin.duels().request(p, target, kitId, null, true, plugin.duels().rankedRounds());
     }
 
-    /** Kit already chosen: just pick the rounds. */
+    /** rounds only */
     public static void roundsOnly(MintPvP plugin, Player p, Player target, String kitId, String arena, boolean ranked) {
         new RoundsGui(plugin, p, null, rounds -> plugin.duels().request(p, target, kitId, arena, ranked, rounds)).open(p);
     }
 
-    /** Pick a kit, then open the layout editor for it. */
+    /** layout kit picker */
     public static void layoutKits(MintPvP plugin, Player p, Runnable back) {
         Theme t = plugin.theme();
         pickKit(plugin, p, "kit layout", back, kit -> List.of(

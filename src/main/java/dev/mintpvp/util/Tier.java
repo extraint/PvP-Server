@@ -2,11 +2,7 @@ package dev.mintpvp.util;
 
 import org.bukkit.Material;
 
-/**
- * Per-kit rank tiers, named like the usual PvP tier lists: LT = low tier, HT = high tier,
- * 5 is the bottom and 1 is the top (LT5 < HT5 < LT4 < ... < HT1). Every tier is worth points;
- * a player's overall tier points are the sum of the points of their tier in each kit.
- */
+/** tiers */
 public enum Tier {
     LT5("lt5", Material.COPPER_INGOT, 3),
     HT5("ht5", Material.IRON_INGOT, 8),
@@ -29,18 +25,15 @@ public enum Tier {
         this.points = points;
     }
 
-    /** Tier by index, or null for -1 (not placed yet). */
+    /** tier by index */
     public static Tier at(int index) {
         return index < 0 || index >= values().length ? null : values()[index];
     }
 
-    /** How many kits exist (set by the plugin); the overall title looks at the average over all of them. */
+    /** kit count */
     public static java.util.function.IntSupplier kitCount = () -> 1;
 
-    /**
-     * Overall rank title. It uses the AVERAGE tier points per kit (kits you haven't played count as 0), so having
-     * more kits doesn't inflate it: HT5 in every kit is novice, LT3 in every kit is specialist, and so on.
-     */
+    /** overall title */
     public static String overall(int totalPoints) {
         double avg = totalPoints / (double) Math.max(1, kitCount.getAsInt());
         if (avg >= 105) return "grandmaster";
@@ -53,7 +46,7 @@ public enum Tier {
         return "unranked";
     }
 
-    /** "novice · 56 pts" */
+    /** title label */
     public static String overallLabel(int points) {
         return overall(points) + " · " + points + " pts";
     }

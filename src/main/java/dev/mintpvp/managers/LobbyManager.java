@@ -15,7 +15,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
-/** The hotbar menu given to players in the lobby, and what each item does. */
+/** lobby hotbar */
 public final class LobbyManager {
 
     private final MintPvP plugin;
@@ -26,19 +26,12 @@ public final class LobbyManager {
         this.plugin = plugin;
     }
 
-    /**
-     * Builder mode: off for everyone by default, even ops. Only players with mintpvp.build can turn it on
-     * (/build), and it turns itself off when they leave. While it is on they can build and break in the lobby.
-     */
+    /** builder mode */
     public boolean isBuilder(Player p) {
         return builders.contains(p.getUniqueId()) && p.hasPermission("mintpvp.build");
     }
 
-    /**
-     * @return true if builder mode is now on. Builder mode puts the admin in creative mode (config
-     * lobby.builder-creative) so they can take any item, e.g. to build a kit; turning it off returns them to
-     * survival with the lobby hotbar.
-     */
+    /** toggle builder */
     public boolean toggleBuilder(Player p) {
         if (!builders.remove(p.getUniqueId())) {
             builders.add(p.getUniqueId());
@@ -50,7 +43,7 @@ public final class LobbyManager {
         return false;
     }
 
-    /** Builder mode off because the player left: back to survival (their inventory is left alone). */
+    /** builder off */
     public void builderOff(Player p) {
         if (builders.remove(p.getUniqueId()) && p.getGameMode() == org.bukkit.GameMode.CREATIVE) {
             p.setGameMode(org.bukkit.GameMode.SURVIVAL);
@@ -69,12 +62,12 @@ public final class LobbyManager {
         return plugin.getConfig().getBoolean("lobby.protect", true);
     }
 
-    /** In the lobby = not currently fighting or spectating a duel. */
+    /** in lobby? */
     public boolean inLobby(Player p) {
         return !plugin.duels().inDuel(p.getUniqueId()) && !plugin.duels().isSpectating(p.getUniqueId());
     }
 
-    /** Replaces the inventory with the lobby hotbar. */
+    /** give lobby items */
     public void give(Player p) {
         if (!givesItems()) return;
         Theme t = plugin.theme();
@@ -116,7 +109,7 @@ public final class LobbyManager {
                 .tag(ranked ? "queue_ranked" : "queue_unranked").build();
     }
 
-    /** Re-draws the two queue items (only if the slots still hold lobby items). */
+    /** refresh queue items */
     public void refresh(Player p) {
         if (!givesItems()) return;
         PlayerInventory inv = p.getInventory();
@@ -124,7 +117,7 @@ public final class LobbyManager {
         if (Items.tagOf(inv.getItem(1)) != null) inv.setItem(1, queueItem(p, QueueManager.Type.RANKED));
     }
 
-    /** Runs the action behind a right-clicked lobby item. */
+    /** run item action */
     public void handle(Player p, String id) {
         long now = System.currentTimeMillis();
         if (now - cooldown.getOrDefault(p.getUniqueId(), 0L) < 250) return;

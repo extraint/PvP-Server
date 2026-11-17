@@ -116,7 +116,7 @@ public final class MintPvP extends JavaPlugin {
         boards.start();
         queue.start();
         generator.start();
-        // autosave stats every 5 minutes
+        // autosave stats
         getServer().getScheduler().runTaskTimerAsynchronously(this, () -> stats.save(), 6000L, 6000L);
         getLogger().info("ᴍɪɴᴛ ᴘᴠᴘ enabled.");
     }
@@ -132,7 +132,7 @@ public final class MintPvP extends JavaPlugin {
         if (stats != null) stats.save();
     }
 
-    /** (Re)load theme and combat settings from config.yml. */
+    /** reload config */
     public void applyConfig() {
         theme.load(getConfig());
         combat.setDurationSeconds(getConfig().getInt("combat.tag-seconds", 15));

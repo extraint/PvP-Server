@@ -12,15 +12,7 @@ import org.bukkit.event.inventory.ClickType;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.inventory.ItemStack;
 
-/**
- * Rearranges the 36 storage slots of a kit. Rows 1-3 are the main inventory and
- * row 4 is the hotbar, exactly like the real inventory screen. Armor is shown but
- * fixed. Items can only be moved around, never added or removed: on save the
- * layout must contain exactly the kit's items.
- *
- * The same editor is used by players (their personal layout) and admins (the
- * kit's default layout, admin = true).
- */
+/** layout editor */
 public final class LayoutEditorGui extends Gui {
 
     private static final int EDIT_SLOTS = 36;
@@ -38,16 +30,13 @@ public final class LayoutEditorGui extends Gui {
         this.back = back;
         Theme t = plugin.theme();
 
-        // editable area (not framed, so the slots stay free)
         ItemStack[] layout = admin ? kit.main() : plugin.kits().layoutOf(p.getUniqueId(), kit);
         load(layout);
 
-        // decor rows
         ItemStack lime = Items.of(Material.LIME_STAINED_GLASS_PANE).blank().build();
         ItemStack dark = Items.of(Material.BLACK_STAINED_GLASS_PANE).blank().build();
         for (int i = 36; i < 54; i++) set(i, i < 45 ? lime : dark);
 
-        // fixed armor / offhand preview
         preview(38, kit.contents[39], "helmet");
         preview(39, kit.contents[38], "chestplate");
         preview(40, kit.contents[37], "leggings");
@@ -79,7 +68,7 @@ public final class LayoutEditorGui extends Gui {
         }
     }
 
-    /** GUI slot -> real inventory slot (rows 1-3 = inv 9..35, row 4 = hotbar 0..8). */
+    /** slot mapping */
     private static int toInv(int g) {
         return g < 27 ? g + 9 : g - 27;
     }
@@ -132,7 +121,7 @@ public final class LayoutEditorGui extends Gui {
         viewer.closeInventory();
     }
 
-    /** Moving items inside rows 1-4 with plain left/right clicks is the only thing allowed. */
+    /** only row moves */
     @Override
     public void handleClick(InventoryClickEvent e) {
         int raw = e.getRawSlot();
@@ -146,7 +135,6 @@ public final class LayoutEditorGui extends Gui {
 
     @Override
     public void onClose(Player p) {
-        // anything still held on the cursor only exists in this editor: never hand it to the player
         if (!Items.isEmpty(p.getItemOnCursor())) p.setItemOnCursor(null);
     }
 }

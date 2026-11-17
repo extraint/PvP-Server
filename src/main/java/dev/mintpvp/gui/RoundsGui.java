@@ -10,7 +10,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
 
-/** Pick how many rounds a duel is played to ("first to N"). */
+/** rounds picker */
 public final class RoundsGui extends Gui {
 
     public RoundsGui(MintPvP plugin, Player viewer, Runnable back, Consumer<Integer> onPick) {

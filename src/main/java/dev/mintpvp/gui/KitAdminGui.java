@@ -12,7 +12,7 @@ import org.bukkit.inventory.ItemStack;
 import java.util.ArrayList;
 import java.util.List;
 
-/** Admin kit manager: list kits, then edit layout / set icon / re-capture / delete. */
+/** kit admin menu */
 public final class KitAdminGui extends PagedGui {
 
     public KitAdminGui(MintPvP plugin, Player p, Runnable back) {

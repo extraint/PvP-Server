@@ -4,7 +4,7 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.TextColor;
 import org.bukkit.configuration.file.FileConfiguration;
 
-/** Mint colour palette + small-caps message helpers. */
+/** palette */
 public final class Theme {
 
     private TextColor primary = TextColor.fromHexString("#98F5C0");
@@ -33,12 +33,12 @@ public final class Theme {
     public TextColor muted() { return muted; }
     public String serverName() { return serverName; }
 
-    /** Small-caps text in a given colour. */
+    /** small-caps text */
     public Component text(String s, TextColor c) {
         return Component.text(SmallCaps.of(s), c);
     }
 
-    /** Raw text (e.g. player names) in a colour, no small caps. */
+    /** raw text */
     public Component raw(String s, TextColor c) {
         return Component.text(s, c);
     }
@@ -48,12 +48,12 @@ public final class Theme {
                 .append(Component.text(" » ", muted));
     }
 
-    /** Prefixed message in the accent colour. */
+    /** prefixed message */
     public Component info(String s) {
         return prefix().append(text(s, accent));
     }
 
-    /** Prefixed message from components. */
+    /** prefixed component */
     public Component info(Component body) {
         return prefix().append(body);
     }
@@ -62,17 +62,17 @@ public final class Theme {
         return prefix().append(text(s, TextColor.fromHexString("#FF8A8A")));
     }
 
-    /** "label: value" line used by stats and output; both sides in small caps. */
+    /** label line */
     public Component line(String label, String value) {
         return text(label + ": ", secondary).append(text(value, accent));
     }
 
-    /** Command usage line: the command stays real, copyable text; the description is small caps. */
+    /** usage line */
     public Component usage(String command, String description) {
         return Component.text(command, secondary).append(text("  " + description, muted));
     }
 
-    /** GUI title: "mint pvp » section". */
+    /** gui title */
     public Component title(String section) {
         return text(serverName, primary).append(Component.text(" » ", muted)).append(text(section, accent));
     }

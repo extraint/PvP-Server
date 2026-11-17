@@ -12,7 +12,7 @@ import org.bukkit.entity.Player;
 
 import java.util.Locale;
 
-/** The main /menu: queue, challenge, layout editor, spectate, stats. */
+/** main menu */
 public final class HubGui extends Gui {
 
     public HubGui(MintPvP plugin, Player p) {

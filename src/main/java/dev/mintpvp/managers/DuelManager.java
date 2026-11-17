@@ -20,11 +20,7 @@ import org.bukkit.scheduler.BukkitTask;
 
 import java.util.*;
 
-/**
- * Matches: 1v1 duels, party-vs-party duels and free-for-alls all run on this engine. A match is a
- * list of teams (a 1v1 is two teams of one, a free-for-all is every player on their own team); a
- * player who dies is eliminated, and the match ends when one team (or nobody) is left standing.
- */
+/** match engine */
 public final class DuelManager {
 
     public enum State { COUNTDOWN, FIGHTING, ENDING }
@@ -36,37 +32,37 @@ public final class DuelManager {
         public final Kit kit;
         public final boolean ranked;
         public final Mode mode;
-        /** Everyone who started in the match (including players who died or left). */
+        /** all participants */
         public final List<Player> players = new ArrayList<>();
         final Map<UUID, Integer> team = new HashMap<>();
         final List<String> teamNames = new ArrayList<>();
-        /** Players still fighting. */
+        /** still fighting */
         public final Set<UUID> alive = new LinkedHashSet<>();
         final Map<UUID, Location> spawns = new HashMap<>();
-        /** Players who quit or forfeited and were already put back. */
+        /** already left */
         final Set<UUID> left = new HashSet<>();
-        /** Who last hurt each player (victim -> attacker), so eliminations credit a kill. */
+        /** last attacker */
         public final Map<UUID, UUID> lastHitBy = new HashMap<>();
         public State state = State.COUNTDOWN;
-        /** First to this many round wins takes the match (1 = a single round). */
+        /** rounds to win */
         public int firstTo = 1;
         public int round = 1;
-        /** Round wins per team. */
+        /** round score */
         public final int[] score = new int[2];
-        /** True while the short pause between two rounds is running. */
+        /** round pause */
         boolean roundBreak;
-        /** Set once end() has run, so it can only run once. */
+        /** ended flag */
         boolean ended;
         final Map<UUID, Saved> saved = new HashMap<>();
         public final Set<UUID> spectators = new LinkedHashSet<>();
-        /** Original state of every block changed during the match, so the arena can be put back. */
+        /** block undo log */
         final Map<Long, org.bukkit.block.BlockState> changes = new LinkedHashMap<>();
-        /** Chunks holding a plugin ticket because something in them was changed (so they can't unload and save). */
+        /** held chunks */
         final Set<Long> heldChunks = new HashSet<>();
         BukkitTask countdown, timeout, sweep, ending;
-        /** Set once the result is decided and the match is just winding down (-1 = none/draw). */
+        /** pending winner */
         public int pendingWinTeam = -1;
-        /** Shown in the chat message (and logged) if the match ends in a draw. */
+        /** draw reason */
         public String drawReason = "the time limit was reached";
 
         Duel(Arena arena, Kit kit, boolean ranked, Mode mode) {
@@ -96,13 +92,13 @@ public final class DuelManager {
             return players.get(0);
         }
 
-        /** The other player of a 1v1 duel. */
+        /** opponent */
         public Player opponentOf(Player p) {
             for (Player q : players) if (!q.getUniqueId().equals(p.getUniqueId())) return q;
             return p;
         }
 
-        /** "first to 3 · round 2 · 1-0", or "" for a single-round duel. */
+        /** round info */
         public String roundInfo() {
             return firstTo > 1 ? "first to " + firstTo + " · round " + round + " · " + score[0] + "-" + score[1] : "";
         }
@@ -111,7 +107,7 @@ public final class DuelManager {
             return t >= 0 && t < teamNames.size() ? teamNames.get(t) : "nobody";
         }
 
-        /** "A vs B", "A's party vs B's party", or "free-for-all (6 players)". */
+        /** match title */
         public String title() {
             return switch (mode) {
                 case FFA -> "party free-for-all (" + players.size() + " players)";
@@ -137,7 +133,7 @@ public final class DuelManager {
     private static final int[][] OFFSETS = {{0, 0}, {2, 0}, {-2, 0}, {0, 2}, {0, -2}, {2, 2}, {-2, 2}, {2, -2}, {-2, -2}};
 
     private final MintPvP plugin;
-    private final Map<UUID, Request> requests = new HashMap<>(); // keyed by target
+    private final Map<UUID, Request> requests = new HashMap<>();
     private final Map<UUID, Duel> byPlayer = new HashMap<>();
     private final Map<String, Deque<Long>> rankedPairs = new HashMap<>();
     private final Map<UUID, Duel> spectating = new HashMap<>();
@@ -160,7 +156,7 @@ public final class DuelManager {
         return null;
     }
 
-    /** Remembers a block's state before a match changes it (first change wins). */
+    /** record block */
     public void recordBlock(org.bukkit.block.BlockState state) {
         if (state == null) return;
         Arena a = plugin.arenas().activeAt(state.getLocation()).orElse(null);
@@ -183,7 +179,7 @@ public final class DuelManager {
         duel.heldChunks.clear();
     }
 
-    /** Puts every changed block back and clears loose items and arrows. */
+    /** restore world */
     private void restoreWorld(Duel duel) {
         for (var st : duel.changes.values()) {
             try {
@@ -212,7 +208,7 @@ public final class DuelManager {
         request(from, to, kitId, arenaName, false);
     }
 
-    /** Max ranked challenge duels between the same two players per hour (stops win-trading). */
+    /** ranked pair limit */
     private boolean overRankedLimit(UUID a, UUID b) {
         int max = plugin.getConfig().getInt("ranked.challenge-limit-per-hour", 5);
         if (max <= 0) return false;
@@ -231,7 +227,7 @@ public final class DuelManager {
         return a.compareTo(b) < 0 ? a + ":" + b : b + ":" + a;
     }
 
-    /** Is this player free to be put into a match right now? Returns the reason if not, else null. */
+    /** busy reason */
     public String busyReason(Player p) {
         UUID id = p.getUniqueId();
         if (inDuel(id)) return "in a match";
@@ -245,15 +241,14 @@ public final class DuelManager {
         request(from, to, kitId, arenaName, ranked, 1);
     }
 
-    /** Ranked (tier) matches are first to this many rounds. */
+    /** ranked rounds */
     public int rankedRounds() {
         return Math.max(1, plugin.getConfig().getInt("ranked.first-to", 3));
     }
 
-    /** @param rounds first to this many round wins (1 = a single round) */
     public void request(Player from, Player to, String kitId, String arenaName, boolean ranked, int rounds) {
         rounds = Math.max(1, Math.min(rounds, plugin.getConfig().getInt("duel.max-rounds", 15)));
-        if (ranked) rounds = rankedRounds(); // tier tests and ranked challenges are always the same length
+        if (ranked) rounds = rankedRounds();
         Theme t = plugin.theme();
         Kit kit = kitId == null ? plugin.kits().defaultKit() : plugin.kits().get(kitId);
         if (kit == null) { from.sendMessage(t.error("that kit doesn't exist.")); return; }
@@ -299,10 +294,7 @@ public final class DuelManager {
                 .append(accept).append(Component.text(" ")).append(deny)));
     }
 
-    /**
-     * A party leader challenges another party. The request goes to that party's leader and is
-     * answered with the same /duel accept as a normal duel.
-     */
+    /** party challenge */
     public void requestParty(Player leader, Player targetMember, String kitId) {
         Theme t = plugin.theme();
         var mine = plugin.parties().partyOf(leader.getUniqueId());
@@ -340,10 +332,7 @@ public final class DuelManager {
                 .append(accept).append(Component.text(" ")).append(deny)));
     }
 
-    /**
-     * A party leader splits their own party into two teams of any sizes (2v1, 3v2...) and plays them
-     * against each other.
-     */
+    /** custom teams */
     public void startScrim(Player leader, List<Player> red, List<Player> blue, String kitId) {
         Theme t = plugin.theme();
         var party = plugin.parties().partyOf(leader.getUniqueId());
@@ -371,7 +360,7 @@ public final class DuelManager {
         return totalPlayers >= plugin.getConfig().getInt("party.large-arena-min-players", 7);
     }
 
-    /** Why this party can't fight right now (offline or busy member), or null. */
+    /** party busy reason */
     private String partyBusy(PartyManager.Party party) {
         for (UUID id : party.members) {
             Player m = Bukkit.getPlayer(id);
@@ -382,7 +371,7 @@ public final class DuelManager {
         return null;
     }
 
-    /** Explains why no arena can be used (none set up, all busy, or all broken). */
+    /** no-arena reason */
     public String noArenaReason() {
         if (plugin.generator().building()) return "a new arena is being built - try again in a few seconds.";
         if (plugin.arenas().all().isEmpty()) return "there are no arenas yet - an admin needs to /arena create one.";
@@ -476,11 +465,11 @@ public final class DuelManager {
         start(Mode.PARTY, List.of(a, b), List.of(challengerLeader.getName() + "'s party", targetLeader.getName() + "'s party"), arena, kit, false);
     }
 
-    /** Starts a queue match on a random free arena. @return false if no arena is free. */
+    /** queue match start */
     public boolean startMatch(Player a, Player b, Kit kit, boolean ranked) {
         Arena arena = plugin.arenas().randomFree(ranked).orElse(null);
         if (arena == null) {
-            plugin.generator().requestExtra(ranked); // all busy: make another one
+            plugin.generator().requestExtra(ranked);
             return false;
         }
         a.sendMessage(found(b, ranked, kit));
@@ -489,10 +478,7 @@ public final class DuelManager {
         return true;
     }
 
-    /**
-     * A party leader starts a free-for-all among their own party: everyone fights everyone, the last
-     * player standing wins.
-     */
+    /** party free-for-all */
     public void startPartyFfa(Player leader, String kitId) {
         Theme t = plugin.theme();
         var party = plugin.parties().partyOf(leader.getUniqueId());
@@ -551,7 +537,7 @@ public final class DuelManager {
         start(mode, teams, names, arena, kit, ranked, 1);
     }
 
-    /** Starts a match; if anything goes wrong the players are put back and the arena is freed. */
+    /** start match */
     private void start(Mode mode, List<List<Player>> teams, List<String> names, Arena arena, Kit kit, boolean ranked, int rounds) {
         List<Player> all = new ArrayList<>();
         teams.forEach(all::addAll);
@@ -600,7 +586,7 @@ public final class DuelManager {
         computeSpawns(duel, teams);
 
         for (Player p : duel.players) {
-            plugin.lobby().builderOff(p); // an admin in builder mode (creative) is back in survival before the match
+            plugin.lobby().builderOff(p);
             duel.saved.put(p.getUniqueId(), new Saved(p.getLocation(), p.getInventory().getContents().clone(),
                     p.getGameMode(), p.getHealth(), p.getFoodLevel(), p.getSaturation(),
                     p.getLevel(), p.getExp(), new ArrayList<>(p.getActivePotionEffects())));
@@ -613,7 +599,7 @@ public final class DuelManager {
         }
         for (Player p : duel.players) {
             p.teleport(duel.spawnOf(p));
-            applyBorder(p, arena); // visible per-player border so everyone can see the arena limits
+            applyBorder(p, arena);
         }
 
         if (plugin.getConfig().getBoolean("duel.announce-start", true)) {
@@ -638,7 +624,7 @@ public final class DuelManager {
         countdown(duel, Math.max(1, plugin.getConfig().getInt("duel.countdown-seconds", 5)));
     }
 
-    /** The pre-round countdown; at zero the round starts. */
+    /** countdown */
     private void countdown(Duel duel, int seconds) {
         Mode mode = duel.mode;
         Theme t = plugin.theme();
@@ -695,7 +681,7 @@ public final class DuelManager {
         }
     }
 
-    /** A safe place to stand at x/z: on the generated ground, or the highest block, lifted clear of obstacles. */
+    /** safe spot */
     private Location standingSpot(Arena arena, org.bukkit.World world, int x, int z) {
         int y = plugin.generator().standY(arena, x, z);
         if (y < 0) y = world.getHighestBlockYAt(x, z) + 1;
@@ -717,7 +703,7 @@ public final class DuelManager {
         p.setWorldBorder(wb);
     }
 
-    /** Finds a running match by a participant's name or by arena name. */
+    /** find match */
     public Duel find(String query) {
         Player pl = Bukkit.getPlayerExact(query);
         if (pl != null && byPlayer.containsKey(pl.getUniqueId())) return byPlayer.get(pl.getUniqueId());
@@ -755,7 +741,6 @@ public final class DuelManager {
                 .append(t.text(". /spectate leave to stop.", t.accent()))));
     }
 
-    /** @return false if the player wasn't spectating. */
     public boolean stopSpectating(Player sp) {
         Duel d = spectating.get(sp.getUniqueId());
         if (d == null) return false;
@@ -774,10 +759,7 @@ public final class DuelManager {
         sp.teleport(s.loc());
     }
 
-    /**
-     * Removes mobs from the arena volume. Players, tamed pets and name-tagged
-     * mobs are left alone; removal is silent (no drops or xp).
-     */
+    /** clear mobs */
     public void clearMobs(Arena arena) {
         var center = arena.center();
         if (center == null || center.getWorld() == null) return;
@@ -790,7 +772,7 @@ public final class DuelManager {
                 .forEach(org.bukkit.entity.Entity::remove);
     }
 
-    /** Total health (with absorption) of the living members of each team. */
+    /** team health */
     private Map<Integer, Double> teamHealth(Duel d) {
         Map<Integer, Double> out = new LinkedHashMap<>();
         for (Player p : d.players) {
@@ -800,15 +782,11 @@ public final class DuelManager {
         return out;
     }
 
-    /**
-     * A player is out: killed (they watch from spectator mode where they fell), or quit/forfeited
-     * ({@code leaving}: they are put back at once). When one team is left standing it wins.
-     */
+    /** eliminate player */
     public void eliminate(Duel d, Player victim, boolean leaving) {
         UUID id = victim.getUniqueId();
         if (!d.alive.remove(id)) {
             if (leaving && !d.left.contains(id) && byPlayer.get(id) == d) {
-                // already dead (watching), now leaving: just put them back
                 if (d.state == State.ENDING) {
                     end(d, resultOnLeave(d, id));
                 } else {
@@ -817,7 +795,7 @@ public final class DuelManager {
             }
             return;
         }
-        if (d.state == State.ENDING) { // the result is already decided; only tidy up
+        if (d.state == State.ENDING) {
             if (leaving) end(d, resultOnLeave(d, id));
             return;
         }
@@ -854,13 +832,13 @@ public final class DuelManager {
         else teamWon(d, win);
     }
 
-    /** Who wins if a player leaves while the result (or the break between rounds) is already pending. */
+    /** leave result */
     private int resultOnLeave(Duel d, UUID leaver) {
         if (!d.roundBreak) return d.pendingWinTeam;
-        return d.team.getOrDefault(leaver, 0) == 0 ? 1 : 0; // leaving between rounds forfeits the match
+        return d.team.getOrDefault(leaver, 0) == 0 ? 1 : 0;
     }
 
-    /** A team won the round (or the whole match, for a single-round duel). */
+    /** round won */
     private void teamWon(Duel d, int win) {
         if (d.firstTo > 1 && d.mode == Mode.DUEL && win >= 0 && win < d.score.length) {
             d.score[win]++;
@@ -872,7 +850,7 @@ public final class DuelManager {
         finishTeam(d, win);
     }
 
-    /** The round is over but the match goes on: a short pause, then the arena and players are reset. -1 = replay (a drawn round). */
+    /** round break */
     private void roundBreak(Duel d, int winTeam) {
         if (d.ended || d.state == State.ENDING) return;
         d.state = State.ENDING;
@@ -907,11 +885,7 @@ public final class DuelManager {
         }, delay * 20L);
     }
 
-    /**
-     * Between rounds a generated arena is put back completely (everything that differs from the generator is
-     * fixed: placed/broken blocks, leaves that decayed, falling sand, liquids, fire), not just the blocks that were
-     * recorded. Players wait in the break until it is done.
-     */
+    /** full arena reset */
     private void resetThenNextRound(Duel d) {
         if (d.ended) return;
         restoreWorld(d);
@@ -931,7 +905,7 @@ public final class DuelManager {
         }
     }
 
-    /** Puts everyone back at their spawn with a fresh kit, restores the arena's changed blocks and counts down. */
+    /** next round */
     private void nextRound(Duel d) {
         if (d.ended) return;
         d.roundBreak = false;
@@ -955,7 +929,7 @@ public final class DuelManager {
         countdown(d, Math.max(1, plugin.getConfig().getInt("duel.round-countdown-seconds", 3)));
     }
 
-    /** Stats for an elimination: a kill for whoever last hit the victim (if still an opponent), a death for the victim. */
+    /** credit stats */
     private void creditElimination(Duel d, Player victim, boolean leaving, Theme t) {
         try {
             UUID killerId = leaving ? null : d.lastHitBy.get(victim.getUniqueId());
@@ -981,15 +955,12 @@ public final class DuelManager {
         }
     }
 
-    /** Compatibility: a 1v1 where {@code winner} won. */
+    /** 1v1 result */
     public void finish(Duel duel, Player winner) {
         finishTeam(duel, duel.teamOf(winner));
     }
 
-    /**
-     * The result is decided, but let the fight wind down for a few seconds (duel.end-delay-seconds)
-     * before everyone is sent back. Winners celebrate, nobody can be hurt any more.
-     */
+    /** wind-down */
     public void finishTeam(Duel duel, int winTeam) {
         if (duel.state == State.ENDING || duel.ended) return;
         int delay = plugin.getConfig().getInt("duel.end-delay-seconds", 4);
@@ -1017,12 +988,11 @@ public final class DuelManager {
         duel.ending = Bukkit.getScheduler().runTaskLater(plugin, () -> end(duel, winTeam), delay * 20L);
     }
 
-    /** End a match. winTeam -1 = a draw. */
+    /** end match */
     public void end(Duel duel, int winTeam) {
         end(duel, winTeam, true);
     }
 
-    /** @param count false voids the result (server shutdown / error): no ranked rating change. */
     private void end(Duel duel, int winTeam, boolean count) {
         if (duel.ended) return;
         duel.ended = true;
@@ -1072,15 +1042,11 @@ public final class DuelManager {
         releaseArena(duel);
     }
 
-    /**
-     * The arena stays locked until it has been reset, so the next match always gets a fresh one.
-     * Generated arenas are reset completely; hand-made ones only get back the blocks that were
-     * recorded as changed.
-     */
+    /** release arena */
     private void releaseArena(Duel duel) {
         Arena a = duel.arena;
         Runnable finish = () -> {
-            releaseChunkTickets(duel); // the changed chunks were held loaded until the reset was done
+            releaseChunkTickets(duel);
             a.inUse = false;
         };
         if (plugin.isEnabled() && plugin.generator().resets(a)) {
@@ -1090,7 +1056,7 @@ public final class DuelManager {
         }
     }
 
-    /** Applies the kit tier change and tells both players (1v1 ranked duels only). */
+    /** tier result */
     private void rankedResult(Duel duel, Player first, boolean draw) {
         Player second = duel.opponentOf(first);
         var c = plugin.stats().recordRanked(first.getUniqueId(), second.getUniqueId(), draw, duel.kit.id);
@@ -1133,7 +1099,7 @@ public final class DuelManager {
         p.teleport(s.loc());
     }
 
-    /** Puts one player back where they were and takes them out of the match (the others fight on). */
+    /** remove from match */
     private void removeFromMatch(Duel d, Player p) {
         byPlayer.remove(p.getUniqueId());
         d.alive.remove(p.getUniqueId());
@@ -1141,7 +1107,7 @@ public final class DuelManager {
         restore(p, d.saved.get(p.getUniqueId()));
     }
 
-    /** A player left (quit / forfeit command): they're out and put back at once. */
+    /** forfeit */
     public void forfeit(Player p) {
         Duel d = byPlayer.get(p.getUniqueId());
         if (d == null) return;
@@ -1152,7 +1118,6 @@ public final class DuelManager {
         new HashSet<>(byPlayer.values()).forEach(d -> {
             d.drawReason = "the server is restarting";
             end(d, -1, false);
-            // chunks are saved on shutdown, so put a generated arena back right now rather than leave the mess
             if (plugin.generator().resets(d.arena)) plugin.generator().resetSync(d.arena);
         });
     }

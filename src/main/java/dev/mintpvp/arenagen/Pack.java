@@ -1,6 +1,6 @@
 package dev.mintpvp.arenagen;
 
-/** Packs a block position (x, z: 26 bits signed; y: 12 bits signed) into a long. */
+/** pack position */
 final class Pack {
     private Pack() {}
 

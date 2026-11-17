@@ -15,7 +15,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 
-/** /party ... and /pc (party chat). */
+/** party commands */
 public final class PartyCommands implements CommandExecutor, TabCompleter {
 
     private static final List<String> SUBS = List.of("create", "invite", "accept", "deny", "leave", "kick", "disband", "promote", "list", "chat", "duel", "ffa", "help");

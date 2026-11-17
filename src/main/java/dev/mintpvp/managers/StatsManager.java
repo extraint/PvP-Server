@@ -7,35 +7,35 @@ import java.io.File;
 import java.io.IOException;
 import java.util.*;
 
-/** Persistent kills / deaths / streak tracking, stored in stats.yml. */
+/** player stats */
 public final class StatsManager {
 
     public static final class Stats {
         public int kills, deaths, streak, bestStreak, duelWins, duelLosses, rankedWins, rankedLosses;
-        /** Tier per kit id (Tier ordinal); a kit with no entry is unranked. */
+        /** tier per kit */
         public final Map<String, Integer> kitTier = new HashMap<>();
-        /** Promotion progress per kit: wins toward the next tier (positive) or losses toward a demotion (negative). */
+        /** promotion progress */
         public final Map<String, Integer> kitProgress = new HashMap<>();
-        /** Ranked win streak (positive) or loss streak (negative). */
+        /** ranked streak */
         public int rankedStreak;
 
         public int rankedGames() {
             return rankedWins + rankedLosses;
         }
 
-        /** Tier index in a kit, -1 if unranked there. */
+        /** tier index */
         public int tierIndex(String kitId) {
             return kitTier.getOrDefault(kitId, -1);
         }
 
-        /** Overall score: the points of the tier held in every kit, added together. */
+        /** total points */
         public int score() {
             int sum = 0;
             for (int o : kitTier.values()) sum += dev.mintpvp.util.Tier.at(o) == null ? 0 : dev.mintpvp.util.Tier.at(o).points;
             return sum;
         }
 
-        /** The highest tier held in any kit, or -1. */
+        /** best tier */
         public int bestTier() {
             int best = -1;
             for (int o : kitTier.values()) best = Math.max(best, o);
@@ -82,7 +82,6 @@ public final class StatsManager {
                 stats.put(id, s);
                 names.put(id, section.getString(key + ".name", "unknown"));
             } catch (IllegalArgumentException ignored) {
-                // skip malformed entries
             }
         }
     }
@@ -129,7 +128,7 @@ public final class StatsManager {
                 .map(Map.Entry::getKey).findFirst();
     }
 
-    /** @return the killer's new streak. */
+    /** new streak */
     public int recordKill(UUID killer, UUID victim) {
         Stats k = get(killer);
         k.kills++;
@@ -152,19 +151,10 @@ public final class StatsManager {
         get(loser).duelLosses++;
     }
 
-    /** One player's tier change in a kit from a ranked result. oldTier is -1 when they were unranked in that kit. */
+    /** tier change */
     public record TierChange(String kitId, int oldTier, int newTier, int progress, int scoreDelta, int score, boolean placement) {}
 
-    /**
-     * Applies a ranked result to the kit's tier ladder (no Elo). Rules:
-     * the first ranked game in a kit places you at LT5; a win over someone at your tier or higher is
-     * +1 progress (+2 over someone two or more tiers above, +1 extra on a 3+ win streak); beating
-     * someone below your tier gives nothing, so low-tier farming doesn't pay. Enough wins promote you;
-     * a loss to someone at your tier or lower is -1, and enough losses demote you (never below LT5).
-     * Losing to a higher tier costs nothing. Draws change nothing.
-     * @param winner the winner (or either player for a draw)
-     * @return the changes {winner, loser}
-     */
+    /** apply ranked result */
     public TierChange[] recordRanked(UUID winner, UUID loser, boolean draw, String kitId) {
         Stats sw = get(winner), sl = get(loser);
         int tw = sw.tierIndex(kitId), tl = sl.tierIndex(kitId);
@@ -186,7 +176,6 @@ public final class StatsManager {
         sw.rankedStreak = Math.max(0, sw.rankedStreak) + 1;
         sl.rankedStreak = Math.min(0, sl.rankedStreak) - 1;
 
-        // winner
         if (placeW) {
             sw.kitTier.put(kitId, 0);
             sw.kitProgress.put(kitId, 0);
@@ -202,7 +191,6 @@ public final class StatsManager {
             }
             sw.kitProgress.put(kitId, prog);
         }
-        // loser
         if (placeL) {
             sl.kitTier.put(kitId, 0);
             sl.kitProgress.put(kitId, 0);
@@ -219,7 +207,7 @@ public final class StatsManager {
                 new TierChange(kitId, tl, sl.tierIndex(kitId), sl.kitProgress.getOrDefault(kitId, 0), sl.score() - scoreL, sl.score(), placeL)};
     }
 
-    /** Admin: set a player's tier in a kit (index -1 = unranked). Clears the promotion progress. */
+    /** admin set tier */
     public void setTier(UUID id, String kitId, int tierIndex) {
         Stats s = get(id);
         if (tierIndex < 0) s.kitTier.remove(kitId);

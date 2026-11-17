@@ -15,16 +15,10 @@ import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.util.*;
 
-/**
- * Admin-defined duel arenas, stored in arenas.yml.
- *
- * Locations are stored by world *name* and resolved on use, so an arena whose world
- * isn't loaded yet doesn't break loading (and can't wipe the file). The border always
- * grows to include both spawns, so a spawn can never end up "outside" its own arena.
- */
+/** arena storage */
 public final class ArenaManager {
 
-    /** A stored position; resolved to a Location only when its world is loaded. */
+    /** stored position */
     public record Loc(String world, double x, double y, double z, float yaw, float pitch) {
         static Loc of(Location l) {
             return new Loc(l.getWorld().getName(), l.getX(), l.getY(), l.getZ(), l.getYaw(), l.getPitch());
@@ -36,21 +30,21 @@ public final class ArenaManager {
         }
     }
 
-    /** A square region (centre + radius, plus a vertical range) with two spawn points. */
+    /** arena region */
     public final class Arena {
         public final String name;
         private Loc s1, s2, c;
-        /** Configured half-width; 0 = config default. The effective radius may be larger. */
+        /** configured radius */
         public int radius;
-        /** Configured vertical half-range; 0 = config default. The effective height may be larger. */
+        /** configured height */
         public int height;
         public boolean inUse;
-        /** Set for arenas built by the generator: their theme id and grid slot. Null/-1 for hand-made arenas. */
+        /** generated arena info */
         public String theme;
         public int slot = -1;
-        /** Big ranked arena (radius 100-150) instead of the 75-block unranked kind. */
+        /** ranked-size arena */
         public boolean large;
-        /** Still being generated: not usable yet. */
+        /** still generating */
         public boolean pending;
 
         Arena(String name) {
@@ -67,7 +61,7 @@ public final class ArenaManager {
 
         public void setCenter(Location l) { c = Loc.of(l); }
 
-        /** Why this arena can't be used right now, or null if it can. */
+        /** problem or null */
         public String problem() {
             if (pending) return "still being generated";
             if (s1 == null) return "spawn 1 isn't set (/arena setspawn1 " + name + ")";
@@ -89,7 +83,7 @@ public final class ArenaManager {
             return new Location(a.getWorld(), (a.getX() + b.getX()) / 2, (a.getY() + b.getY()) / 2, (a.getZ() + b.getZ()) / 2);
         }
 
-        /** Effective half-width: the configured one, grown if needed to contain both spawns. */
+        /** effective radius */
         public int radius() {
             int base = radius > 0 ? radius : Math.max(5, plugin.getConfig().getInt("duel.default-arena-radius", 40));
             Location ctr = center();
@@ -101,7 +95,7 @@ public final class ArenaManager {
             return Math.max(base, (int) Math.ceil(far) + 5);
         }
 
-        /** Effective vertical half-range, grown if needed to contain both spawns. */
+        /** effective height */
         public int height() {
             int base = height > 0 ? height : Math.max(3, plugin.getConfig().getInt("duel.default-arena-height", 25));
             Location ctr = center();
@@ -113,7 +107,7 @@ public final class ArenaManager {
             return Math.max(base, (int) Math.ceil(far) + 3);
         }
 
-        /** Off by default: arenas span the whole world height. Turn on with duel.height-limit. */
+        /** height limit off */
         public boolean heightLimited() {
             return plugin.getConfig().getBoolean("duel.height-limit", false);
         }
@@ -128,17 +122,16 @@ public final class ArenaManager {
             return heightLimited() ? ctr.getY() + height() : ctr.getWorld().getMaxHeight();
         }
 
-        /** Is this location far enough inside the border to build or break there? */
+        /** buildable here? */
         public boolean innerContains(Location l) {
             Location ctr = center();
             if (ctr == null || l.getWorld() == null || !l.getWorld().equals(ctr.getWorld())) return false;
-            // blocks can be placed and broken right up to the edge of the playable area
             double r = radius(), dx = l.getX() - ctr.getX(), dz = l.getZ() - ctr.getZ();
             if (circular()) return dx * dx + dz * dz <= r * r;
             return Math.abs(dx) <= r && Math.abs(dz) <= r;
         }
 
-        /** Is this location inside the arena border (horizontally)? */
+        /** inside border? */
         public boolean containsXZ(Location l) {
             Location ctr = center();
             if (ctr == null || l.getWorld() == null || !l.getWorld().equals(ctr.getWorld())) return false;
@@ -148,24 +141,24 @@ public final class ArenaManager {
             return Math.abs(dx) <= r && Math.abs(dz) <= r;
         }
 
-        /** Generated arenas are round; hand-made ones use a square border. */
+        /** round or square */
         public boolean circular() {
             return theme != null;
         }
 
-        /** Inside the arena in all three dimensions. */
+        /** inside arena? */
         public boolean contains(Location l) {
             return containsXZ(l) && l.getY() >= minY() && l.getY() <= maxY();
         }
 
-        /** Bounding box of the whole arena volume. */
+        /** arena bounds */
         public BoundingBox box() {
             Location ctr = center();
             int r = radius();
             return new BoundingBox(ctr.getX() - r, minY(), ctr.getZ() - r, ctr.getX() + r, maxY(), ctr.getZ() + r);
         }
 
-        /** One-line description of a stored spawn for /arena check. */
+        /** spawn description */
         public String describe(Loc l) {
             if (l == null) return "not set";
             return l.world() + " " + Math.round(l.x()) + " " + Math.round(l.y()) + " " + Math.round(l.z())
@@ -196,12 +189,11 @@ public final class ArenaManager {
         try {
             y.load(file);
         } catch (IOException | InvalidConfigurationException e) {
-            // Don't ever overwrite a file we couldn't read: keep a copy and say so loudly.
+            // keep unreadable file
             File backup = new File(plugin.getDataFolder(), "arenas.broken-" + System.currentTimeMillis() + ".yml");
             try {
                 Files.copy(file.toPath(), backup.toPath(), StandardCopyOption.REPLACE_EXISTING);
             } catch (IOException ignored) {
-                // best effort
             }
             plugin.getLogger().severe("Could not read arenas.yml (" + e.getMessage() + "). A copy was kept as "
                     + backup.getName() + ". Arenas will be empty until this is fixed.");
@@ -226,7 +218,7 @@ public final class ArenaManager {
 
     private static Loc readLoc(ConfigurationSection sec, String key) {
         Object o = sec.get(key);
-        if (o instanceof Location l && l.getWorld() != null) return Loc.of(l); // older arenas.yml format
+        if (o instanceof Location l && l.getWorld() != null) return Loc.of(l);
         ConfigurationSection s = sec.getConfigurationSection(key);
         if (s == null || !s.isString("world")) return null;
         return new Loc(s.getString("world"), s.getDouble("x"), s.getDouble("y"), s.getDouble("z"),
@@ -271,7 +263,7 @@ public final class ArenaManager {
         return arenas.get(name.toLowerCase(Locale.ROOT));
     }
 
-    /** @return the new arena, or null if the name is taken. */
+    /** new arena or null */
     public Arena create(String name) {
         if (get(name) != null) return null;
         Arena a = new Arena(name);
@@ -280,14 +272,14 @@ public final class ArenaManager {
         return a;
     }
 
-    /** Next free generator grid slot (never reused, so old terrain can't clash with a new arena). */
+    /** next slot */
     public int nextSlot() {
         int n = nextSlot++;
         save();
         return n;
     }
 
-    /** Registers an arena the generator just created; it stays unusable until its chunks are ready. */
+    /** register generated arena */
     public Arena addGenerated(String name, String theme, int slot, Location spawn1, Location spawn2, boolean large, int radius) {
         Arena a = new Arena(name);
         a.setSpawn1(spawn1);
@@ -302,7 +294,7 @@ public final class ArenaManager {
         return a;
     }
 
-    /** Forgets generated arenas that live in a different world than the current arena world. */
+    /** drop other-world arenas */
     public int removeGeneratedOutside(String worldName) {
         int before = arenas.size();
         arenas.values().removeIf(a -> a.theme != null && (a.worldName() == null || !a.worldName().equals(worldName)));
@@ -311,7 +303,7 @@ public final class ArenaManager {
         return removed;
     }
 
-    /** Forgets generated normal (small) arenas whose radius isn't the current one, so they are rebuilt at the new size. */
+    /** drop old-size arenas */
     public int removeSmallNotRadius(int radius) {
         int before = arenas.size();
         arenas.values().removeIf(a -> a.theme != null && !a.large && a.radius != radius);
@@ -333,15 +325,14 @@ public final class ArenaManager {
         return arenas.values();
     }
 
-    /** The in-use arena whose volume contains this location, if any. */
+    /** active arena at */
     public Optional<Arena> activeAt(Location l) {
         return arenas.values().stream().filter(a -> a.inUse && a.ready() && a.contains(l)).findFirst();
     }
 
-    /** A free arena for a ranked duel (big arenas) or an unranked one (small and hand-made). */
+    /** free arena */
     public Optional<Arena> randomFree(boolean ranked) {
         List<Arena> free = arenas.values().stream().filter(a -> a.ready() && !a.inUse && (ranked ? a.large : !a.large)).toList();
-        // no ranked arenas exist at all (generator off): any arena will do
         if (free.isEmpty() && ranked && arenas.values().stream().noneMatch(a -> a.large)) {
             free = arenas.values().stream().filter(a -> a.ready() && !a.inUse).toList();
         }

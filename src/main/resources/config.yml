@@ -1,5 +1,5 @@
 # ᴍɪɴᴛ ᴘᴠᴘ configuration
-# Colours use hex (#RRGGBB). Text sent by the plugin is rendered in small caps.
+# hex colours
 
 theme:
   primary: "#98F5C0"    # light mint
@@ -16,84 +16,78 @@ combat:
   kill-on-logout: true
 
 kit:
-  default: classic          # kit used for join/respawn kits and as the fallback
-  # Kits themselves are created in-game (/kit create <name>) and stored in kits.yml.
-  # Keep these off on a server where players have real inventories (e.g. an SMP):
-  # giving a kit REPLACES the player's inventory.
+  default: classic  # kit used on join
+  # kits replace inventory
   give-on-join: false
   give-on-respawn: false
 
 gameplay:
-  keep-inventory: true      # nothing drops on death; kit is restored
-  heal-killer: 4.0          # hearts' worth of HP (in half-hearts) healed on kill
+  keep-inventory: true  # no death drops
+  heal-killer: 4.0  # heal on kill
   instant-respawn: true
-  streak-announce-every: 5  # broadcast every N-kill streak
+  streak-announce-every: 5  # streak broadcast interval
 
 duel:
   countdown-seconds: 5
   request-expire-seconds: 30
-  default-arena-radius: 40    # half-width (blocks) of the square border; override with /arena setradius
-  height-limit: false         # false = no floor/ceiling: players can go as high or low as the world allows
-  default-arena-height: 25    # only used when height-limit is true (blocks above AND below the arena centre)
-  clear-mobs: true            # remove mobs from the arena at start and keep it clear during the duel
+  default-arena-radius: 40  # arena half-width
+  height-limit: false  # false = no height limit
+  default-arena-height: 25  # used with height-limit
+  clear-mobs: true  # clear mobs in arena
   allow-spectators: true
-  max-spectators: 20          # per duel; 0 = unlimited
-  announce-start: true        # broadcast a clickable [watch] when a duel starts
-  block-drops: true           # broken blocks drop their items (any loose items are cleared when the arena is reset)
-  allow-building: true        # duelists can place and break blocks; the arena is put back when the duel ends
-  end-delay-seconds: 4        # after a kill, the fight winds down this long (victory/defeat titles) before everyone is sent back; 0 = instant
-  round-options: [1, 2, 3, 5, 7, 10]  # the "first to" choices in the rounds menu (1 = a single round)
-  max-rounds: 15              # the most rounds a /duel <player> <kit> <rounds> can ask for
-  round-delay-seconds: 3      # pause after a round is won, before the arena and players are reset
-  round-countdown-seconds: 3  # countdown before each later round
+  max-spectators: 20  # 0 = unlimited
+  announce-start: true  # clickable watch message
+  block-drops: true  # blocks drop items
+  allow-building: true  # allow place and break
+  end-delay-seconds: 4  # seconds before returning
+  round-options: [1, 2, 3, 5, 7, 10]  # first-to choices
+  max-rounds: 15  # most rounds allowed
+  round-delay-seconds: 3  # seconds between rounds
+  round-countdown-seconds: 3  # round countdown seconds
   allowed-commands: ["duel", "msg", "r"]
 
 ranked:
   enabled: true
-  # Kit tiers (LT5 < HT5 < LT4 < ... < HT1). Overall tier points = the points of your tier in every kit
-  # (LT5 3, HT5 8, LT4 12, HT4 20, LT3 28, HT3 38, LT2 50, HT2 65, LT1 92, HT1 110).
-  # Your first ranked game in a kit places you at LT5.
-  first-to: 3                  # every ranked match (queue and /challenge) is first to this many rounds
-  wins-to-promote: 2           # progress needed to go up a tier (a win over your tier or higher = 1, 2+ tiers above = 2)
-  losses-to-demote: 2          # losses to your tier or lower needed to drop a tier (never below LT5)
-  streak-bonus-at: 3           # from this many ranked wins in a row, each win counts +1 extra progress (0 = off)
-  window-base: 1               # starting allowed tier difference between matched players (in that kit)
-  window-step: 1               # the window widens by this many tiers...
-  window-interval-seconds: 10  # ...every this many seconds spent waiting
+  # tier ladder
+  first-to: 3  # ranked rounds to win
+  wins-to-promote: 2  # wins to promote
+  losses-to-demote: 2  # losses to demote
+  streak-bonus-at: 3  # streak bonus threshold
+  window-base: 1  # starting tier window
+  window-step: 1  # window growth
+  window-interval-seconds: 10  # seconds per growth
   window-max: 10
-  challenge-limit-per-hour: 5  # max ranked /challenge duels between the same two players per hour (stops win-trading; 0 = unlimited)
+  challenge-limit-per-hour: 5  # ranked challenges per hour
 
 spawn:
-  teleport-on-join: true       # needs /setspawn first
+  teleport-on-join: true  # needs /setspawn
   teleport-on-respawn: true
 
 lobby:
-  builder-creative: true     # /build also puts admins in creative mode so they can take any item (for making kits)
-  # Gives the hotbar menu (iron sword = queue, etc.) on join and respawn.
-  # WARNING: this REPLACES the player's inventory. Turn it off on a survival/SMP world.
+  builder-creative: true  # creative in builder mode
+  # lobby hotbar items
+  # replaces inventory
   give-items: true
-  # Lobby players (not in a duel) take no damage or hunger and can't build/drop/move items.
-  # Players with mintpvp.build (ops by default) are exempt from the build restrictions.
+  # lobby protection
+  # mintpvp.build exempt
   protect: true
 
 arena-generator:
-  # Pre-made arenas (Plains, Desert, Poplar Grove, Snowy, Cherry Grove) in their own generated world.
-  # The terrain goes down to bedrock with stone, deepslate, caves and ores. After every duel a
-  # generated arena is reset completely. Your other worlds are never touched.
+  # generated arenas
   enabled: true
-  world-name: mint_arenas_2  # the old 'world' setting is ignored; old generated arenas are dropped
-  lobby: true                # generate the mint lobby island and use it as the spawn (if none is set)
-  per-theme: 2               # normal (unranked) arenas made per theme on start, 75 blocks across
-  ranked-per-theme: 1        # big ranked arenas made per theme on start
-  ranked-radius-min: 100     # ranked arenas get a random radius in this range
+  world-name: mint_arenas_2  # arena world name
+  lobby: true  # generate lobby island
+  per-theme: 2  # normal arenas per theme
+  ranked-per-theme: 1  # ranked arenas per theme
+  ranked-radius-min: 100  # ranked radius range
   ranked-radius-max: 150
-  max-total: 30              # more are made on demand when all are busy, up to this many
+  max-total: 30  # on-demand arena cap
 
 party:
   max-size: 6
   invite-expire-seconds: 60
-  allow-uneven-teams: true      # parties of different sizes can duel (2v1, 3v2...); false = same size only
-  friendly-fire: false          # can teammates hurt each other?
-  ffa-min-players: 3            # a party free-for-all needs at least this many players in the party
-  ffa-large-arena-min-players: 5  # a party free-for-all with this many players uses a big arena
-  large-arena-min-players: 7    # party duels with this many players in total use a big (ranked-size) arena
+  allow-uneven-teams: true  # allow uneven teams
+  friendly-fire: false  # teammate damage
+  ffa-min-players: 3  # free-for-all minimum players
+  ffa-large-arena-min-players: 5  # free-for-all big arena
+  large-arena-min-players: 7  # big arena party size

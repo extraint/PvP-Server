@@ -16,7 +16,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
-/** /menu (the hub) and /queue [kit|leave]. */
+/** menu and queue */
 public final class QueueCommands implements CommandExecutor, TabCompleter {
 
     private final MintPvP plugin;

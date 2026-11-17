@@ -11,7 +11,7 @@ import org.bukkit.inventory.ItemStack;
 import java.util.List;
 import java.util.function.Consumer;
 
-/** A bordered 5-row list of up to 21 entries per page with prev/next/back controls. */
+/** paged list */
 public class PagedGui extends Gui {
 
     public record Entry(ItemStack item, Consumer<InventoryClickEvent> action) {}
