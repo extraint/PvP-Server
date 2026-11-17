@@ -61,7 +61,8 @@ public final class ArenaBuildListener implements Listener {
             return;
         }
         plugin.duels().recordBlock(e.getBlock().getState());
-        e.setDropItems(false); // no loot from the arena, and nothing to clean up
+        // drops are on by default (loose items are cleared when the arena is put back); xp is never dropped
+        if (!plugin.getConfig().getBoolean("duel.block-drops", true)) e.setDropItems(false);
         e.setExpToDrop(0);
     }
 

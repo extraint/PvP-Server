@@ -44,6 +44,14 @@ public final class MintCommands implements CommandExecutor, TabCompleter {
             s.sendMessage(t.info("config reloaded."));
             return;
         }
+        if (args.length > 0 && args[0].equalsIgnoreCase("tier")) {
+            if (!s.hasPermission("mintpvp.admin")) {
+                s.sendMessage(t.error("no permission."));
+                return;
+            }
+            adminTier(s, args);
+            return;
+        }
         s.sendMessage(t.info(t.serverName() + " v" + plugin.getPluginMeta().getVersion()));
         s.sendMessage(t.usage("/stats [player]", "view stats"));
         s.sendMessage(t.usage("/leaderboard [tier|wins|kills|kd|streak]", "top players"));
@@ -53,8 +61,62 @@ public final class MintCommands implements CommandExecutor, TabCompleter {
         s.sendMessage(t.usage("/kit", "edit your kit layouts"));
         if (s.hasPermission("mintpvp.admin")) {
             s.sendMessage(t.usage("/mintpvp reload", "reload config"));
+            s.sendMessage(t.usage("/mintpvp tier <set|reset|info> ...", "set players' kit tiers"));
             s.sendMessage(t.usage("/arena", "manage duel arenas"));
         }
+    }
+
+    /** /mintpvp tier set <player> <kit|all> <tier|unranked> · reset <player> [kit|all] · info <player> */
+    private void adminTier(CommandSender s, String[] args) {
+        Theme t = plugin.theme();
+        String sub = args.length > 1 ? args[1].toLowerCase(Locale.ROOT) : "";
+        if (!List.of("set", "reset", "info").contains(sub) || args.length < 3) {
+            s.sendMessage(t.usage("/mintpvp tier set <player> <kit|all> <lt5..ht1|unranked>", "set a kit tier"));
+            s.sendMessage(t.usage("/mintpvp tier reset <player> [kit|all]", "make a kit (or every kit) unranked"));
+            s.sendMessage(t.usage("/mintpvp tier info <player>", "see a player's kit tiers"));
+            return;
+        }
+        UUID id;
+        String name;
+        Player online = Bukkit.getPlayerExact(args[2]);
+        if (online != null) {
+            id = online.getUniqueId();
+            name = online.getName();
+        } else {
+            var found = plugin.stats().findByName(args[2]);
+            if (found.isEmpty()) { s.sendMessage(t.error("no player with that name has played here.")); return; }
+            id = found.get();
+            name = plugin.stats().nameOf(id);
+        }
+        var st = plugin.stats().get(id);
+        if (sub.equals("info")) {
+            s.sendMessage(t.info(t.raw(name, t.primary()).append(t.text(" · tier " + dev.mintpvp.util.Tier.overallLabel(st.score()), t.accent()))));
+            for (var kit : plugin.kits().all()) s.sendMessage(t.line(kit.display, dev.mintpvp.util.Tier.name(st.tierIndex(kit.id))));
+            return;
+        }
+        String kitArg = args.length > 3 ? args[3].toLowerCase(Locale.ROOT) : "all";
+        List<String> kitIds = new java.util.ArrayList<>();
+        if (kitArg.equals("all")) {
+            if (sub.equals("set") && args.length <= 3) { s.sendMessage(t.error("usage: /mintpvp tier set <player> <kit|all> <tier>")); return; }
+            plugin.kits().all().forEach(k -> kitIds.add(k.id));
+        } else {
+            var kit = plugin.kits().get(kitArg);
+            if (kit == null) { s.sendMessage(t.error("that kit doesn't exist.")); return; }
+            kitIds.add(kit.id);
+        }
+        int idx = -1;
+        if (sub.equals("set")) {
+            if (args.length < 5) { s.sendMessage(t.error("usage: /mintpvp tier set <player> <kit|all> <lt5..ht1|unranked>")); return; }
+            String tn = args[4].toLowerCase(Locale.ROOT);
+            if (!tn.equals("unranked")) {
+                for (var tier : dev.mintpvp.util.Tier.values()) if (tier.label.equals(tn)) idx = tier.ordinal();
+                if (idx < 0) { s.sendMessage(t.error("tier must be lt5, ht5, lt4, ht4, lt3, ht3, lt2, ht2, lt1, ht1 or unranked.")); return; }
+            }
+        }
+        for (String kid : kitIds) plugin.stats().setTier(id, kid, idx);
+        s.sendMessage(t.info(t.raw(name, t.primary())
+                .append(t.text(" is now " + dev.mintpvp.util.Tier.name(idx) + " in " + (kitIds.size() == 1 ? kitIds.get(0) : "all " + kitIds.size() + " kits")
+                        + " · tier " + dev.mintpvp.util.Tier.overallLabel(plugin.stats().get(id).score()), t.accent()))));
     }
 
     private void stats(CommandSender s, String[] args) {
@@ -124,10 +186,21 @@ public final class MintCommands implements CommandExecutor, TabCompleter {
 
     @Override
     public List<String> onTabComplete(CommandSender s, Command cmd, String label, String[] args) {
+        if (cmd.getName().equalsIgnoreCase("mintpvp") && s.hasPermission("mintpvp.admin") && args.length >= 2 && args[0].equalsIgnoreCase("tier")) {
+            String last = args[args.length - 1].toLowerCase(Locale.ROOT);
+            List<String> opts = switch (args.length) {
+                case 2 -> List.of("set", "reset", "info");
+                case 3 -> Bukkit.getOnlinePlayers().stream().map(Player::getName).toList();
+                case 4 -> args[1].equalsIgnoreCase("info") ? List.<String>of() : java.util.stream.Stream.concat(java.util.stream.Stream.of("all"), plugin.kits().all().stream().map(k -> k.id)).toList();
+                case 5 -> args[1].equalsIgnoreCase("set") ? java.util.stream.Stream.concat(java.util.stream.Stream.of("unranked"), java.util.Arrays.stream(dev.mintpvp.util.Tier.values()).map(x -> x.label)).toList() : List.<String>of();
+                default -> List.<String>of();
+            };
+            return opts.stream().filter(o -> o.toLowerCase(Locale.ROOT).startsWith(last)).toList();
+        }
         if (args.length != 1) return List.of();
         String prefix = args[0].toLowerCase(Locale.ROOT);
         List<String> options = switch (cmd.getName().toLowerCase(Locale.ROOT)) {
-            case "mintpvp" -> s.hasPermission("mintpvp.admin") ? List.of("help", "reload") : List.of("help");
+            case "mintpvp" -> s.hasPermission("mintpvp.admin") ? List.of("help", "reload", "tier") : List.of("help");
             case "leaderboard" -> List.of("tier", "wins", "kills", "kd", "streak");
             case "stats" -> Bukkit.getOnlinePlayers().stream().map(Player::getName).toList();
             default -> List.of();

@@ -18,7 +18,7 @@ mvn package   # needs JDK 25; jar ends up in target/
 Drop `target/MintPvP-1.0.0.jar` into your server's `plugins/` folder.
 
 ## Permissions
-- `mintpvp.admin` – reload (default: op)
+- `mintpvp.admin` – reload and tier commands (default: op)
 - `mintpvp.bypass.combat` – ignore combat command blocking (default: op)
 
 ## Arenas & duels
@@ -38,7 +38,7 @@ Admins set up arenas, then players challenge each other:
 /duel forfeit
 ```
 Duels save and restore your location, inventory, health, XP and effects, run a
-freeze countdown, and end in a draw after `duel.max-duration-seconds`. Duel
+freeze countdown, and have **no time limit**. Duel
 wins/losses show in `/stats`. Settings live under `duel:` in `config.yml`.
 
 ### Borders (wilderness arenas)
@@ -116,7 +116,8 @@ Overall tier titles (by total points): **unranked** 0, **rookie** 3-9, **novice*
 
 After each ranked duel you see the promotion/demotion (or your progress) and your new overall tier.
 `/stats` lists your tier in every kit you've played. `/leaderboard [tier|wins|kills|kd|streak]` or the GUI.
-Tier points are defined in `util/Tier.java`. (Old Elo values in `stats.yml` are ignored.)
+Admins (`mintpvp.admin`) set tiers with `/mintpvp tier set <player> <kit|all> <lt5..ht1|unranked>`,
+`/mintpvp tier reset <player> [kit|all]` and `/mintpvp tier info <player>`. Tier points are defined in `util/Tier.java`. (Old Elo values in `stats.yml` are ignored.)
 
 ## Rounds ("first to")
 `/duel <player>` no longer starts a classic duel straight away: it opens a **kit menu**, then a **rounds menu**
@@ -126,7 +127,7 @@ straight away.
 - The first player to win N rounds wins the match. After each round there is a short pause
   (`duel.round-delay-seconds`), then the arena's changed blocks are restored, both players get a fresh kit and
   are put back at their spawns for a countdown (`duel.round-countdown-seconds`).
-- A round that ends level on health at the time limit is replayed. Quitting between or during rounds forfeits the match.
+- There is no time limit. Quitting between or during rounds forfeits the match.
 - Ranked tiers and duel wins/losses count once, for the whole match; kills and deaths count every round.
 - **Ranked is always first to 3** (`ranked.first-to`): tier queue matches and `/challenge` skip the rounds menu.
 - Options: `duel.round-options`, `duel.max-rounds`. Rounds apply to 1v1 duels (not parties; the unranked queue is a single round).
@@ -217,9 +218,8 @@ would land outside is cancelled). Generated arenas have no visible wall: an invi
 seals the edge.
 
 ### How a duel can end
-Winner = the other player dies, quits or forfeits. At the time limit (`duel.max-duration-seconds`,
-300) the player with more health wins (`duel.timeout-winner-by-health`); only an exact tie is a
-draw. A draw can also happen if the server restarts or an error stops the duel, and the message
+Winner = the other player dies, quits or forfeits. There is no time limit. A draw only happens if the
+server restarts, an error stops the duel, or everyone dies at once, and the message
 says which ("the duel ended in a draw: ..."). Every result is also logged in the server console.
 
 ## Parties, party duels and party free-for-all
@@ -243,8 +243,7 @@ Leaders can also challenge from the menu. Parties live in memory (they end on re
 ### Party free-for-all
 A party leader can start a free-for-all **inside their own party**: `/party ffa [kit]` or the party menu's TNT
 button (needs `party.ffa-min-players`, 3). Everyone fights everyone and the last player standing wins; with
-5+ players it uses a big arena, and at `party.ffa-max-duration-seconds` (420) the player with the most health
-wins. There is no public free-for-all queue.
+5+ players it uses a big arena. There is no public free-for-all queue.
 
 ### Custom teams and party rules
 - **Custom teams:** in the party menu a leader can click **custom teams** (banner) to split their own party

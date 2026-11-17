@@ -641,7 +641,7 @@ public final class DuelManager {
         countdown(duel, Math.max(1, plugin.getConfig().getInt("duel.countdown-seconds", 5)));
     }
 
-    /** The pre-round countdown; at zero the round starts (and its time limit begins). */
+    /** The pre-round countdown; at zero the round starts. */
     private void countdown(Duel duel, int seconds) {
         Mode mode = duel.mode;
         Theme t = plugin.theme();
@@ -662,11 +662,6 @@ public final class DuelManager {
             for (Player p : duel.players) {
                 p.showTitle(Title.title(t.text("fight!", t.primary()), duel.firstTo > 1 ? t.text("round " + duel.round, t.accent()) : Component.empty()));
                 p.playSound(p.getLocation(), Sound.BLOCK_NOTE_BLOCK_PLING, 1f, 2f);
-            }
-            int max = plugin.getConfig().getInt("duel.max-duration-seconds", 300);
-            if (mode == Mode.FFA) max = plugin.getConfig().getInt("party.ffa-max-duration-seconds", max);
-            if (max > 0) {
-                duel.timeout = Bukkit.getScheduler().runTaskLater(plugin, () -> timeUp(duel), max * 20L);
             }
         } catch (RuntimeException ex) { duel.countdown.cancel(); fail(duel, ex); } }, 0L, 20L);
     }
@@ -812,33 +807,6 @@ public final class DuelManager {
             out.merge(d.teamOf(p), p.getHealth() + p.getAbsorptionAmount(), Double::sum);
         }
         return out;
-    }
-
-    /** Time limit reached: the team with more health wins; only an exact tie is a draw. */
-    private void timeUp(Duel duel) {
-        if (duel.state != State.FIGHTING || duel.ended) return;
-        Theme t = plugin.theme();
-        if (plugin.getConfig().getBoolean("duel.timeout-winner-by-health", true)) {
-            Map<Integer, Double> hp = teamHealth(duel);
-            List<Map.Entry<Integer, Double>> sorted = new ArrayList<>(hp.entrySet());
-            sorted.sort((x, y) -> Double.compare(y.getValue(), x.getValue()));
-            if (!sorted.isEmpty() && (sorted.size() == 1 || sorted.get(0).getValue() - sorted.get(1).getValue() >= 1.0)) {
-                int win = sorted.get(0).getKey();
-                for (Player p : duel.players) {
-                    p.sendMessage(t.info(t.text("time's up! ", t.accent()).append(t.raw(duel.teamName(win), t.primary()))
-                            .append(t.text(" wins with more health.", t.accent()))));
-                }
-                teamWon(duel, win);
-                return;
-            }
-        }
-        if (duel.firstTo > 1 && duel.mode == Mode.DUEL) {
-            for (Player p : duel.players) p.sendMessage(t.info("time's up and the health was level - the round is replayed."));
-            roundBreak(duel, -1);
-            return;
-        }
-        duel.drawReason = "time ran out and the health was level";
-        end(duel, -1);
     }
 
     /**

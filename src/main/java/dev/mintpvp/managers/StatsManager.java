@@ -219,6 +219,15 @@ public final class StatsManager {
                 new TierChange(kitId, tl, sl.tierIndex(kitId), sl.kitProgress.getOrDefault(kitId, 0), sl.score() - scoreL, sl.score(), placeL)};
     }
 
+    /** Admin: set a player's tier in a kit (index -1 = unranked). Clears the promotion progress. */
+    public void setTier(UUID id, String kitId, int tierIndex) {
+        Stats s = get(id);
+        if (tierIndex < 0) s.kitTier.remove(kitId);
+        else s.kitTier.put(kitId, Math.min(tierIndex, dev.mintpvp.util.Tier.values().length - 1));
+        s.kitProgress.remove(kitId);
+        save();
+    }
+
     public void recordDeath(UUID victim) {
         Stats v = get(victim);
         v.deaths++;
