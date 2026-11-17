@@ -12,6 +12,15 @@ commands:
   stats:
     description: View PvP stats.
     usage: /<command> [player]
+  region:
+    description: Switch between the NA and EU servers.
+    usage: /<command>
+  eu:
+    description: Go to the EU server.
+    usage: /<command>
+  na:
+    description: Go to the NA server.
+    usage: /<command>
   tiers:
     description: See your tier in every kit.
     aliases: [tier]

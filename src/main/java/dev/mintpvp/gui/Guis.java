@@ -118,9 +118,26 @@ public final class Guis {
         });
     }
 
-    /** challenge flow */
+    /** one challenge flow: player, then ranked or friendly, then kit (and rounds) */
     public static void challenge(MintPvP plugin, Player p, Runnable back) {
-        challenge(plugin, p, back, false);
+        pickPlayer(plugin, p, "challenge", back, target -> challengeMode(plugin, p, target, () -> challenge(plugin, p, back)));
+    }
+
+    /** ranked or friendly */
+    public static void challengeMode(MintPvP plugin, Player p, Player target, Runnable back) {
+        Theme t = plugin.theme();
+        Gui g = new Gui(plugin, 3, t.title("challenge"));
+        g.frame(true);
+        g.set(11, Items.of(Material.IRON_SWORD).name(t.text("✦ friendly duel", t.primary()))
+                .lore(t.text("you pick the kit and rounds", t.accent()), Component.empty(), t.text("click to continue", t.secondary()))
+                .build(), e -> kitAndRounds(plugin, p, target, false, () -> challengeMode(plugin, p, target, back)));
+        boolean ranked = plugin.queue().rankedEnabled();
+        g.set(15, Items.of(Material.DIAMOND_SWORD).name(t.text("✦ ranked duel", ranked ? t.primary() : t.muted()))
+                .lore(t.text(ranked ? "counts for your tier, first to " + plugin.duels().rankedRounds() : "ranked is disabled", t.accent()),
+                        Component.empty(), t.text(ranked ? "click to continue" : "unavailable", t.secondary()))
+                .glow().build(), ranked ? e -> kitAndRounds(plugin, p, target, true, () -> challengeMode(plugin, p, target, back)) : null);
+        g.set(18, Items.of(Material.SPECTRAL_ARROW).name(t.text("« back", t.secondary())).build(), e -> back.run());
+        g.open(p);
     }
 
     /** ranked challenge flow */

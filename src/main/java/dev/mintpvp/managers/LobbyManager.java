@@ -76,9 +76,7 @@ public final class LobbyManager {
         inv.setItem(0, queueItem(p, QueueManager.Type.UNRANKED));
         inv.setItem(1, queueItem(p, QueueManager.Type.RANKED));
         inv.setItem(2, Items.of(Material.BOW).name(t.text("✦ challenge a player", t.primary()))
-                .lore(t.text("right-click to duel a friend", t.accent())).tag("challenge").build());
-        inv.setItem(3, Items.of(Material.CROSSBOW).name(t.text("✦ ranked challenge", t.primary()))
-                .lore(t.text("right-click to duel for tiers", t.accent())).tag("challenge_ranked").build());
+                .lore(t.text("right-click: ranked or friendly", t.accent())).tag("challenge").build());
         inv.setItem(4, Items.of(Material.NETHER_STAR).name(t.text("✦ menu", t.primary()))
                 .lore(t.text("right-click for everything", t.accent())).glow().tag("menu").build());
         inv.setItem(5, Items.of(Material.FIREWORK_ROCKET).name(t.text("✦ party", t.primary()))
@@ -87,8 +85,8 @@ public final class LobbyManager {
                 .lore(t.text("right-click to arrange your kits", t.accent())).tag("layout").build());
         inv.setItem(7, Items.of(Material.GOLD_INGOT).name(t.text("✦ leaderboard", t.primary()))
                 .lore(t.text("right-click to see the top players", t.accent())).tag("leaderboard").build());
-        inv.setItem(8, Items.of(Material.ENDER_EYE).name(t.text("✦ spectate", t.primary()))
-                .lore(t.text("right-click to watch a duel", t.accent())).tag("spectate").build());
+        inv.setItem(8, Items.of(Material.COMPASS).name(t.text("✦ region", t.primary()))
+                .lore(t.text("right-click to switch na / eu", t.accent())).tag("region").build());
         inv.setHeldItemSlot(0);
         p.setFoodLevel(20);
     }
@@ -107,6 +105,46 @@ public final class LobbyManager {
                 .name(t.text("✦ queue - " + (ranked ? "ranked" : "unranked"), t.primary()))
                 .lore(t.text("right-click to find a match", t.accent()))
                 .tag(ranked ? "queue_ranked" : "queue_unranked").build();
+    }
+
+    /** this server's region id */
+    public String currentRegion() {
+        return plugin.getConfig().getString("region.this", "na").toLowerCase(java.util.Locale.ROOT);
+    }
+
+    /** address of a region, or null if not set */
+    public String regionAddress(String id) {
+        String a = plugin.getConfig().getString("region.servers." + id, "");
+        return a == null || a.isBlank() ? null : a.trim();
+    }
+
+    /** send a player to another region's server */
+    public void transfer(Player p, String id) {
+        Theme t = plugin.theme();
+        id = id.toLowerCase(java.util.Locale.ROOT);
+        if (id.equals(currentRegion())) { p.sendMessage(t.error("you're already on this region.")); return; }
+        String addr = regionAddress(id);
+        if (addr == null) { p.sendMessage(t.error("that region isn't set up yet.")); return; }
+        String busy = plugin.duels().busyReason(p);
+        if (busy != null) { p.sendMessage(t.error("you can't switch region while " + busy + ".")); return; }
+        String host = addr;
+        int port = 25565;
+        int colon = addr.lastIndexOf(':');
+        if (colon > 0) {
+            try {
+                port = Integer.parseInt(addr.substring(colon + 1));
+                host = addr.substring(0, colon);
+            } catch (NumberFormatException ignored) {
+                host = addr;
+            }
+        }
+        p.sendMessage(t.info("sending you to " + id + " (" + host + ")..."));
+        try {
+            p.transfer(host, port);
+        } catch (RuntimeException ex) {
+            p.sendMessage(t.error("couldn't switch region. connect to " + addr + " yourself."));
+            plugin.getLogger().warning("Region transfer failed: " + ex.getMessage());
+        }
     }
 
     /** refresh queue items */
@@ -132,9 +170,10 @@ public final class LobbyManager {
                 p.sendMessage(t.info("you left the queue."));
             }
             case "challenge" -> Guis.challenge(plugin, p, null);
-            case "challenge_ranked" -> Guis.challenge(plugin, p, null, true);
+            case "challenge_ranked" -> Guis.challenge(plugin, p, null);
             case "menu" -> new HubGui(plugin, p).open(p);
             case "layout" -> Guis.layoutKits(plugin, p, null);
+            case "region" -> new dev.mintpvp.gui.RegionGui(plugin, p, null).open(p);
             case "leaderboard" -> new LeaderboardGui(plugin, p, "tier", null).open(p);
             case "spectate" -> Guis.spectateList(plugin, p, null);
             case "stats" -> p.performCommand("stats");

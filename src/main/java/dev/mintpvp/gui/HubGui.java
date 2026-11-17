@@ -43,17 +43,11 @@ public final class HubGui extends Gui {
 
         set(23, Items.of(Material.BOW)
                 .name(t.text("✦ challenge a player", t.primary()))
-                .lore(t.text("pick a player and a kit", t.accent()),
+                .lore(t.text("pick a player, then ranked", t.accent()),
+                        t.text("or friendly, then a kit", t.accent()),
                         Component.empty(),
                         t.text("click to choose", t.secondary()))
                 .build(), e -> Guis.challenge(plugin, p, () -> new HubGui(plugin, p).open(p)));
-
-        set(25, Items.of(Material.CROSSBOW)
-                .name(t.text("✦ ranked challenge", t.primary()))
-                .lore(t.text("duel a specific player for tiers", t.accent()),
-                        Component.empty(),
-                        t.text("click to choose", t.secondary()))
-                .glow().build(), e -> Guis.challenge(plugin, p, () -> new HubGui(plugin, p).open(p), true));
 
         set(28, Items.of(Material.ENDER_CHEST)
                 .name(t.text("✦ kit layout", t.primary()))
@@ -108,6 +102,13 @@ public final class HubGui extends Gui {
                 new HubGui(plugin, p).open(p);
             });
         }
+
+        set(15, Items.of(Material.COMPASS)
+                .name(t.text("✦ region", t.primary()))
+                .lore(t.text("you are on " + plugin.lobby().currentRegion(), t.accent()),
+                        Component.empty(),
+                        t.text("click to switch na / eu", t.secondary()))
+                .build(), e -> new RegionGui(plugin, p, () -> new HubGui(plugin, p).open(p)).open(p));
 
         if (p.hasPermission("mintpvp.admin")) {
             set(44, Items.of(Material.ANVIL)

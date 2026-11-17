@@ -91,3 +91,9 @@ party:
   ffa-min-players: 3  # free-for-all minimum players
   ffa-large-arena-min-players: 5  # free-for-all big arena
   large-arena-min-players: 7  # big arena party size
+
+region:
+  this: na  # na or eu
+  servers:
+    na: ""  # na address
+    eu: mintpvp.playserver.pro

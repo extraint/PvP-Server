@@ -27,6 +27,14 @@ public final class MintCommands implements CommandExecutor, TabCompleter {
             case "mintpvp" -> main(sender, args);
             case "stats" -> stats(sender, args);
             case "leaderboard" -> leaderboard(sender, args);
+            case "region" -> {
+                if (sender instanceof Player p) new dev.mintpvp.gui.RegionGui(plugin, p, null).open(p);
+                else sender.sendMessage(plugin.theme().error("players only."));
+            }
+            case "eu", "na" -> {
+                if (sender instanceof Player p) plugin.lobby().transfer(p, cmd.getName().toLowerCase(Locale.ROOT));
+                else sender.sendMessage(plugin.theme().error("players only."));
+            }
             case "tiers" -> {
                 if (sender instanceof Player p) dev.mintpvp.gui.TierGui.open(plugin, p, null);
                 else sender.sendMessage(plugin.theme().error("players only."));
