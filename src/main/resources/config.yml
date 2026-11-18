@@ -98,7 +98,7 @@ region:
   this: na  # na or eu
   servers:
     na: mintpvp.playfps.nl
-    eu: mintpvp.playserver.pro
+    eu: eu-mintpvp.mcsh.gg
 
 storage:
   type: yaml  # yaml or mysql
