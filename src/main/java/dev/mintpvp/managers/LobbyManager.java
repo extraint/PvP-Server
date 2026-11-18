@@ -109,7 +109,8 @@ public final class LobbyManager {
 
     /** this server's region id */
     public String currentRegion() {
-        return plugin.getConfig().getString("region.this", "na").toLowerCase(java.util.Locale.ROOT);
+        String v = plugin.getConfig().getString("region.this", "na");
+        return v == null ? "na" : v.trim().toLowerCase(java.util.Locale.ROOT);
     }
 
     /** address of a region, or null if not set */
@@ -127,6 +128,13 @@ public final class LobbyManager {
         if (addr == null) { p.sendMessage(t.error("that region isn't set up yet.")); return; }
         String busy = plugin.duels().busyReason(p);
         if (busy != null) { p.sendMessage(t.error("you can't switch region while " + busy + ".")); return; }
+        if (plugin.getConfig().getStringList("region.link-only").contains(id)) {
+            p.sendMessage(t.info(t.text("connect to " + id + " at ", t.accent())
+                    .append(net.kyori.adventure.text.Component.text(addr, t.primary())
+                            .clickEvent(net.kyori.adventure.text.event.ClickEvent.copyToClipboard(addr)))
+                    .append(t.text(" (click to copy)", t.muted()))));
+            return;
+        }
         String host = addr;
         int port = 25565;
         int colon = addr.lastIndexOf(':');

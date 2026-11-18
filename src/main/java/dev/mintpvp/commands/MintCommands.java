@@ -56,6 +56,22 @@ public final class MintCommands implements CommandExecutor, TabCompleter {
             s.sendMessage(t.info("config reloaded."));
             return;
         }
+        if (args.length > 0 && args[0].equalsIgnoreCase("region")) {
+            if (!s.hasPermission("mintpvp.admin")) {
+                s.sendMessage(t.error("no permission."));
+                return;
+            }
+            var cfg = plugin.getConfig();
+            s.sendMessage(t.info("region settings (what the menu reads)"));
+            s.sendMessage(t.raw("region.this = " + cfg.getString("region.this", "(missing, default na)") + "  ->  you are: " + plugin.lobby().currentRegion(), t.accent()));
+            for (String id : new String[] {"na", "eu"}) {
+                String a = plugin.lobby().regionAddress(id);
+                s.sendMessage(t.raw(id + ": " + (a == null ? "not set" : a) + (id.equals(plugin.lobby().currentRegion()) ? "  (this server)" : "")
+                        + (cfg.getStringList("region.link-only").contains(id) ? "  (link only)" : ""), t.accent()));
+            }
+            s.sendMessage(t.raw("config file: " + new java.io.File(plugin.getDataFolder(), "config.yml").getAbsolutePath(), t.muted()));
+            return;
+        }
         if (args.length > 0 && args[0].equalsIgnoreCase("db")) {
             if (!s.hasPermission("mintpvp.admin")) {
                 s.sendMessage(t.error("no permission."));
@@ -83,6 +99,7 @@ public final class MintCommands implements CommandExecutor, TabCompleter {
         if (s.hasPermission("mintpvp.admin")) {
             s.sendMessage(t.usage("/mintpvp reload", "reload config"));
             s.sendMessage(t.usage("/mintpvp db", "stats database status"));
+            s.sendMessage(t.usage("/mintpvp region", "region settings check"));
             s.sendMessage(t.usage("/mintpvp tier <set|reset|info> ...", "set players' kit tiers"));
             s.sendMessage(t.usage("/arena", "manage duel arenas"));
         }
@@ -222,7 +239,7 @@ public final class MintCommands implements CommandExecutor, TabCompleter {
         if (args.length != 1) return List.of();
         String prefix = args[0].toLowerCase(Locale.ROOT);
         List<String> options = switch (cmd.getName().toLowerCase(Locale.ROOT)) {
-            case "mintpvp" -> s.hasPermission("mintpvp.admin") ? List.of("help", "reload", "tier", "db") : List.of("help");
+            case "mintpvp" -> s.hasPermission("mintpvp.admin") ? List.of("help", "reload", "tier", "db", "region") : List.of("help");
             case "leaderboard" -> List.of("tier", "wins", "kills", "kd", "streak");
             case "stats" -> Bukkit.getOnlinePlayers().stream().map(Player::getName).toList();
             default -> List.of();

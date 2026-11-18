@@ -99,6 +99,7 @@ region:
   servers:
     na: mintpvp.playfps.nl
     eu: eu-mintpvp.mcsh.gg
+  link-only: []  # regions shown as a copyable address instead of a transfer
 
 storage:
   type: yaml  # yaml or mysql
