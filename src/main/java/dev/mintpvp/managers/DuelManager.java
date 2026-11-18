@@ -284,8 +284,8 @@ public final class DuelManager {
             if (a == null) { from.sendMessage(t.error("that arena doesn't exist.")); return; }
             if (!a.ready()) { from.sendMessage(t.error("that arena can't be used: " + a.problem() + ".")); return; }
             chosen = a.name;
-        } else if (plugin.arenas().randomFree(ranked).isEmpty()) {
-            plugin.generator().requestExtra(ranked);
+        } else if (plugin.arenas().randomFree(ranked, kit.id).isEmpty()) {
+            plugin.generator().requestExtra(ranked, kit.id);
             from.sendMessage(t.error(noArenaReason()));
             return;
         }
@@ -430,9 +430,9 @@ public final class DuelManager {
             target.sendMessage(t.error("the duel can't start right now."));
             return;
         }
-        Arena arena = r.arena != null ? plugin.arenas().get(r.arena) : plugin.arenas().randomFree(r.ranked()).orElse(null);
+        Arena arena = r.arena != null ? plugin.arenas().get(r.arena) : plugin.arenas().randomFree(r.ranked(), kit.id).orElse(null);
         if (arena == null || !arena.ready() || arena.inUse) {
-            if (r.arena == null) plugin.generator().requestExtra(r.ranked());
+            if (r.arena == null) plugin.generator().requestExtra(r.ranked(), kit.id);
             target.sendMessage(t.error("that arena isn't available."));
             from.sendMessage(t.error("that arena isn't available."));
             return;
@@ -477,9 +477,9 @@ public final class DuelManager {
 
     /** queue match start */
     public boolean startMatch(Player a, Player b, Kit kit, boolean ranked) {
-        Arena arena = plugin.arenas().randomFree(ranked).orElse(null);
+        Arena arena = plugin.arenas().randomFree(ranked, kit.id).orElse(null);
         if (arena == null) {
-            plugin.generator().requestExtra(ranked);
+            plugin.generator().requestExtra(ranked, kit.id);
             return false;
         }
         a.sendMessage(found(b, ranked, kit));

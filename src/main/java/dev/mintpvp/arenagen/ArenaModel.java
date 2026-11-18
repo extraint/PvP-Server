@@ -38,6 +38,13 @@ final class ArenaModel {
             this.barrierTop = BASE_Y + 70;
             this.cells = null;
             this.overlay = buildLargeOverlay(radius);
+        } else if (theme == ArenaTheme.STADIUM) {
+            this.rPlay = ArenaLayout.R_PLAY;
+            this.rWall = ArenaLayout.R_WALL;
+            this.spawnX = ArenaLayout.SPAWN_X;
+            this.barrierTop = BASE_Y + ArenaGenerator.CEILING;
+            this.cells = null;
+            this.overlay = buildStadium();
         } else {
             this.rPlay = ArenaLayout.R_PLAY;
             this.rWall = ArenaLayout.R_WALL;
@@ -50,15 +57,16 @@ final class ArenaModel {
 
     /** inside arena? */
     boolean inside(int dx, int dz) {
-        return Math.hypot(dx, dz) <= rWall;
+        return Math.hypot(dx, dz) <= (theme == ArenaTheme.STADIUM ? STADIUM_OUTER : rWall);
     }
 
     boolean ring(int dx, int dz) {
-        return Math.hypot(dx, dz) > rPlay;
+        double d = Math.hypot(dx, dz);
+        return d > rPlay && d <= rWall;
     }
 
     int maxOverlayHeight() {
-        return 24;
+        return theme == ArenaTheme.STADIUM ? 40 : 24;
     }
 
     BlockData overlayAt(int dx, int y, int dz) {
@@ -80,6 +88,7 @@ final class ArenaModel {
             case POPLAR -> 4.0;
             case SNOWY -> 6.0;
             case CHERRY -> 5.0;
+            case STADIUM -> 0.0;
         };
         double n = (ArenaLayout.smooth(ax, az, 101, 38) - .5) * 2 * amp + (ArenaLayout.smooth(ax, az, 102, 15) - .5) * amp * 0.7;
         double flatSpawn = clamp((Math.hypot(ax - spawnX, az) - 7) / 12.0);
@@ -99,6 +108,7 @@ final class ArenaModel {
     }
 
     String floorKey(int dx, int dz) {
+        if (theme == ArenaTheme.STADIUM) return stadiumFloor(dx, dz);
         if (!large) return cells[(dz + ArenaLayout.C) * ArenaLayout.N + (dx + ArenaLayout.C)].floor;
         int ax = Math.abs(dx), az = Math.abs(dz);
         double d = Math.hypot(dx, dz);
@@ -116,6 +126,7 @@ final class ArenaModel {
             }
             case SNOWY -> ArenaLayout.smooth(ax, az, 41, 12) > .86 ? "ice" : "snow";
             case CHERRY -> onRing ? "stonebrick" : "grass";
+            case STADIUM -> "mud";
         };
     }
 
@@ -126,12 +137,73 @@ final class ArenaModel {
 
     /** feature block */
     BlockData featureAt(int dx, int dz, int rel) {
-        if (large || rel < 1) return null;
+        if (large || cells == null || rel < 1) return null;
         Cell c = cells[(dz + ArenaLayout.C) * ArenaLayout.N + (dx + ArenaLayout.C)];
         if (c == null || c.h < rel || !COLUMNS.contains(c.b)) return null;
         if (c.b.equals("fallen")) return Blocks.log("fallen", org.bukkit.Axis.Z);
         if (c.b.equals("pillar") && rel == c.h) return Blocks.data(Material.CHISELED_SANDSTONE);
         return Blocks.data(c.b);
+    }
+
+    /** outer radius of the stands */
+    static final double STADIUM_OUTER = 74;
+
+    /** flat mud floor with a medallion, rays and rings */
+    private String stadiumFloor(int dx, int dz) {
+        int ax = Math.abs(dx), az = Math.abs(dz);
+        double d = Math.hypot(dx, dz);
+        double ds = Math.hypot(ax - spawnX, az);
+        if (ds < 1.5 && az <= 1 && Math.abs(ax - spawnX) <= 1) return az == 0 && ax == spawnX ? "spawn" : "pad";
+        if (d <= 3) return "packedmud";
+        if (d <= 5) return "mudbricks";
+        if (d <= 7) return "mud";
+        if (d <= 9) return "packedmud";
+        double step = Math.PI / 4;
+        double diff = Math.abs(((Math.atan2(dz, dx) % step) + step) % step);
+        if (d <= 47 && d * Math.sin(Math.min(diff, step - diff)) < 0.75) return "packedmud";
+        if ((d > 22 && d <= 23.5) || (d > 36 && d <= 37.5)) return "mudbricks";
+        if (d > 46 && d <= 47.5) return "packedmud";
+        if (d > 47.5) return "mudbricks";
+        return "mud";
+    }
+
+    /** seating tiers, a rim wall and floodlights around the field */
+    private Map<Long, BlockData> buildStadium() {
+        Map<Long, BlockData> out = new HashMap<>();
+        BlockData fill = Blocks.data(Material.STONE_BRICKS);
+        BlockData seatA = Blocks.data(Material.ORANGE_TERRACOTTA), seatB = Blocks.data(Material.BROWN_TERRACOTTA);
+        BlockData aisle = Blocks.data(Material.POLISHED_ANDESITE);
+        BlockData wall = Blocks.data(Material.DEEPSLATE_BRICKS);
+        int r = (int) Math.ceil(STADIUM_OUTER);
+        for (int dx = -r; dx <= r; dx++) {
+            for (int dz = -r; dz <= r; dz++) {
+                double d = Math.hypot(dx, dz);
+                if (d <= rWall || d > STADIUM_OUTER) continue;
+                int h;
+                BlockData top, body = fill;
+                if (d > 70) {
+                    h = 14;
+                    top = wall;
+                    body = wall;
+                } else {
+                    h = 3 + (int) ((d - rWall) / 2);
+                    double ang = Math.toDegrees(Math.atan2(dz, dx));
+                    if (ang < 0) ang += 360;
+                    double m = (((ang - 22.5) % 45) + 45) % 45;
+                    boolean isAisle = d * Math.toRadians(Math.min(m, 45 - m)) < 0.8;
+                    top = isAisle ? aisle : ((int) (ang / 7.5) / 3) % 2 == 0 ? seatA : seatB;
+                }
+                for (int rel = 1; rel <= h; rel++) out.put(Pack.key(dx, BASE_Y + rel, dz), rel == h ? top : body);
+            }
+        }
+        BlockData pole = Blocks.data(Material.POLISHED_BLACKSTONE_BRICKS), lamp = Blocks.data(Material.SEA_LANTERN);
+        for (int i = 0; i < 12; i++) {
+            double a = Math.toRadians(i * 30 + 15);
+            int px = (int) Math.round(Math.cos(a) * 71), pz = (int) Math.round(Math.sin(a) * 71);
+            for (int rel = 15; rel <= 26; rel++) out.put(Pack.key(px, BASE_Y + rel, pz), pole);
+            for (int ox = -1; ox <= 1; ox++) for (int oz = -1; oz <= 1; oz++) out.put(Pack.key(px + ox, BASE_Y + 27, pz + oz), lamp);
+        }
+        return out;
     }
 
     private Map<Long, BlockData> buildSmallOverlay() {
@@ -163,6 +235,7 @@ final class ArenaModel {
             case POPLAR -> .55;
             case SNOWY -> .30;
             case CHERRY -> .30;
+            case STADIUM -> 0;
         };
         int max = radius / cell + 1;
         for (int gx = 0; gx <= max; gx++) {
@@ -204,6 +277,7 @@ final class ArenaModel {
                 if (t < .6) Shapes.tree(out, allow, surf, "sprucelog", "spruce", 2, 6 + (int) (u * 3), x, z);
                 else Shapes.mound(out, allow, surf, x, z, 3 + u * 2, 2, Blocks.data("drift"));
             }
+            case STADIUM -> { }
             case CHERRY -> {
                 Shapes.tree(out, allow, surf, "cherrylog", "cherry", 2 + (int) (u * 2), 4 + (int) (u * 2), x, z);
             }

@@ -76,7 +76,7 @@ public final class ArenaGenerator {
     }
 
     /** bump on design change */
-    static final int DESIGN_VERSION = 5;
+    static final int DESIGN_VERSION = 6;
 
     /** clear stale chunks */
     private void dropStaleTerrain(String worldName) {
@@ -215,6 +215,17 @@ public final class ArenaGenerator {
 
     private int perTheme() { return Math.max(0, plugin.getConfig().getInt("arena-generator.per-theme", 2)); }
 
+    private int stadiumCount() { return Math.max(0, plugin.getConfig().getInt("arena-generator.stadium-count", 2)); }
+
+    private ArenaTheme randomTheme() {
+        ArenaTheme[] all = ArenaTheme.values();
+        ArenaTheme t;
+        do {
+            t = all[rnd.nextInt(all.length)];
+        } while (t == ArenaTheme.STADIUM);
+        return t;
+    }
+
     private int rankedPerTheme() { return Math.max(0, plugin.getConfig().getInt("arena-generator.ranked-per-theme", 1)); }
 
     private int maxTotal() { return Math.max(1, plugin.getConfig().getInt("arena-generator.max-total", 30)); }
@@ -236,8 +247,9 @@ public final class ArenaGenerator {
         int made = 0;
         for (ArenaTheme t : ArenaTheme.values()) {
             for (boolean large : new boolean[] {false, true}) {
+                if (t == ArenaTheme.STADIUM && large) continue;
                 long have = plugin.arenas().all().stream().filter(a -> t.id.equals(a.theme) && a.large == large).count();
-                int want = large ? rankedPerTheme() : perTheme();
+                int want = t == ArenaTheme.STADIUM ? stadiumCount() : large ? rankedPerTheme() : perTheme();
                 for (long i = have; i < want && total() < maxTotal(); i++) {
                     create(t, large);
                     made++;
@@ -265,7 +277,16 @@ public final class ArenaGenerator {
         Location s2 = new Location(world, slot.cx() + sp + 0.5, FLOOR_Y + 1, slot.cz() + 0.5, 90f, 0f);
         Arena a = plugin.arenas().addGenerated(nextName(theme, large), theme.id, slot.index(), s1, s2, large, radius);
         warm(a, slot, sp);
+        if (theme == ArenaTheme.STADIUM) preloadStands(slot);
         return a;
+    }
+
+    /** load the stands too, in the background */
+    private void preloadStands(Slot slot) {
+        int r = 78;
+        for (int x = (slot.cx() - r) >> 4; x <= (slot.cx() + r) >> 4; x++) {
+            for (int z = (slot.cz() - r) >> 4; z <= (slot.cz() + r) >> 4; z++) world.getChunkAtAsync(x, z);
+        }
     }
 
     /** load chunks, mark ready */
@@ -290,7 +311,7 @@ public final class ArenaGenerator {
         if (world == null) return 0;
         int made = 0;
         for (int i = 0; i < amount && total() < maxTotal(); i++) {
-            create(theme != null ? theme : ArenaTheme.values()[rnd.nextInt(ArenaTheme.values().length)], large);
+            create(theme != null ? theme : randomTheme(), theme == ArenaTheme.STADIUM ? false : large);
             made++;
         }
         return made;
@@ -298,11 +319,21 @@ public final class ArenaGenerator {
 
     /** make extra arena */
     public boolean requestExtra(boolean large) {
+        return requestExtra(large, null);
+    }
+
+    /** extra arena; a stadium kit gets a stadium */
+    public boolean requestExtra(boolean large, String kitId) {
         if (!enabled() || world == null) return false;
         if (building()) return true;
         if (total() >= maxTotal()) return false;
-        create(ArenaTheme.values()[rnd.nextInt(ArenaTheme.values().length)], large);
+        if (plugin.arenas().isStadiumKit(kitId)) create(ArenaTheme.STADIUM, false);
+        else create(randomTheme(), large);
         return true;
+    }
+
+    private int resetRadius(Arena a) {
+        return a.radius() + (ArenaTheme.STADIUM.id.equals(a.theme) ? 26 : 4);
     }
 
     public boolean resets(Arena a) {
@@ -318,7 +349,7 @@ public final class ArenaGenerator {
             return;
         }
         var c = a.center();
-        int r = a.radius() + 4;
+        int r = resetRadius(a);
         int x0 = (c.getBlockX() - r) >> 4, x1 = (c.getBlockX() + r) >> 4, z0 = (c.getBlockZ() - r) >> 4, z1 = (c.getBlockZ() + r) >> 4;
 
         // remove loose entities
@@ -359,7 +390,7 @@ public final class ArenaGenerator {
     public void resetSync(Arena a) {
         if (!resets(a)) return;
         var c = a.center();
-        int r = a.radius() + 4;
+        int r = resetRadius(a);
         int x0 = (c.getBlockX() - r) >> 4, x1 = (c.getBlockX() + r) >> 4, z0 = (c.getBlockZ() - r) >> 4, z1 = (c.getBlockZ() + r) >> 4;
         List<Fix> fixes = new ArrayList<>();
         for (int x = x0; x <= x1; x++) {

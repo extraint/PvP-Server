@@ -11,7 +11,8 @@ public enum ArenaTheme {
     DESERT("desert", "Desert", Material.SAND, Material.SANDSTONE),
     POPLAR("poplar", "Poplar Grove", Material.YELLOW_POPLAR_LEAVES, Material.DIRT),
     SNOWY("snowy", "Snowy", Material.SNOW_BLOCK, Material.DIRT),
-    CHERRY("cherry", "Cherry Grove", Material.CHERRY_LEAVES, Material.DIRT);
+    CHERRY("cherry", "Cherry Grove", Material.CHERRY_LEAVES, Material.DIRT),
+    STADIUM("stadium", "Stadium", Material.MUD, Material.PACKED_MUD);
 
     public final String id;
     public final String display;
@@ -33,6 +34,7 @@ public enum ArenaTheme {
             case POPLAR -> Biome.FOREST;
             case SNOWY -> Biome.SNOWY_PLAINS;
             case CHERRY -> Biome.CHERRY_GROVE;
+            case STADIUM -> Biome.PLAINS;
         };
     }
 

@@ -19,6 +19,9 @@ public final class Blocks {
 
     static {
         MAT.put("grass", Material.GRASS_BLOCK);
+        MAT.put("mud", Material.MUD);
+        MAT.put("packedmud", Material.PACKED_MUD);
+        MAT.put("mudbricks", Material.MUD_BRICKS);
         MAT.put("coarse", Material.COARSE_DIRT);
         MAT.put("path", Material.DIRT_PATH);
         MAT.put("podzol", Material.PODZOL);

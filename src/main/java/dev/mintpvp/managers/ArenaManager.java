@@ -330,11 +330,30 @@ public final class ArenaManager {
         return arenas.values().stream().filter(a -> a.inUse && a.ready() && a.contains(l)).findFirst();
     }
 
+    private static boolean stadium(Arena a) {
+        return "stadium".equals(a.theme);
+    }
+
+    /** kits that always play in the stadium */
+    public boolean isStadiumKit(String kitId) {
+        return kitId != null && plugin.getConfig().getStringList("arena-generator.stadium-kits").contains(kitId.toLowerCase(Locale.ROOT));
+    }
+
     /** free arena */
     public Optional<Arena> randomFree(boolean ranked) {
-        List<Arena> free = arenas.values().stream().filter(a -> a.ready() && !a.inUse && (ranked ? a.large : !a.large)).toList();
-        if (free.isEmpty() && ranked && arenas.values().stream().noneMatch(a -> a.large)) {
-            free = arenas.values().stream().filter(a -> a.ready() && !a.inUse).toList();
+        return randomFree(ranked, null);
+    }
+
+    /** free arena for a kit: stadium kits get the stadium, everyone else never does */
+    public Optional<Arena> randomFree(boolean ranked, String kitId) {
+        List<Arena> free;
+        if (isStadiumKit(kitId) && arenas.values().stream().anyMatch(ArenaManager::stadium)) {
+            free = arenas.values().stream().filter(a -> a.ready() && !a.inUse && stadium(a)).toList();
+        } else {
+            free = arenas.values().stream().filter(a -> a.ready() && !a.inUse && !stadium(a) && (ranked ? a.large : !a.large)).toList();
+            if (free.isEmpty() && ranked && arenas.values().stream().noneMatch(a -> a.large)) {
+                free = arenas.values().stream().filter(a -> a.ready() && !a.inUse && !stadium(a)).toList();
+            }
         }
         if (free.isEmpty()) return Optional.empty();
         return Optional.of(free.get(new Random().nextInt(free.size())));

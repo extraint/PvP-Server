@@ -130,6 +130,7 @@ public final class ArenaLayout {
                     Feature.tree(12, 14, "cherrylog", "cherry", 3, 5),
                     Feature.tree(25, 20, "cherrylog", "cherry", 3, 5),
                     Feature.tree(5, 27, "cherrylog", "cherry", 2, 5)));
+            case STADIUM -> throw new IllegalStateException("the stadium has no hand-made plan");
         };
     }
 
