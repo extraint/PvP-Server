@@ -50,9 +50,9 @@ ranked:
   enabled: true
   # tier ladder
   first-to: 3  # ranked rounds to win
-  wins-to-promote: 2  # wins to promote
-  losses-to-demote: 2  # losses to demote
-  streak-bonus-at: 3  # streak bonus threshold
+  wins-to-promote: 1  # wins to promote
+  losses-to-demote: 3  # losses to demote
+  streak-bonus-at: 2  # streak bonus threshold
   window-base: 1  # starting tier window
   window-step: 1  # window growth
   window-interval-seconds: 10  # seconds per growth

@@ -374,9 +374,9 @@ public final class StatsManager {
                     new TierChange(kitId, tl, tl, sl.kitProgress.getOrDefault(kitId, 0), 0, scoreL, false)};
         }
         var c = plugin.getConfig();
-        int promote = Math.max(1, c.getInt("ranked.wins-to-promote", 2)) * UNITS;
-        int demote = Math.max(1, c.getInt("ranked.losses-to-demote", 2)) * UNITS;
-        int streakAt = c.getInt("ranked.streak-bonus-at", 3);
+        int promote = Math.max(1, c.getInt("ranked.wins-to-promote", 1)) * UNITS;
+        int demote = Math.max(1, c.getInt("ranked.losses-to-demote", 3)) * UNITS;
+        int streakAt = c.getInt("ranked.streak-bonus-at", 2);
         int top = dev.mintpvp.util.Tier.values().length - 1;
 
         sw.rankedWins++;
