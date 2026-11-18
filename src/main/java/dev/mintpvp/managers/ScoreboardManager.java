@@ -4,6 +4,7 @@ import dev.mintpvp.MintPvP;
 import dev.mintpvp.util.Theme;
 import io.papermc.paper.scoreboard.numbers.NumberFormat;
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.scheduler.BukkitTask;
@@ -12,6 +13,7 @@ import org.bukkit.scoreboard.DisplaySlot;
 import org.bukkit.scoreboard.Objective;
 import org.bukkit.scoreboard.Scoreboard;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
@@ -62,6 +64,18 @@ public final class ScoreboardManager {
         }
     }
 
+    /** red and blue name colours (nametags, tab list) for everyone in a team match */
+    private void colorTeams(Scoreboard board, DuelManager.Duel match) {
+        var red = board.registerNewTeam("mint_red");
+        red.color(NamedTextColor.RED);
+        var blue = board.registerNewTeam("mint_blue");
+        blue.color(NamedTextColor.AQUA);
+        for (Player m : match.players) {
+            if (!m.isOnline()) continue;
+            (match.teamOf(m) == 1 ? blue : red).addEntry(m.getName());
+        }
+    }
+
     public void update(Player p) {
         Theme t = plugin.theme();
         StatsManager.Stats s = plugin.stats().get(p.getUniqueId());
@@ -71,7 +85,12 @@ public final class ScoreboardManager {
         obj.setDisplaySlot(DisplaySlot.SIDEBAR);
         obj.numberFormat(NumberFormat.blank());
 
-        List<Component> lines = List.of(
+        var match = plugin.duels().duelOf(p.getUniqueId());
+        if (match == null) match = plugin.duels().spectatedDuel(p.getUniqueId());
+        boolean teams = match != null && match.mode == DuelManager.Mode.PARTY;
+        if (teams) colorTeams(board, match);
+
+        List<Component> lines = new ArrayList<>(List.of(
                 Component.text(" "),
                 t.line("tier", dev.mintpvp.util.Tier.overallLabel(s.score())),
                 t.line("kills", String.valueOf(s.kills)),
@@ -82,7 +101,11 @@ public final class ScoreboardManager {
                 Component.text("  "),
                 t.text("online: ", t.secondary())
                         .append(Component.text(String.valueOf(Bukkit.getOnlinePlayers().size()), t.accent()))
-        );
+        ));
+        if (teams && match.teamOf(p) >= 0) {
+            boolean blue = match.teamOf(p) == 1;
+            lines.add(1, t.text("team: ", t.secondary()).append(Component.text(blue ? "blue" : "red", blue ? NamedTextColor.AQUA : NamedTextColor.RED)));
+        }
 
         int score = lines.size();
         for (int i = 0; i < lines.size(); i++) {

@@ -612,6 +612,16 @@ public final class DuelManager {
             applyBorder(p, arena);
         }
 
+        if (mode == Mode.PARTY) {
+            Theme tt = plugin.theme();
+            for (Player p : duel.players) {
+                boolean blue = duel.teamOf(p) == 1;
+                p.sendMessage(tt.info(tt.text("you are on the ", tt.accent())
+                        .append(net.kyori.adventure.text.Component.text(blue ? "blue" : "red", blue ? net.kyori.adventure.text.format.NamedTextColor.AQUA : net.kyori.adventure.text.format.NamedTextColor.RED))
+                        .append(tt.text(" team. teammates have your colour.", tt.accent()))));
+            }
+        }
+
         if (plugin.getConfig().getBoolean("duel.announce-start", true)) {
             Theme t = plugin.theme();
             String label = switch (mode) {
