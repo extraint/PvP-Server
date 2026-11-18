@@ -69,7 +69,29 @@ public final class MintCommands implements CommandExecutor, TabCompleter {
                 s.sendMessage(t.raw(id + ": " + (a == null ? "not set" : a) + (id.equals(plugin.lobby().currentRegion()) ? "  (this server)" : "")
                         + (cfg.getStringList("region.link-only").contains(id) ? "  (link only)" : ""), t.accent()));
             }
-            s.sendMessage(t.raw("config file: " + new java.io.File(plugin.getDataFolder(), "config.yml").getAbsolutePath(), t.muted()));
+            java.io.File f = new java.io.File(plugin.getDataFolder(), "config.yml");
+            s.sendMessage(t.raw("file: " + f.getAbsolutePath() + " (" + f.length() + " bytes, changed " + (System.currentTimeMillis() - f.lastModified()) / 1000 + "s ago)", t.muted()));
+            var disk = org.bukkit.configuration.file.YamlConfiguration.loadConfiguration(f);
+            s.sendMessage(t.raw("straight from the file: this=" + disk.getString("region.this") + ", na=" + disk.getString("region.servers.na")
+                    + ", eu=" + disk.getString("region.servers.eu"), t.accent()));
+            s.sendMessage(t.raw("getConfig(): this=" + cfg.getString("region.this") + ", na=" + cfg.getString("region.servers.na")
+                    + ", eu=" + cfg.getString("region.servers.eu"), t.accent()));
+            s.sendMessage(t.raw("set in loaded config (not a default): this=" + cfg.contains("region.this", true)
+                    + ", na=" + cfg.contains("region.servers.na", true) + ", eu=" + cfg.contains("region.servers.eu", true), t.accent()));
+            s.sendMessage(t.raw("top-level keys in the file: " + disk.getKeys(false), t.muted()));
+            try {
+                var lines = java.nio.file.Files.readAllLines(f.toPath());
+                int shown = 0;
+                for (int i = 0; i < lines.size() && shown < 14; i++) {
+                    String l = lines.get(i);
+                    if (l.matches("^\\s*(region|servers|this|na|eu|link-only)\\s*:.*")) {
+                        s.sendMessage(t.raw((i + 1) + ": " + l.replace(' ', '\u00b7'), t.muted()));
+                        shown++;
+                    }
+                }
+            } catch (java.io.IOException e) {
+                s.sendMessage(t.raw("could not read the file: " + e.getMessage(), t.muted()));
+            }
             return;
         }
         if (args.length > 0 && args[0].equalsIgnoreCase("db")) {
