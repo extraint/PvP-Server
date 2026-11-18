@@ -392,12 +392,13 @@ public final class StatsManager {
             int gain = tl >= tw + 2 ? 2 * UNITS : tl >= tw ? UNITS : 1;
             if (streakAt > 0 && sw.rankedStreak >= streakAt) gain += UNITS;
             int prog = sw.kitProgress.getOrDefault(kitId, 0) + gain;
-            if (prog >= promote && tw < top) {
-                sw.kitTier.put(kitId, tw + 1);
-                prog = 0;
-            } else if (prog >= promote) {
-                prog = 0;
+            int tier = tw;
+            while (prog >= promote && tier < top) { // extra progress carries into the next tier
+                tier++;
+                prog -= promote;
             }
+            if (tier >= top) prog = 0;
+            if (tier != tw) sw.kitTier.put(kitId, tier);
             sw.kitProgress.put(kitId, prog);
         }
         if (placeL) {
