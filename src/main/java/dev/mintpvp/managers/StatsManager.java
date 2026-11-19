@@ -428,15 +428,33 @@ public final class StatsManager {
         sl.rankedStreak = Math.min(0, sl.rankedStreak) - 1;
 
         String noteW = "", noteL = "";
+        boolean crownTaken = false;
         if (placeW) {
             sw.kitTier.put(kitId, 0);
             sw.kitProgress.put(kitId, 0);
+        } else if (tw == top - 1 && tl == top) {
+            // beating the HT1 holder takes the crown: there is only one HT1 per kit
+            sw.kitTier.put(kitId, top);
+            sw.kitProgress.put(kitId, 0);
+            sl.kitTier.put(kitId, top - 1);
+            sl.kitProgress.put(kitId, 0);
+            noteW = "you took the HT1 crown";
+            noteL = "you lost the HT1 crown";
+            crownTaken = true;
         } else {
             var g = RankedRules.winGain(cfg, tw, tl, sw.rankedStreak, flawless);
             noteW = g.note();
             int prog = sw.kitProgress.getOrDefault(kitId, 0) + g.units();
             int tier = tw;
             while (tier < top && prog >= RankedRules.promoteNeed(cfg, tier)) { // extra progress carries into the next tier
+                if (tier == top - 1) {
+                    UUID king = crownHolder(kitId);
+                    if (king != null && !king.equals(winner)) { // HT1 is taken: beat the holder instead
+                        prog = Math.min(prog, RankedRules.promoteNeed(cfg, tier) - 1);
+                        noteW = "HT1 is held by " + nameOf(king) + ", beat them to take it";
+                        break;
+                    }
+                }
                 prog -= RankedRules.promoteNeed(cfg, tier);
                 tier++;
             }
@@ -447,7 +465,7 @@ public final class StatsManager {
         if (placeL) {
             sl.kitTier.put(kitId, 0);
             sl.kitProgress.put(kitId, 0);
-        } else {
+        } else if (!crownTaken) {
             var p = RankedRules.lossPenalty(cfg, tw, tl, close);
             noteL = p.note();
             if (p.units() > 0) {
@@ -464,6 +482,13 @@ public final class StatsManager {
         return new TierChange[] {
                 new TierChange(kitId, tw, sw.tierIndex(kitId), sw.kitProgress.getOrDefault(kitId, 0), sw.score() - scoreW, sw.score(), placeW, noteW),
                 new TierChange(kitId, tl, sl.tierIndex(kitId), sl.kitProgress.getOrDefault(kitId, 0), sl.score() - scoreL, sl.score(), placeL, noteL)};
+    }
+
+    /** who holds HT1 in a kit, or null (there is only ever one) */
+    public UUID crownHolder(String kitId) {
+        int top = dev.mintpvp.util.Tier.values().length - 1;
+        for (var en : stats.entrySet()) if (en.getValue().tierIndex(kitId) == top) return en.getKey();
+        return null;
     }
 
     /** peak tier in a kit (at least the current one) */
@@ -534,7 +559,16 @@ public final class StatsManager {
         Stats s = get(id);
         if (tierIndex < 0) s.kitTier.remove(kitId);
         else {
-            s.kitTier.put(kitId, Math.min(tierIndex, dev.mintpvp.util.Tier.values().length - 1));
+            int top = dev.mintpvp.util.Tier.values().length - 1;
+            if (tierIndex >= top) { // the old HT1 holder steps down
+                UUID king = crownHolder(kitId);
+                if (king != null && !king.equals(id)) {
+                    get(king).kitTier.put(kitId, top - 1);
+                    get(king).kitProgress.remove(kitId);
+                    touch(king);
+                }
+            }
+            s.kitTier.put(kitId, Math.min(tierIndex, top));
             s.kitPeak.merge(kitId, s.kitTier.get(kitId), Math::max);
             s.kitLast.put(kitId, System.currentTimeMillis());
         }

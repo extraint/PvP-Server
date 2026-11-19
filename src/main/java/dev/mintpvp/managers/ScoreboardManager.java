@@ -64,15 +64,41 @@ public final class ScoreboardManager {
         }
     }
 
-    /** red and blue name colours (nametags, tab list) for everyone in a team match */
-    private void colorTeams(Scoreboard board, DuelManager.Duel match) {
-        var red = board.registerNewTeam("mint_red");
-        red.color(NamedTextColor.RED);
-        var blue = board.registerNewTeam("mint_blue");
-        blue.color(NamedTextColor.AQUA);
-        for (Player m : match.players) {
-            if (!m.isOnline()) continue;
-            (match.teamOf(m) == 1 ? blue : red).addEntry(m.getName());
+    private static final NamedTextColor[] TIER_COLORS = {
+            NamedTextColor.GRAY, NamedTextColor.WHITE, NamedTextColor.YELLOW, NamedTextColor.GOLD, NamedTextColor.GREEN,
+            NamedTextColor.AQUA, NamedTextColor.LIGHT_PURPLE, NamedTextColor.RED, NamedTextColor.DARK_PURPLE, NamedTextColor.GOLD};
+
+    /**
+     * Tier tags in front of every name (nametags and tab list): in a match it is each player's tier in that kit,
+     * elsewhere their best tier. In a party team match names are also coloured red or blue.
+     */
+    private void tagPlayers(Scoreboard board, DuelManager.Duel match) {
+        boolean teams = match != null && match.mode == DuelManager.Mode.PARTY;
+        String kitId = match != null ? match.kit.id : null;
+        int crown = dev.mintpvp.util.Tier.values().length - 1;
+        java.util.Map<String, org.bukkit.scoreboard.Team> made = new java.util.HashMap<>();
+        for (Player o : Bukkit.getOnlinePlayers()) {
+            var st = plugin.stats().get(o.getUniqueId());
+            int idx = kitId != null ? st.tierIndex(kitId) : st.bestTier();
+            NamedTextColor color = null;
+            String ck = "n";
+            if (teams && match.players.contains(o)) {
+                boolean blue = match.teamOf(o) == 1;
+                color = blue ? NamedTextColor.AQUA : NamedTextColor.RED;
+                ck = blue ? "b" : "r";
+            }
+            final NamedTextColor nameColor = color;
+            final int tier = idx;
+            var team = made.computeIfAbsent(ck + idx, k -> {
+                var x = board.registerNewTeam("m" + k);
+                if (tier >= 0) {
+                    boolean king = tier == crown;
+                    x.prefix(Component.text((king ? "★" : "") + dev.mintpvp.util.Tier.name(tier) + " ", TIER_COLORS[Math.min(tier, TIER_COLORS.length - 1)]));
+                }
+                if (nameColor != null) x.color(nameColor);
+                return x;
+            });
+            team.addEntry(o.getName());
         }
     }
 
@@ -88,7 +114,7 @@ public final class ScoreboardManager {
         var match = plugin.duels().duelOf(p.getUniqueId());
         if (match == null) match = plugin.duels().spectatedDuel(p.getUniqueId());
         boolean teams = match != null && match.mode == DuelManager.Mode.PARTY;
-        if (teams) colorTeams(board, match);
+        tagPlayers(board, match);
 
         List<Component> lines = new ArrayList<>(List.of(
                 Component.text(" "),

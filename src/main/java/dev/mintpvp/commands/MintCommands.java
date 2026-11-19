@@ -36,8 +36,14 @@ public final class MintCommands implements CommandExecutor, TabCompleter {
                 else sender.sendMessage(plugin.theme().error("players only."));
             }
             case "tiers" -> {
-                if (sender instanceof Player p) dev.mintpvp.gui.TierGui.open(plugin, p, null);
-                else sender.sendMessage(plugin.theme().error("players only."));
+                if (!(sender instanceof Player p)) { sender.sendMessage(plugin.theme().error("players only.")); return true; }
+                if (args.length > 0) {
+                    var found = Bukkit.getPlayerExact(args[0]) != null ? java.util.Optional.of(Bukkit.getPlayerExact(args[0]).getUniqueId()) : plugin.stats().findByName(args[0]);
+                    if (found.isEmpty()) { p.sendMessage(plugin.theme().error("no player with that name has played here.")); return true; }
+                    dev.mintpvp.gui.TierGui.openFor(plugin, p, found.get(), null);
+                } else {
+                    dev.mintpvp.gui.TierGui.open(plugin, p, null);
+                }
             }
             default -> { return false; }
         }
@@ -263,7 +269,7 @@ public final class MintCommands implements CommandExecutor, TabCompleter {
         List<String> options = switch (cmd.getName().toLowerCase(Locale.ROOT)) {
             case "mintpvp" -> s.hasPermission("mintpvp.admin") ? List.of("help", "reload", "tier", "db", "region") : List.of("help");
             case "leaderboard" -> List.of("tier", "wins", "kills", "kd", "streak");
-            case "stats" -> Bukkit.getOnlinePlayers().stream().map(Player::getName).toList();
+            case "tiers", "stats" -> Bukkit.getOnlinePlayers().stream().map(Player::getName).toList();
             default -> List.of();
         };
         return options.stream().filter(o -> o.toLowerCase(Locale.ROOT).startsWith(prefix)).toList();
