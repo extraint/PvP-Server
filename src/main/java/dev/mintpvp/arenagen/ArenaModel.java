@@ -244,7 +244,7 @@ final class ArenaModel {
         Map<Long, BlockData> out = new HashMap<>();
         BiPredicate<Integer, Integer> allow = (x, z) -> Math.hypot(x, z) <= rPlay - 1 && spawnDistance(x, z) > 5;
         IntBinaryOperator surf = this::surface;
-        int cell = 13, seed = 500 + theme.ordinal() * 17;
+        int cell = radius < 80 ? 8 : 13, seed = 500 + theme.ordinal() * 17; // normal-size arenas get a tighter grid
         double density = switch (theme) {
             case PLAINS -> .30;
             case DESERT -> .26;
