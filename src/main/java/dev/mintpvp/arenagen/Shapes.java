@@ -75,47 +75,9 @@ final class Shapes {
         }
     }
 
-    /** tree */
+    /** tree: shaped by its kind, with its own random height and bends (r and h are no longer used) */
     static void tree(Map<Long, BlockData> out, BiPredicate<Integer, Integer> allow, IntBinaryOperator surf,
                      String trunk, String leaves, int r, int h, int tx, int tz) {
-        int y0 = surf.applyAsInt(tx, tz);
-        BlockData leaf = Blocks.data(leaves);
-        List<int[]> layers = new ArrayList<>();
-        switch (trunk) {
-            case "poplarlog" -> {
-                for (int y = 4; y <= h; y++) layers.add(new int[] {y, r});
-                layers.add(new int[] {h + 1, 0});
-            }
-            case "sprucelog" -> {
-                layers.add(new int[] {3, 2});
-                layers.add(new int[] {4, 1});
-                layers.add(new int[] {5, 2});
-                layers.add(new int[] {6, 1});
-                layers.add(new int[] {h, 1});
-                layers.add(new int[] {h + 1, 0});
-            }
-            case "cherrylog" -> {
-                layers.add(new int[] {h - 1, Math.max(1, r - 1)});
-                layers.add(new int[] {h, r});
-                layers.add(new int[] {h + 1, Math.max(1, r - 1)});
-            }
-            default -> {
-                layers.add(new int[] {h - 1, r});
-                layers.add(new int[] {h, r});
-                layers.add(new int[] {h + 1, Math.max(1, r - 1)});
-            }
-        }
-        for (int[] layer : layers) {
-            int ly = layer[0], lr = layer[1];
-            for (int x = tx - lr; x <= tx + lr; x++) {
-                for (int z = tz - lr; z <= tz + lr; z++) {
-                    if (Math.hypot(x - tx, z - tz) > lr + .35) continue;
-                    if (x == tx && z == tz && ly <= h) continue;
-                    put(out, allow, x, y0 + ly, z, leaf);
-                }
-            }
-        }
-        BlockData log = Blocks.log(trunk, Axis.Y);
-        for (int y = 1; y <= h; y++) put(out, allow, tx, y0 + y, tz, log);
+        VanillaTrees.grow(out, allow, surf, trunk, leaves, tx, tz);
     }
 }

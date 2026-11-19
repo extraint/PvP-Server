@@ -66,7 +66,7 @@ final class ArenaModel {
     }
 
     int maxOverlayHeight() {
-        return theme == ArenaTheme.STADIUM ? 40 : 24;
+        return 40;
     }
 
     BlockData overlayAt(int dx, int y, int dz) {
