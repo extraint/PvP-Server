@@ -89,7 +89,7 @@ public final class ScoreboardManager {
                 var x = board.registerNewTeam("m" + k);
                 if (tier >= 0) {
                     boolean king = tier == crown;
-                    String label = (king ? "★" : "") + dev.mintpvp.util.Tier.name(tier);
+                    String label = (king ? "★" : "") + dev.mintpvp.util.Tier.name(tier).toUpperCase(java.util.Locale.ROOT);
                     x.prefix(Component.text(label + " ", dev.mintpvp.util.Tier.at(tier).color)
                             .decoration(net.kyori.adventure.text.format.TextDecoration.BOLD, true)
                             .decoration(net.kyori.adventure.text.format.TextDecoration.ITALIC, false));
