@@ -255,6 +255,7 @@ public final class DuelListener implements Listener {
     @EventHandler
     public void onQuit(PlayerQuitEvent e) {
         plugin.queue().leave(e.getPlayer().getUniqueId());
+        plugin.duels().cancelVeto(e.getPlayer());
         plugin.lobby().builderOff(e.getPlayer());
         plugin.parties().leave(e.getPlayer(), true);
         plugin.duels().stopSpectating(e.getPlayer());

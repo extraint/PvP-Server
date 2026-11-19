@@ -78,6 +78,7 @@ public final class QueueManager {
         UUID id = p.getUniqueId();
         if (type == Type.RANKED && !rankedEnabled()) { p.sendMessage(t.error("ranked is disabled right now.")); return false; }
         if (plugin.duels().inDuel(id)) { p.sendMessage(t.error("you're already in a duel.")); return false; }
+        if (plugin.duels().inVeto(id)) { p.sendMessage(t.error("you're choosing a map.")); return false; }
         if (plugin.duels().isSpectating(id)) { p.sendMessage(t.error("stop spectating first (/spectate leave).")); return false; }
         if (plugin.combat().isTagged(id)) { p.sendMessage(t.error("you can't queue while in combat.")); return false; }
         if (plugin.parties().blocks(p, "join a queue")) return false;

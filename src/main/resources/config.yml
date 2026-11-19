@@ -59,6 +59,9 @@ ranked:
   decay-grace-days: 14  # idle days before decay, 0 = off
   decay-step-days: 7  # days per extra drop
   decay-floor: lt3  # decay stops here
+  veto: true  # elite players ban maps
+  veto-options: 6  # maps offered
+  veto-seconds: 20  # time to choose
   window-base: 1  # starting tier window
   window-step: 1  # window growth
   window-interval-seconds: 10  # seconds per growth

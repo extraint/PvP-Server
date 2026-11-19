@@ -64,7 +64,7 @@ public final class ArenaGenerator {
     }
 
     ArenaModel model(Slot s) {
-        return models.computeIfAbsent(s.index(), i -> new ArenaModel(s.theme(), s.large(), s.radius()));
+        return models.computeIfAbsent(s.index(), i -> new ArenaModel(s.theme(), s.large() || s.theme().procedural, s.radius()));
     }
 
     Map<Long, BlockData> lobbyChunk(int cx, int cz) {
@@ -76,7 +76,7 @@ public final class ArenaGenerator {
     }
 
     /** bump on design change */
-    static final int DESIGN_VERSION = 6;
+    static final int DESIGN_VERSION = 7;
 
     /** clear stale chunks */
     private void dropStaleTerrain(String worldName) {
@@ -228,7 +228,11 @@ public final class ArenaGenerator {
 
     private int rankedPerTheme() { return Math.max(0, plugin.getConfig().getInt("arena-generator.ranked-per-theme", 1)); }
 
-    private int maxTotal() { return Math.max(1, plugin.getConfig().getInt("arena-generator.max-total", 30)); }
+    private int maxTotal() {
+        int themes = ArenaTheme.values().length - 1; // all but the stadium
+        int need = themes * (perTheme() + rankedPerTheme()) + stadiumCount() + 6;
+        return Math.max(need, plugin.getConfig().getInt("arena-generator.max-total", 30));
+    }
 
     public int total() {
         return (int) plugin.arenas().all().stream().filter(a -> a.theme != null).count();

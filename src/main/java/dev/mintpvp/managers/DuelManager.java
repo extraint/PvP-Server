@@ -128,6 +128,22 @@ public final class DuelManager {
 
     private record SpecSaved(Location loc, GameMode mode) {}
 
+    /** a map ban between two elite players before a ranked match */
+    private static final class Veto {
+        final Player a, b;
+        final Kit kit;
+        final List<dev.mintpvp.arenagen.ArenaTheme> options;
+        final Map<UUID, String> bans = new HashMap<>();
+        BukkitTask timeout;
+
+        Veto(Player a, Player b, Kit kit, List<dev.mintpvp.arenagen.ArenaTheme> options) {
+            this.a = a;
+            this.b = b;
+            this.kit = kit;
+            this.options = options;
+        }
+    }
+
     private record LastMatch(UUID opponent, String kit, boolean ranked, int rounds, long expires) {}
 
     private record Request(UUID from, String kit, String arena, long expires, boolean ranked, boolean party, int rounds) {}
@@ -143,6 +159,7 @@ public final class DuelManager {
 
     private final MintPvP plugin;
     private final Map<UUID, LastMatch> lastMatch = new HashMap<>();
+    private final Map<UUID, Veto> vetoes = new HashMap<>();
     private final Map<UUID, Request> requests = new HashMap<>();
     private final Map<UUID, Duel> byPlayer = new HashMap<>();
     private final Map<String, Deque<Long>> rankedPairs = new HashMap<>();
@@ -151,6 +168,10 @@ public final class DuelManager {
 
     public DuelManager(MintPvP plugin) {
         this.plugin = plugin;
+    }
+
+    public boolean inVeto(UUID id) {
+        return vetoes.containsKey(id);
     }
 
     public boolean inDuel(UUID id) {
@@ -244,6 +265,7 @@ public final class DuelManager {
         if (isSpectating(id)) return "spectating";
         if (plugin.combat().isTagged(id)) return "in combat";
         if (plugin.queue().isQueued(id)) return "in a queue";
+        if (inVeto(id)) return "choosing a map";
         return null;
     }
 
@@ -424,7 +446,7 @@ public final class DuelManager {
             return;
         }
 
-        if (inDuel(from.getUniqueId()) || inDuel(target.getUniqueId())
+        if (inDuel(from.getUniqueId()) || inDuel(target.getUniqueId()) || inVeto(from.getUniqueId()) || inVeto(target.getUniqueId())
                 || isSpectating(from.getUniqueId()) || isSpectating(target.getUniqueId())
                 || plugin.combat().isTagged(from.getUniqueId()) || plugin.combat().isTagged(target.getUniqueId())) {
             target.sendMessage(t.error("the duel can't start right now."));
@@ -475,8 +497,115 @@ public final class DuelManager {
         start(Mode.PARTY, List.of(a, b), List.of(challengerLeader.getName() + "'s party", targetLeader.getName() + "'s party"), arena, kit, false);
     }
 
+    private boolean vetoApplies(Player a, Player b, Kit kit) {
+        if (!plugin.getConfig().getBoolean("ranked.veto", true) || plugin.arenas().isStadiumKit(kit.id)) return false;
+        int elite = plugin.stats().eliteFrom();
+        return plugin.stats().get(a.getUniqueId()).tierIndex(kit.id) >= elite && plugin.stats().get(b.getUniqueId()).tierIndex(kit.id) >= elite;
+    }
+
+    /** map themes with a free ranked arena, a few of them; null when there aren't enough to choose from */
+    private List<dev.mintpvp.arenagen.ArenaTheme> vetoOptions() {
+        List<dev.mintpvp.arenagen.ArenaTheme> themes = new ArrayList<>();
+        for (Arena ar : plugin.arenas().all()) {
+            var th = dev.mintpvp.arenagen.ArenaTheme.byId(ar.theme);
+            if (th != null && th != dev.mintpvp.arenagen.ArenaTheme.STADIUM && ar.large && ar.ready() && !ar.inUse && !themes.contains(th)) themes.add(th);
+        }
+        if (themes.size() < 3) return null;
+        Collections.shuffle(themes);
+        int max = Math.max(3, Math.min(7, plugin.getConfig().getInt("ranked.veto-options", 6)));
+        return new ArrayList<>(themes.subList(0, Math.min(max, themes.size())));
+    }
+
+    private void beginVeto(Player a, Player b, Kit kit, List<dev.mintpvp.arenagen.ArenaTheme> options) {
+        plugin.queue().leave(a.getUniqueId());
+        plugin.queue().leave(b.getUniqueId());
+        Veto v = new Veto(a, b, kit, options);
+        vetoes.put(a.getUniqueId(), v);
+        vetoes.put(b.getUniqueId(), v);
+        int secs = Math.max(5, plugin.getConfig().getInt("ranked.veto-seconds", 20));
+        Theme t = plugin.theme();
+        for (Player p : List.of(a, b)) {
+            p.sendMessage(found(p == a ? b : a, true, kit));
+            p.sendMessage(t.info(t.text("ban a map! the match is played on a random one that isn't banned. ", t.accent())
+                    .append(t.text("[choose]", t.primary()).clickEvent(ClickEvent.runCommand("/duel veto")))));
+            new dev.mintpvp.gui.VetoGui(plugin, p, options).open(p);
+        }
+        v.timeout = Bukkit.getScheduler().runTaskLater(plugin, () -> resolveVeto(v), secs * 20L);
+    }
+
+    /** open the ban menu again */
+    public void vetoMenu(Player p) {
+        Veto v = vetoes.get(p.getUniqueId());
+        if (v == null) { p.sendMessage(plugin.theme().error("there's no map ban going on.")); return; }
+        new dev.mintpvp.gui.VetoGui(plugin, p, v.options).open(p);
+    }
+
+    /** ban a map ("" = ban nothing) */
+    public void vetoBan(Player p, String themeId) {
+        Veto v = vetoes.get(p.getUniqueId());
+        Theme t = plugin.theme();
+        if (v == null) { p.sendMessage(t.error("there's no map ban going on.")); return; }
+        if (v.bans.containsKey(p.getUniqueId())) { p.sendMessage(t.error("you already chose.")); return; }
+        if (!themeId.isEmpty() && v.options.stream().noneMatch(o -> o.id.equals(themeId))) { p.sendMessage(t.error("that map isn't an option.")); return; }
+        v.bans.put(p.getUniqueId(), themeId);
+        p.sendMessage(t.info(t.text(themeId.isEmpty() ? "you banned nothing." : "you banned " + dev.mintpvp.arenagen.ArenaTheme.byId(themeId).display + ".", t.accent())));
+        if (v.bans.size() >= 2) resolveVeto(v);
+    }
+
+    private void resolveVeto(Veto v) {
+        if (vetoes.get(v.a.getUniqueId()) != v) return;
+        if (v.timeout != null) v.timeout.cancel();
+        vetoes.remove(v.a.getUniqueId());
+        vetoes.remove(v.b.getUniqueId());
+        Theme t = plugin.theme();
+        if (!v.a.isOnline() || !v.b.isOnline()) return;
+        Set<String> banned = new HashSet<>(v.bans.values());
+        banned.remove("");
+        List<Arena> pool = new ArrayList<>();
+        for (Arena ar : plugin.arenas().all()) {
+            if (ar.large && ar.ready() && !ar.inUse && ar.theme != null && !"stadium".equals(ar.theme) && !banned.contains(ar.theme)
+                    && v.options.stream().anyMatch(o -> o.id.equals(ar.theme))) pool.add(ar);
+        }
+        if (pool.isEmpty()) pool = plugin.arenas().randomFree(true, v.kit.id).map(List::of).orElse(List.of());
+        if (pool.isEmpty()) {
+            plugin.generator().requestExtra(true, v.kit.id);
+            for (Player p : List.of(v.a, v.b)) {
+                p.sendMessage(t.error("no map is free right now, you're back in the queue."));
+                plugin.queue().join(p, v.kit, QueueManager.Type.RANKED);
+            }
+            return;
+        }
+        Arena arena = pool.get(new Random().nextInt(pool.size()));
+        var th = dev.mintpvp.arenagen.ArenaTheme.byId(arena.theme);
+        String what = th != null ? th.display : arena.name;
+        String bans = banned.isEmpty() ? "no bans" : "banned: " + String.join(", ", banned.stream().map(id -> dev.mintpvp.arenagen.ArenaTheme.byId(id).display).toList());
+        for (Player p : List.of(v.a, v.b)) p.sendMessage(t.info(t.text("map: ", t.accent()).append(t.raw(what, t.primary())).append(t.text(" (" + bans + ")", t.muted()))));
+        start(v.a, v.b, arena, v.kit, true, rankedRounds());
+    }
+
+    /** a player left during the ban: cancel it and put the other back in the queue */
+    public void cancelVeto(Player quitter) {
+        Veto v = vetoes.get(quitter.getUniqueId());
+        if (v == null) return;
+        if (v.timeout != null) v.timeout.cancel();
+        vetoes.remove(v.a.getUniqueId());
+        vetoes.remove(v.b.getUniqueId());
+        Player other = v.a.equals(quitter) ? v.b : v.a;
+        if (other.isOnline()) {
+            other.sendMessage(plugin.theme().error("your opponent left, you're back in the queue."));
+            plugin.queue().join(other, v.kit, QueueManager.Type.RANKED);
+        }
+    }
+
     /** queue match start */
     public boolean startMatch(Player a, Player b, Kit kit, boolean ranked) {
+        if (ranked && vetoApplies(a, b, kit)) {
+            var options = vetoOptions();
+            if (options != null) {
+                beginVeto(a, b, kit, options);
+                return true;
+            }
+        }
         Arena arena = plugin.arenas().randomFree(ranked, kit.id).orElse(null);
         if (arena == null) {
             plugin.generator().requestExtra(ranked, kit.id);

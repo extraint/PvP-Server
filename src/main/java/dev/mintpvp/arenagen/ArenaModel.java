@@ -89,6 +89,11 @@ final class ArenaModel {
             case SNOWY -> 6.0;
             case CHERRY -> 5.0;
             case STADIUM -> 0.0;
+            case BADLANDS -> 8.0;
+            case JUNGLE -> 5.0;
+            case SAVANNA -> 5.0;
+            case CRIMSON -> 6.0;
+            case PEAKS -> 10.0;
         };
         double n = (ArenaLayout.smooth(ax, az, 101, 38) - .5) * 2 * amp + (ArenaLayout.smooth(ax, az, 102, 15) - .5) * amp * 0.7;
         double flatSpawn = clamp((Math.hypot(ax - spawnX, az) - 7) / 12.0);
@@ -127,6 +132,17 @@ final class ArenaModel {
             case SNOWY -> ArenaLayout.smooth(ax, az, 41, 12) > .86 ? "ice" : "snow";
             case CHERRY -> onRing ? "stonebrick" : "grass";
             case STADIUM -> "mud";
+            case BADLANDS -> ArenaLayout.smooth(ax, az, 61, 10) > .7 ? "orangeterra" : ArenaLayout.smooth(ax, az, 62, 7) > .74 ? "yellowterra" : "redsand";
+            case JUNGLE -> {
+                double n = ArenaLayout.smooth(ax, az, 71, 8);
+                yield n > .72 ? "podzol" : n < .25 ? "moss" : "grass";
+            }
+            case SAVANNA -> ArenaLayout.smooth(ax, az, 81, 10) > .6 ? "coarse" : "grass";
+            case CRIMSON -> ArenaLayout.smooth(ax, az, 91, 9) > .7 ? "netherrack" : "nylium";
+            case PEAKS -> {
+                int h = surface(dx, dz) - BASE_Y;
+                yield h >= 5 ? "snow" : h >= 2 ? "stone" : ArenaLayout.smooth(ax, az, 111, 9) > .5 ? "gravel" : "grass";
+            }
         };
     }
 
@@ -236,6 +252,11 @@ final class ArenaModel {
             case SNOWY -> .30;
             case CHERRY -> .30;
             case STADIUM -> 0;
+            case BADLANDS -> .22;
+            case JUNGLE -> .65;
+            case SAVANNA -> .30;
+            case CRIMSON -> .45;
+            case PEAKS -> .25;
         };
         int max = radius / cell + 1;
         for (int gx = 0; gx <= max; gx++) {
@@ -278,6 +299,23 @@ final class ArenaModel {
                 else Shapes.mound(out, allow, surf, x, z, 3 + u * 2, 2, Blocks.data("drift"));
             }
             case STADIUM -> { }
+            case BADLANDS -> {
+                if (t < .6) Shapes.mound(out, allow, surf, x, z, 3.5 + u * 2, 2 + (int) (u * 2), Blocks.data("redsand"));
+                else Shapes.mound(out, allow, surf, x, z, 3 + u, 3, Blocks.data("orangeterra"));
+            }
+            case JUNGLE -> {
+                if (t < .85) Shapes.tree(out, allow, surf, "junglelog", "jungleleaves", 2, 8 + (int) (u * 4), x, z);
+                else Shapes.mound(out, allow, surf, x, z, 3 + u, 2, Blocks.data("moss"));
+            }
+            case SAVANNA -> Shapes.tree(out, allow, surf, "acacialog", "acacialeaves", 3, 5 + (int) (u * 2), x, z);
+            case CRIMSON -> {
+                if (t < .7) Shapes.tree(out, allow, surf, "crimsonstem", "wartblock", 2, 6 + (int) (u * 3), x, z);
+                else Shapes.mound(out, allow, surf, x, z, 3 + u * 2, 2, Blocks.data("netherrack"));
+            }
+            case PEAKS -> {
+                if (t < .5) Shapes.tree(out, allow, surf, "sprucelog", "spruce", 2, 6 + (int) (u * 3), x, z);
+                else Shapes.mound(out, allow, surf, x, z, 3 + u * 2, 2 + (int) (u * 2), Blocks.data(u > .5 ? "gravel" : "snow"));
+            }
             case CHERRY -> {
                 Shapes.tree(out, allow, surf, "cherrylog", "cherry", 2 + (int) (u * 2), 4 + (int) (u * 2), x, z);
             }

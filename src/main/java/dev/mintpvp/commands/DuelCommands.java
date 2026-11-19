@@ -72,6 +72,10 @@ public final class DuelCommands implements CommandExecutor, TabCompleter {
                 p.sendMessage(t.usage("/spectate [player|arena|leave]", "watch a duel"));
             }
             case "rematch" -> plugin.duels().rematch(p);
+            case "veto" -> {
+                if (args.length > 1) plugin.duels().vetoBan(p, args[1].equalsIgnoreCase("none") ? "" : args[1].toLowerCase(Locale.ROOT));
+                else plugin.duels().vetoMenu(p);
+            }
             case "forfeit" -> {
                 if (!plugin.duels().inDuel(p.getUniqueId())) p.sendMessage(t.error("you're not in a duel."));
                 else plugin.duels().forfeit(p);

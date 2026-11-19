@@ -12,19 +12,31 @@ public enum ArenaTheme {
     POPLAR("poplar", "Poplar Grove", Material.YELLOW_POPLAR_LEAVES, Material.DIRT),
     SNOWY("snowy", "Snowy", Material.SNOW_BLOCK, Material.DIRT),
     CHERRY("cherry", "Cherry Grove", Material.CHERRY_LEAVES, Material.DIRT),
-    STADIUM("stadium", "Stadium", Material.MUD, Material.PACKED_MUD);
+    STADIUM("stadium", "Stadium", Material.MUD, Material.PACKED_MUD),
+    BADLANDS("badlands", "Badlands", Material.RED_SAND, Material.TERRACOTTA, true),
+    JUNGLE("jungle", "Jungle", Material.JUNGLE_LEAVES, Material.DIRT, true),
+    SAVANNA("savanna", "Savanna", Material.ACACIA_LEAVES, Material.DIRT, true),
+    CRIMSON("crimson", "Crimson Forest", Material.CRIMSON_NYLIUM, Material.NETHERRACK, true),
+    PEAKS("peaks", "Peaks", Material.SNOW_BLOCK, Material.STONE, true);
 
     public final String id;
     public final String display;
     public final Material icon;
     /** under-floor block */
     public final Material sub;
+    /** built by the rolling-terrain generator even at normal size */
+    public final boolean procedural;
 
     ArenaTheme(String id, String display, Material icon, Material sub) {
+        this(id, display, icon, sub, false);
+    }
+
+    ArenaTheme(String id, String display, Material icon, Material sub, boolean procedural) {
         this.id = id;
         this.display = display;
         this.icon = icon;
         this.sub = sub;
+        this.procedural = procedural;
     }
 
     public Biome biome() {
@@ -35,6 +47,11 @@ public enum ArenaTheme {
             case SNOWY -> Biome.SNOWY_PLAINS;
             case CHERRY -> Biome.CHERRY_GROVE;
             case STADIUM -> Biome.PLAINS;
+            case BADLANDS -> Biome.BADLANDS;
+            case JUNGLE -> Biome.JUNGLE;
+            case SAVANNA -> Biome.SAVANNA;
+            case CRIMSON -> Biome.CRIMSON_FOREST;
+            case PEAKS -> Biome.JAGGED_PEAKS;
         };
     }
 

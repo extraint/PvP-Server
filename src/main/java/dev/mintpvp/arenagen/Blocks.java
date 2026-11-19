@@ -20,6 +20,21 @@ public final class Blocks {
     static {
         MAT.put("grass", Material.GRASS_BLOCK);
         MAT.put("mud", Material.MUD);
+        MAT.put("redsand", Material.RED_SAND);
+        MAT.put("terracotta", Material.TERRACOTTA);
+        MAT.put("orangeterra", Material.ORANGE_TERRACOTTA);
+        MAT.put("yellowterra", Material.YELLOW_TERRACOTTA);
+        MAT.put("junglelog", Material.JUNGLE_LOG);
+        MAT.put("jungleleaves", Material.JUNGLE_LEAVES);
+        MAT.put("moss", Material.MOSS_BLOCK);
+        MAT.put("acacialog", Material.ACACIA_LOG);
+        MAT.put("acacialeaves", Material.ACACIA_LEAVES);
+        MAT.put("nylium", Material.CRIMSON_NYLIUM);
+        MAT.put("netherrack", Material.NETHERRACK);
+        MAT.put("crimsonstem", Material.CRIMSON_STEM);
+        MAT.put("wartblock", Material.NETHER_WART_BLOCK);
+        MAT.put("gravel", Material.GRAVEL);
+        MAT.put("stone", Material.STONE);
         MAT.put("packedmud", Material.PACKED_MUD);
         MAT.put("mudbricks", Material.MUD_BRICKS);
         MAT.put("coarse", Material.COARSE_DIRT);
