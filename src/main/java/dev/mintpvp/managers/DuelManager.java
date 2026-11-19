@@ -1272,7 +1272,7 @@ public final class DuelManager {
         Theme t = plugin.theme();
         Bukkit.broadcast(t.info(t.raw(p.getName(), t.primary())
                 .append(t.text(" reached ", t.accent()))
-                .append(t.raw(dev.mintpvp.util.Tier.name(c.newTier()), t.secondary()))
+                .append(Component.text(dev.mintpvp.util.Tier.name(c.newTier()), dev.mintpvp.util.Tier.at(c.newTier()).color))
                 .append(t.text(" in " + kitName + "!", t.accent()))));
     }
 

@@ -64,10 +64,6 @@ public final class ScoreboardManager {
         }
     }
 
-    private static final NamedTextColor[] TIER_COLORS = {
-            NamedTextColor.GRAY, NamedTextColor.WHITE, NamedTextColor.YELLOW, NamedTextColor.GOLD, NamedTextColor.GREEN,
-            NamedTextColor.AQUA, NamedTextColor.LIGHT_PURPLE, NamedTextColor.RED, NamedTextColor.DARK_PURPLE, NamedTextColor.GOLD};
-
     /**
      * Tier tags in front of every name (nametags and tab list): in a match it is each player's tier in that kit,
      * elsewhere their best tier. In a party team match names are also coloured red or blue.
@@ -93,7 +89,7 @@ public final class ScoreboardManager {
                 var x = board.registerNewTeam("m" + k);
                 if (tier >= 0) {
                     boolean king = tier == crown;
-                    x.prefix(Component.text((king ? "★" : "") + dev.mintpvp.util.Tier.name(tier) + " ", TIER_COLORS[Math.min(tier, TIER_COLORS.length - 1)]));
+                    x.prefix(Component.text((king ? "★" : "") + dev.mintpvp.util.Tier.name(tier) + " ", dev.mintpvp.util.Tier.at(tier).color));
                 }
                 if (nameColor != null) x.color(nameColor);
                 return x;
