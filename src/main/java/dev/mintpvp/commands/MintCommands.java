@@ -100,6 +100,34 @@ public final class MintCommands implements CommandExecutor, TabCompleter {
             }
             return;
         }
+        if (args.length > 0 && args[0].equalsIgnoreCase("tags")) {
+            if (!s.hasPermission("mintpvp.admin")) {
+                s.sendMessage(t.error("no permission."));
+                return;
+            }
+            s.sendMessage(t.info("tier tags check"));
+            var plain = net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer.plainText();
+            if (s instanceof Player viewer) {
+                var board = viewer.getScoreboard();
+                boolean ours = board.getObjective("mint") != null;
+                s.sendMessage(t.raw("your scoreboard is " + (ours ? "the plugin's" : "NOT the plugin's (another plugin replaced it)")
+                        + ", teams on it: " + board.getTeams().size(), t.accent()));
+                for (Player o : Bukkit.getOnlinePlayers()) {
+                    var st = plugin.stats().get(o.getUniqueId());
+                    int best = st.bestTier();
+                    var team = board.getEntryTeam(o.getName());
+                    String have = team == null ? "no team" : "team " + team.getName() + " prefix [" + plain.serialize(team.prefix()) + "]";
+                    s.sendMessage(t.raw(o.getName() + ": best tier " + dev.mintpvp.util.Tier.name(best) + " -> expected tag "
+                            + (best >= 0 ? dev.mintpvp.util.Tier.name(best) : "none") + " | on your scoreboard: " + have, t.muted()));
+                }
+            } else {
+                for (Player o : Bukkit.getOnlinePlayers()) {
+                    s.sendMessage(t.raw(o.getName() + ": best tier " + dev.mintpvp.util.Tier.name(plugin.stats().get(o.getUniqueId()).bestTier())
+                            + ", scoreboard ours: " + (o.getScoreboard().getObjective("mint") != null), t.muted()));
+                }
+            }
+            return;
+        }
         if (args.length > 0 && args[0].equalsIgnoreCase("db")) {
             if (!s.hasPermission("mintpvp.admin")) {
                 s.sendMessage(t.error("no permission."));
@@ -128,6 +156,7 @@ public final class MintCommands implements CommandExecutor, TabCompleter {
             s.sendMessage(t.usage("/mintpvp reload", "reload config"));
             s.sendMessage(t.usage("/mintpvp db", "stats database status"));
             s.sendMessage(t.usage("/mintpvp region", "region settings check"));
+            s.sendMessage(t.usage("/mintpvp tags", "tier tag check"));
             s.sendMessage(t.usage("/mintpvp tier <set|reset|info> ...", "set players' kit tiers"));
             s.sendMessage(t.usage("/arena", "manage duel arenas"));
         }
@@ -267,7 +296,7 @@ public final class MintCommands implements CommandExecutor, TabCompleter {
         if (args.length != 1) return List.of();
         String prefix = args[0].toLowerCase(Locale.ROOT);
         List<String> options = switch (cmd.getName().toLowerCase(Locale.ROOT)) {
-            case "mintpvp" -> s.hasPermission("mintpvp.admin") ? List.of("help", "reload", "tier", "db", "region") : List.of("help");
+            case "mintpvp" -> s.hasPermission("mintpvp.admin") ? List.of("help", "reload", "tier", "db", "region", "tags") : List.of("help");
             case "leaderboard" -> List.of("tier", "wins", "kills", "kd", "streak");
             case "tiers", "stats" -> Bukkit.getOnlinePlayers().stream().map(Player::getName).toList();
             default -> List.of();
