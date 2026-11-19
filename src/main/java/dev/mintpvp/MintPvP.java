@@ -49,6 +49,7 @@ public final class MintPvP extends JavaPlugin {
 
         stats = new StatsManager(this);
         stats.start();
+        getServer().getScheduler().runTaskTimer(this, () -> stats.decayAll(), 200L, 72000L);
         kits = new KitManager(this);
         dev.mintpvp.util.Tier.kitCount = () -> kits.all().size();
         boards = new ScoreboardManager(this);

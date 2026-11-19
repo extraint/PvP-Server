@@ -16,6 +16,10 @@ public final class StatsManager {
         public final Map<String, Integer> kitTier = new HashMap<>();
         /** promotion progress */
         public final Map<String, Integer> kitProgress = new HashMap<>();
+        /** last ranked match per kit (ms) */
+        public final Map<String, Long> kitLast = new HashMap<>();
+        /** highest tier reached per kit */
+        public final Map<String, Integer> kitPeak = new HashMap<>();
         /** ranked streak */
         public int rankedStreak;
 
@@ -69,6 +73,10 @@ public final class StatsManager {
         if (kt != null) for (String k : kt.getKeys(false)) s.kitTier.put(k, Math.max(0, Math.min(dev.mintpvp.util.Tier.values().length - 1, kt.getInt(k))));
         var kp = section.getConfigurationSection("kit-progress");
         if (kp != null) for (String k : kp.getKeys(false)) s.kitProgress.put(k, kp.getInt(k));
+        var kl = section.getConfigurationSection("kit-last");
+        if (kl != null) for (String k : kl.getKeys(false)) s.kitLast.put(k, kl.getLong(k));
+        var kk = section.getConfigurationSection("kit-peak");
+        if (kk != null) for (String k : kk.getKeys(false)) s.kitPeak.put(k, kk.getInt(k));
         s.rankedWins = section.getInt("ranked-wins");
         s.rankedLosses = section.getInt("ranked-losses");
         s.rankedStreak = section.getInt("ranked-streak");
@@ -83,6 +91,8 @@ public final class StatsManager {
         y.set("duel-losses", s.duelLosses);
         s.kitTier.forEach((k, v) -> y.set("kit-tier." + k, v));
         s.kitProgress.forEach((k, v) -> { if (v != 0) y.set("kit-progress." + k, v); });
+        s.kitLast.forEach((k, v) -> y.set("kit-last." + k, v));
+        s.kitPeak.forEach((k, v) -> y.set("kit-peak." + k, v));
         y.set("ranked-wins", s.rankedWins);
         y.set("ranked-losses", s.rankedLosses);
         y.set("ranked-streak", s.rankedStreak);
@@ -199,6 +209,10 @@ public final class StatsManager {
             cur.kitTier.putAll(parsed.kitTier);
             cur.kitProgress.clear();
             cur.kitProgress.putAll(parsed.kitProgress);
+            cur.kitLast.clear();
+            cur.kitLast.putAll(parsed.kitLast);
+            cur.kitPeak.clear();
+            cur.kitPeak.putAll(parsed.kitPeak);
             if (r.name() != null) names.put(r.id(), r.name());
             lastPull = Math.max(lastPull, r.updated());
         } catch (Exception e) {
@@ -349,8 +363,8 @@ public final class StatsManager {
     }
 
     /** tier change */
-    /** Progress is counted in half wins: a full win is UNITS. */
-    public static final int UNITS = 2;
+    /** progress is counted in half wins */
+    public static final int UNITS = RankedRules.UNITS;
 
     /** "1.5 / 2" for progress units out of a number of wins. */
     public static String progressText(int units, int wins) {
@@ -358,10 +372,36 @@ public final class StatsManager {
         return (v == Math.floor(v) ? String.valueOf((int) v) : String.valueOf(v)) + " / " + wins;
     }
 
-    public record TierChange(String kitId, int oldTier, int newTier, int progress, int scoreDelta, int score, boolean placement) {}
+    public record TierChange(String kitId, int oldTier, int newTier, int progress, int scoreDelta, int score, boolean placement, String note) {}
 
-    /** apply ranked result */
-    public TierChange[] recordRanked(UUID winner, UUID loser, boolean draw, String kitId) {
+    private RankedRules.Cfg rankedCfg() {
+        var c = plugin.getConfig();
+        return new RankedRules.Cfg(Math.max(1, c.getInt("ranked.promote-wins", 2)), Math.max(1, c.getInt("ranked.demote-losses", 3)),
+                c.getInt("ranked.streak-bonus-from", 2), eliteFrom(), c.getBoolean("ranked.tier-scaling", true));
+    }
+
+    private int tierByName(String name, int fallback) {
+        if (name != null) for (var t : dev.mintpvp.util.Tier.values()) if (t.label.equalsIgnoreCase(name.trim())) return t.ordinal();
+        return fallback;
+    }
+
+    /** first elite tier (default ht3) */
+    public int eliteFrom() {
+        return tierByName(plugin.getConfig().getString("ranked.elite-from", "ht3"), 5);
+    }
+
+    /** wins needed to leave a tier */
+    public int promoteWinsFor(int tier) {
+        return RankedRules.promoteNeed(rankedCfg(), tier) / UNITS;
+    }
+
+    /** losses that drop you from a tier */
+    public int demoteLossesFor(int tier) {
+        return RankedRules.demoteNeed(rankedCfg(), tier) / UNITS;
+    }
+
+    /** apply ranked result; winnerRounds/loserRounds are the round scores of a finished match */
+    public TierChange[] recordRanked(UUID winner, UUID loser, boolean draw, String kitId, int winnerRounds, int loserRounds, int firstTo) {
         touch(winner);
         touch(loser);
         Stats sw = get(winner), sl = get(loser);
@@ -370,32 +410,35 @@ public final class StatsManager {
         boolean placeW = tw < 0, placeL = tl < 0;
         if (draw) {
             return new TierChange[] {
-                    new TierChange(kitId, tw, tw, sw.kitProgress.getOrDefault(kitId, 0), 0, scoreW, false),
-                    new TierChange(kitId, tl, tl, sl.kitProgress.getOrDefault(kitId, 0), 0, scoreL, false)};
+                    new TierChange(kitId, tw, tw, sw.kitProgress.getOrDefault(kitId, 0), 0, scoreW, false, ""),
+                    new TierChange(kitId, tl, tl, sl.kitProgress.getOrDefault(kitId, 0), 0, scoreL, false, "")};
         }
-        var c = plugin.getConfig();
-        int promote = Math.max(1, c.getInt("ranked.promote-wins", 2)) * UNITS;
-        int demote = Math.max(1, c.getInt("ranked.demote-losses", 3)) * UNITS;
-        int streakAt = c.getInt("ranked.streak-bonus-from", 2);
+        var cfg = rankedCfg();
         int top = dev.mintpvp.util.Tier.values().length - 1;
+        long now = System.currentTimeMillis();
+        sl.kitLast.put(kitId, now);
+        sw.kitLast.put(kitId, now);
+        boolean complete = firstTo > 1 && winnerRounds >= firstTo;
+        boolean flawless = complete && loserRounds == 0;
+        boolean close = complete && loserRounds >= firstTo - 1;
 
         sw.rankedWins++;
         sl.rankedLosses++;
         sw.rankedStreak = Math.max(0, sw.rankedStreak) + 1;
         sl.rankedStreak = Math.min(0, sl.rankedStreak) - 1;
 
+        String noteW = "", noteL = "";
         if (placeW) {
             sw.kitTier.put(kitId, 0);
             sw.kitProgress.put(kitId, 0);
         } else {
-            // a win over your tier or higher is a full win (two over a much higher one); over a lower tier it is half a win
-            int gain = tl >= tw + 2 ? 2 * UNITS : tl >= tw ? UNITS : 1;
-            if (streakAt > 0 && sw.rankedStreak >= streakAt) gain += UNITS;
-            int prog = sw.kitProgress.getOrDefault(kitId, 0) + gain;
+            var g = RankedRules.winGain(cfg, tw, tl, sw.rankedStreak, flawless);
+            noteW = g.note();
+            int prog = sw.kitProgress.getOrDefault(kitId, 0) + g.units();
             int tier = tw;
-            while (prog >= promote && tier < top) { // extra progress carries into the next tier
+            while (tier < top && prog >= RankedRules.promoteNeed(cfg, tier)) { // extra progress carries into the next tier
+                prog -= RankedRules.promoteNeed(cfg, tier);
                 tier++;
-                prog -= promote;
             }
             if (tier >= top) prog = 0;
             if (tier != tw) sw.kitTier.put(kitId, tier);
@@ -404,17 +447,85 @@ public final class StatsManager {
         if (placeL) {
             sl.kitTier.put(kitId, 0);
             sl.kitProgress.put(kitId, 0);
-        } else if (tw <= tl) {
-            int prog = sl.kitProgress.getOrDefault(kitId, 0) - UNITS;
-            if (prog <= -demote) {
-                if (tl > 0) sl.kitTier.put(kitId, tl - 1);
-                prog = 0;
+        } else {
+            var p = RankedRules.lossPenalty(cfg, tw, tl, close);
+            noteL = p.note();
+            if (p.units() > 0) {
+                int prog = sl.kitProgress.getOrDefault(kitId, 0) - p.units();
+                if (prog <= -RankedRules.demoteNeed(cfg, tl)) {
+                    if (tl > 0) sl.kitTier.put(kitId, tl - 1);
+                    prog = 0;
+                }
+                sl.kitProgress.put(kitId, prog);
             }
-            sl.kitProgress.put(kitId, prog);
         }
+        sw.kitPeak.merge(kitId, sw.tierIndex(kitId), Math::max);
+        sl.kitPeak.merge(kitId, sl.tierIndex(kitId), Math::max);
         return new TierChange[] {
-                new TierChange(kitId, tw, sw.tierIndex(kitId), sw.kitProgress.getOrDefault(kitId, 0), sw.score() - scoreW, sw.score(), placeW),
-                new TierChange(kitId, tl, sl.tierIndex(kitId), sl.kitProgress.getOrDefault(kitId, 0), sl.score() - scoreL, sl.score(), placeL)};
+                new TierChange(kitId, tw, sw.tierIndex(kitId), sw.kitProgress.getOrDefault(kitId, 0), sw.score() - scoreW, sw.score(), placeW, noteW),
+                new TierChange(kitId, tl, sl.tierIndex(kitId), sl.kitProgress.getOrDefault(kitId, 0), sl.score() - scoreL, sl.score(), placeL, noteL)};
+    }
+
+    /** peak tier in a kit (at least the current one) */
+    public int peakTier(Stats s, String kitId) {
+        return Math.max(s.kitPeak.getOrDefault(kitId, -1), s.tierIndex(kitId));
+    }
+
+    /** days until an elite tier decays, or -1 if it can't */
+    public long daysUntilDecay(Stats s, String kitId) {
+        int idx = s.tierIndex(kitId);
+        Long last = s.kitLast.get(kitId);
+        if (idx < eliteFrom() || last == null) return -1;
+        int grace = plugin.getConfig().getInt("ranked.decay-grace-days", 14);
+        if (grace <= 0) return -1;
+        return Math.max(0, grace - (System.currentTimeMillis() - last) / 86_400_000L);
+    }
+
+    /** decay for everyone, so inactive players don't keep elite tiers; online players are told */
+    public void decayAll() {
+        for (UUID id : new ArrayList<>(stats.keySet())) {
+            var msgs = applyDecay(id);
+            var p = org.bukkit.Bukkit.getPlayer(id);
+            if (p != null) for (String m : msgs) p.sendMessage(plugin.theme().info(m));
+        }
+    }
+
+    /** inactivity decay for elite tiers; returns messages for the player */
+    public List<String> applyDecay(UUID id) {
+        List<String> out = new ArrayList<>();
+        var c = plugin.getConfig();
+        int grace = c.getInt("ranked.decay-grace-days", 14);
+        if (grace <= 0) return out;
+        int step = c.getInt("ranked.decay-step-days", 7);
+        int elite = eliteFrom();
+        int floor = Math.max(0, tierByName(c.getString("ranked.decay-floor", "lt3"), elite - 1));
+        Stats s = get(id);
+        long now = System.currentTimeMillis();
+        for (var en : new ArrayList<>(s.kitTier.entrySet())) {
+            String kit = en.getKey();
+            int idx = en.getValue();
+            if (idx < elite) continue;
+            Long last = s.kitLast.get(kit);
+            if (last == null) { // first time we see this kit: start the clock
+                s.kitLast.put(kit, now);
+                touch(id);
+                continue;
+            }
+            var d = RankedRules.decay(idx, last, now, grace, step, floor);
+            var kitObj = plugin.kits().get(kit);
+            String name = kitObj != null ? kitObj.display : kit;
+            if (d.dropped() > 0) {
+                s.kitTier.put(kit, d.tier());
+                s.kitProgress.remove(kit);
+                s.kitLast.put(kit, d.last());
+                touch(id);
+                out.add(name + " dropped " + dev.mintpvp.util.Tier.name(idx) + " → " + dev.mintpvp.util.Tier.name(d.tier()) + " (no ranked match in a while)");
+            } else if (idx > floor) {
+                long left = daysUntilDecay(s, kit);
+                if (left >= 0 && left <= 3) out.add(name + " " + dev.mintpvp.util.Tier.name(idx) + " decays in " + left + "d - play a ranked match to keep it");
+            }
+        }
+        return out;
     }
 
     /** admin set tier */
@@ -422,7 +533,11 @@ public final class StatsManager {
         touch(id);
         Stats s = get(id);
         if (tierIndex < 0) s.kitTier.remove(kitId);
-        else s.kitTier.put(kitId, Math.min(tierIndex, dev.mintpvp.util.Tier.values().length - 1));
+        else {
+            s.kitTier.put(kitId, Math.min(tierIndex, dev.mintpvp.util.Tier.values().length - 1));
+            s.kitPeak.merge(kitId, s.kitTier.get(kitId), Math::max);
+            s.kitLast.put(kitId, System.currentTimeMillis());
+        }
         s.kitProgress.remove(kitId);
         save();
     }

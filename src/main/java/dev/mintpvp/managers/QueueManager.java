@@ -53,6 +53,14 @@ public final class QueueManager {
         return queued.size();
     }
 
+    private int eliteCap() {
+        return Math.max(1, plugin.getConfig().getInt("ranked.elite-window-max", 2));
+    }
+
+    private boolean isElite(Entry e) {
+        return e.type() == Type.RANKED && plugin.stats().get(e.id()).tierIndex(e.kit().id) >= plugin.stats().eliteFrom();
+    }
+
     /** tier window */
     public int window(Entry e) {
         var c = plugin.getConfig();
@@ -61,7 +69,8 @@ public final class QueueManager {
         int interval = Math.max(1, c.getInt("ranked.window-interval-seconds", 10));
         int max = Math.max(base, c.getInt("ranked.window-max", 10));
         long waited = (System.currentTimeMillis() - e.since()) / 1000;
-        return (int) Math.min(max, base + step * (waited / interval));
+        int w = (int) Math.min(max, base + step * (waited / interval));
+        return isElite(e) ? Math.min(w, eliteCap()) : w;
     }
 
     public boolean join(Player p, Kit kit, Type type) {
@@ -133,7 +142,9 @@ public final class QueueManager {
                 for (int i = 1; i < pool.size(); i++) {
                     Player c = pool.get(i);
                     int diff = Math.abs(tierA - plugin.stats().get(c.getUniqueId()).tierIndex(kit.id));
-                    int allowed = Math.max(window(queued.get(a.getUniqueId())), window(queued.get(c.getUniqueId())));
+                    Entry ea = queued.get(a.getUniqueId()), ec = queued.get(c.getUniqueId());
+                    int allowed = Math.max(window(ea), window(ec));
+                    if (isElite(ea) || isElite(ec)) allowed = Math.min(allowed, eliteCap()); // elite players only face close tiers
                     if (diff <= allowed && diff < bestDiff) {
                         b = c;
                         bestDiff = diff;

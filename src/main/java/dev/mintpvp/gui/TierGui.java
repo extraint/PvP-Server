@@ -45,8 +45,15 @@ public final class TierGui {
             } else {
                 lore.add(t.line("tier", tier.label + " · " + tier.points + " pts"));
                 int prog = s.kitProgress.getOrDefault(kit.id, 0);
-                int need = plugin.getConfig().getInt(prog >= 0 ? "ranked.promote-wins" : "ranked.demote-losses", prog >= 0 ? 2 : 3);
+                int need = prog >= 0 ? plugin.stats().promoteWinsFor(idx) : plugin.stats().demoteLossesFor(idx);
                 lore.add(t.line(prog >= 0 ? "promotion" : "demotion", dev.mintpvp.managers.StatsManager.progressText(prog, need)));
+                int peak = plugin.stats().peakTier(s, kit.id);
+                if (peak > idx) lore.add(t.line("peak", Tier.name(peak)));
+                if (idx >= plugin.stats().eliteFrom()) {
+                    lore.add(t.text("elite tier: harder promotion, upset losses cost more", t.muted()));
+                    long left = plugin.stats().daysUntilDecay(s, kit.id);
+                    if (left >= 0) lore.add(t.line("decay in", left + "d without a ranked match"));
+                }
             }
             lore.add(Component.empty());
             lore.add(t.text("click for top players", t.secondary()));

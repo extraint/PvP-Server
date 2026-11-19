@@ -1128,9 +1128,23 @@ public final class DuelManager {
     /** tier result */
     private void rankedResult(Duel duel, Player first, boolean draw) {
         Player second = duel.opponentOf(first);
-        var c = plugin.stats().recordRanked(first.getUniqueId(), second.getUniqueId(), draw, duel.kit.id);
+        int ft = duel.teamOf(first);
+        int wr = draw ? 0 : duel.score[ft], lr = draw ? 0 : duel.score[1 - ft];
+        var c = plugin.stats().recordRanked(first.getUniqueId(), second.getUniqueId(), draw, duel.kit.id, wr, lr, duel.firstTo);
         tierMessage(first, duel.kit.display, c[0]);
         tierMessage(second, duel.kit.display, c[1]);
+        announceElite(first, duel.kit.display, c[0]);
+        announceElite(second, duel.kit.display, c[1]);
+    }
+
+    /** tell everyone when someone reaches an elite tier */
+    private void announceElite(Player p, String kitName, StatsManager.TierChange c) {
+        if (c.newTier() <= c.oldTier() || c.newTier() < plugin.stats().eliteFrom()) return;
+        Theme t = plugin.theme();
+        Bukkit.broadcast(t.info(t.raw(p.getName(), t.primary())
+                .append(t.text(" reached ", t.accent()))
+                .append(t.raw(dev.mintpvp.util.Tier.name(c.newTier()), t.secondary()))
+                .append(t.text(" in " + kitName + "!", t.accent()))));
     }
 
     private void tierMessage(Player p, String kitName, StatsManager.TierChange c) {
@@ -1144,9 +1158,10 @@ public final class DuelManager {
         } else if (c.newTier() < c.oldTier()) {
             msg = t.text(kitName + " demoted: " + dev.mintpvp.util.Tier.name(c.oldTier()) + " → " + now, t.secondary());
         } else {
-            int need = plugin.getConfig().getInt(c.progress() >= 0 ? "ranked.promote-wins" : "ranked.demote-losses", c.progress() >= 0 ? 2 : 3);
+            int need = c.progress() >= 0 ? plugin.stats().promoteWinsFor(c.newTier()) : plugin.stats().demoteLossesFor(c.newTier());
             msg = t.text(kitName + " " + now + " · " + (c.progress() >= 0 ? "promotion " : "demotion ") + StatsManager.progressText(c.progress(), need), t.accent());
         }
+        if (!c.note().isEmpty()) msg = msg.append(t.text(" · " + c.note(), t.secondary()));
         msg = msg.append(t.text(" · tier " + dev.mintpvp.util.Tier.overallLabel(c.score()) + (c.scoreDelta() != 0 ? " (" + (c.scoreDelta() > 0 ? "+" : "") + c.scoreDelta() + ")" : ""), t.muted()));
         p.sendMessage(t.info(msg));
     }

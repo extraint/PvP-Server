@@ -24,6 +24,10 @@ public final class PlayerListener implements Listener {
         Theme t = plugin.theme();
         plugin.stats().rememberName(p.getUniqueId(), p.getName());
         plugin.stats().syncJoin(p.getUniqueId());
+        org.bukkit.Bukkit.getScheduler().runTaskLater(plugin, () -> {
+            if (!p.isOnline()) return;
+            for (String line : plugin.stats().applyDecay(p.getUniqueId())) p.sendMessage(plugin.theme().info(line));
+        }, 160L);
 
         e.joinMessage(t.raw("+ ", t.primary()).append(t.raw(p.getName(), t.accent())));
         p.sendMessage(t.info("welcome to " + t.serverName() + ", ")
