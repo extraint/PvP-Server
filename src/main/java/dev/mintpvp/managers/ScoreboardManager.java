@@ -113,7 +113,11 @@ public final class ScoreboardManager {
         var match = plugin.duels().duelOf(p.getUniqueId());
         if (match == null) match = plugin.duels().spectatedDuel(p.getUniqueId());
         boolean teams = match != null && match.mode == DuelManager.Mode.PARTY;
-        tagPlayers(board, match);
+        try {
+            tagPlayers(board, match);
+        } catch (RuntimeException e) {
+            plugin.getLogger().warning("Tier tags failed: " + e);
+        }
 
         List<Component> lines = new ArrayList<>(List.of(
                 Component.text(" "),

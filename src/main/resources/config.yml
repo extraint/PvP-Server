@@ -119,3 +119,6 @@ storage:
     database: mintpvp
     user: ""
     password: ""
+
+tags:
+  floating: true  # floating tier tag above heads
