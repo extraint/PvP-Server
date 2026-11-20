@@ -52,6 +52,7 @@ public final class PlayerListener implements Listener {
         Theme t = plugin.theme();
         e.quitMessage(t.raw("- ", t.muted()).append(t.raw(e.getPlayer().getName(), t.muted())));
         java.util.UUID id = e.getPlayer().getUniqueId();
+        plugin.boards().forget(id);
         org.bukkit.Bukkit.getScheduler().runTask(plugin, () -> plugin.stats().flushPlayer(id)); // after the other quit handlers
     }
 }

@@ -23,6 +23,8 @@ public final class ScoreboardManager {
 
     private final MintPvP plugin;
     private BukkitTask task;
+    private final java.util.Map<UUID, Scoreboard> boards = new java.util.HashMap<>();
+    private final java.util.Map<UUID, Integer> lineCount = new java.util.HashMap<>();
 
     public ScoreboardManager(MintPvP plugin) {
         this.plugin = plugin;
@@ -30,8 +32,14 @@ public final class ScoreboardManager {
 
     public void start() {
         task = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
+            boards.keySet().removeIf(id -> Bukkit.getPlayer(id) == null);
+            lineCount.keySet().removeIf(id -> !boards.containsKey(id));
             for (Player p : Bukkit.getOnlinePlayers()) {
-                update(p);
+                try {
+                    update(p);
+                } catch (RuntimeException e) {
+                    plugin.getLogger().warning("Scoreboard update failed: " + e);
+                }
                 actionBar(p);
             }
         }, 20L, 20L);
@@ -42,6 +50,14 @@ public final class ScoreboardManager {
         for (Player p : Bukkit.getOnlinePlayers()) {
             p.setScoreboard(Bukkit.getScoreboardManager().getMainScoreboard());
         }
+        boards.clear();
+        lineCount.clear();
+    }
+
+    /** a player left */
+    public void forget(UUID id) {
+        boards.remove(id);
+        lineCount.remove(id);
     }
 
     private void actionBar(Player p) {
@@ -65,14 +81,15 @@ public final class ScoreboardManager {
     }
 
     /**
-     * Tier tags in front of every name (nametags and tab list): in a match it is each player's tier in that kit,
-     * elsewhere their best tier. In a party team match names are also coloured red or blue.
+     * Tier tags in front of every name (nametags and tab list) through scoreboard teams: in a match it is each
+     * player's tier in that kit, elsewhere their best tier. In a party team match names are also red or blue.
+     * The board is kept between updates and only the players whose team changed are moved.
      */
     private void tagPlayers(Scoreboard board, DuelManager.Duel match) {
         boolean teams = match != null && match.mode == DuelManager.Mode.PARTY;
         String kitId = match != null ? match.kit.id : null;
         int crown = dev.mintpvp.util.Tier.values().length - 1;
-        java.util.Map<String, org.bukkit.scoreboard.Team> made = new java.util.HashMap<>();
+        java.util.Set<String> online = new java.util.HashSet<>();
         for (Player o : Bukkit.getOnlinePlayers()) {
             var st = plugin.stats().get(o.getUniqueId());
             int idx = kitId != null ? st.tierIndex(kitId) : st.bestTier();
@@ -80,24 +97,32 @@ public final class ScoreboardManager {
             String ck = "n";
             if (teams && match.players.contains(o)) {
                 boolean blue = match.teamOf(o) == 1;
-                color = blue ? NamedTextColor.AQUA : NamedTextColor.RED;
+                color = blue ? NamedTextColor.BLUE : NamedTextColor.RED;
                 ck = blue ? "b" : "r";
             }
-            final NamedTextColor nameColor = color;
-            final int tier = idx;
-            var team = made.computeIfAbsent(ck + idx, k -> {
-                var x = board.registerNewTeam("m" + k);
-                if (tier >= 0) {
-                    boolean king = tier == crown;
-                    String label = (king ? "★" : "") + dev.mintpvp.util.Tier.name(tier).toUpperCase(java.util.Locale.ROOT);
-                    x.prefix(Component.text(label + " ", dev.mintpvp.util.Tier.at(tier).color)
+            String name = "m" + ck + idx;
+            var want = board.getTeam(name);
+            if (want == null) {
+                want = board.registerNewTeam(name);
+                if (idx >= 0) {
+                    String label = (idx == crown ? "★" : "") + dev.mintpvp.util.Tier.name(idx).toUpperCase(Locale.ROOT);
+                    want.prefix(Component.text(label + " ", dev.mintpvp.util.Tier.at(idx).color)
                             .decoration(net.kyori.adventure.text.format.TextDecoration.BOLD, true)
                             .decoration(net.kyori.adventure.text.format.TextDecoration.ITALIC, false));
                 }
-                if (nameColor != null) x.color(nameColor);
-                return x;
-            });
-            team.addEntry(o.getName());
+                if (color != null) want.color(color);
+            }
+            var cur = board.getEntryTeam(o.getName());
+            if (cur != want) {
+                if (cur != null) cur.removeEntry(o.getName());
+                want.addEntry(o.getName());
+            }
+            online.add(o.getName());
+        }
+        for (var tm : new ArrayList<>(board.getTeams())) {
+            if (!tm.getName().startsWith("m")) continue;
+            for (String e : new java.util.HashSet<>(tm.getEntries())) if (!online.contains(e)) tm.removeEntry(e);
+            if (tm.getSize() == 0) tm.unregister();
         }
     }
 
@@ -105,18 +130,25 @@ public final class ScoreboardManager {
         Theme t = plugin.theme();
         StatsManager.Stats s = plugin.stats().get(p.getUniqueId());
 
-        Scoreboard board = Bukkit.getScoreboardManager().getNewScoreboard();
-        Objective obj = board.registerNewObjective("mint", Criteria.DUMMY, t.text(t.serverName(), t.primary()));
-        obj.setDisplaySlot(DisplaySlot.SIDEBAR);
-        obj.numberFormat(NumberFormat.blank());
+        Scoreboard board = boards.computeIfAbsent(p.getUniqueId(), k -> {
+            Scoreboard nb = Bukkit.getScoreboardManager().getNewScoreboard();
+            Objective o = nb.registerNewObjective("mint", Criteria.DUMMY, t.text(t.serverName(), t.primary()));
+            o.setDisplaySlot(DisplaySlot.SIDEBAR);
+            o.numberFormat(NumberFormat.blank());
+            return nb;
+        });
+        Objective obj = board.getObjective("mint");
+        obj.displayName(t.text(t.serverName(), t.primary()));
 
         var match = plugin.duels().duelOf(p.getUniqueId());
         if (match == null) match = plugin.duels().spectatedDuel(p.getUniqueId());
         boolean teams = match != null && match.mode == DuelManager.Mode.PARTY;
-        try {
-            tagPlayers(board, match);
-        } catch (RuntimeException e) {
-            plugin.getLogger().warning("Tier tags failed: " + e);
+        if (plugin.getConfig().getBoolean("tags.teams", true)) {
+            try {
+                tagPlayers(board, match);
+            } catch (RuntimeException e) {
+                plugin.getLogger().warning("Tier tags failed: " + e);
+            }
         }
 
         List<Component> lines = new ArrayList<>(List.of(
@@ -133,7 +165,7 @@ public final class ScoreboardManager {
         ));
         if (teams && match.teamOf(p) >= 0) {
             boolean blue = match.teamOf(p) == 1;
-            lines.add(1, t.text("team: ", t.secondary()).append(Component.text(blue ? "blue" : "red", blue ? NamedTextColor.AQUA : NamedTextColor.RED)));
+            lines.add(1, t.text("team: ", t.secondary()).append(Component.text(blue ? "blue" : "red", blue ? NamedTextColor.BLUE : NamedTextColor.RED)));
         }
 
         int score = lines.size();
@@ -143,6 +175,9 @@ public final class ScoreboardManager {
             line.customName(lines.get(i));
             line.setScore(score--);
         }
-        p.setScoreboard(board);
+        int prev = lineCount.getOrDefault(p.getUniqueId(), 0);
+        for (int i = lines.size(); i < prev; i++) board.resetScores("§" + Integer.toHexString(i));
+        lineCount.put(p.getUniqueId(), lines.size());
+        if (p.getScoreboard() != board) p.setScoreboard(board);
     }
 }

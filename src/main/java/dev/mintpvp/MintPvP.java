@@ -21,7 +21,6 @@ import dev.mintpvp.managers.CombatManager;
 import dev.mintpvp.managers.KitManager;
 import dev.mintpvp.managers.PartyManager;
 import dev.mintpvp.managers.QueueManager;
-import dev.mintpvp.managers.FloatingTags;
 import dev.mintpvp.managers.ScoreboardManager;
 import dev.mintpvp.managers.StatsManager;
 import dev.mintpvp.util.Theme;
@@ -34,7 +33,6 @@ public final class MintPvP extends JavaPlugin {
     private StatsManager stats;
     private KitManager kits;
     private ScoreboardManager boards;
-    private FloatingTags floatingTags;
     private ArenaManager arenas;
     private ArenaGenerator generator;
     private DuelManager duels;
@@ -55,7 +53,6 @@ public final class MintPvP extends JavaPlugin {
         kits = new KitManager(this);
         dev.mintpvp.util.Tier.kitCount = () -> kits.all().size();
         boards = new ScoreboardManager(this);
-        floatingTags = new FloatingTags(this);
         arenas = new ArenaManager(this);
         generator = new ArenaGenerator(this);
         duels = new DuelManager(this);
@@ -119,7 +116,6 @@ public final class MintPvP extends JavaPlugin {
             }
         }
         boards.start();
-        floatingTags.start();
         queue.start();
         generator.start();
         // autosave stats
@@ -135,7 +131,6 @@ public final class MintPvP extends JavaPlugin {
         if (duels != null) duels.shutdown();
         if (kits != null) kits.saveLayouts();
         if (boards != null) boards.stop();
-        if (floatingTags != null) floatingTags.stop();
         if (stats != null) {
             stats.save();
             stats.shutdown();

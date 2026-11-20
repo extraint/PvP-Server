@@ -121,4 +121,4 @@ storage:
     password: ""
 
 tags:
-  floating: true  # floating tier tag above heads
+  teams: true  # tier tags in nametags and tab
