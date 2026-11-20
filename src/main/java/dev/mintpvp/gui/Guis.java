@@ -89,16 +89,24 @@ public final class Guis {
     public static void queueKits(MintPvP plugin, Player p, QueueManager.Type type, Runnable back) {
         Theme t = plugin.theme();
         boolean ranked = type == QueueManager.Type.RANKED;
+        boolean test = type == QueueManager.Type.TEST;
         if (ranked && !plugin.queue().rankedEnabled()) {
             p.sendMessage(t.error("ranked is disabled right now."));
             return;
         }
-        pickKit(plugin, p, ranked ? "ranked queue" : "queue", back, kit -> {
+        pickKit(plugin, p, test ? "tier test" : ranked ? "ranked queue" : "queue", back, kit -> {
             QueueManager q = plugin.queue();
             List<Component> lore = new ArrayList<>();
             lore.add(t.text(q.count(kit, type) + " in queue", t.accent()));
-            if (ranked) {
+            if (ranked || test) {
                 lore.add(t.text("your tier: " + Tier.name(plugin.stats().get(p.getUniqueId()).tierIndex(kit.id)), t.muted()));
+            }
+            if (test) {
+                int ft = Math.max(2, plugin.getConfig().getInt("test.first-to", 4));
+                lore.add(t.text("first to " + ft + " · win by " + ft + "-" + (ft - 2) + " or better", t.muted()));
+                lore.add(t.text("opponent: 1 tier above, below or the same", t.muted()));
+                long cd = plugin.stats().testCooldownMinutes(p.getUniqueId(), kit.id);
+                if (cd > 0) lore.add(t.text("available again in " + cd + " min", t.secondary()));
             }
             lore.add(Component.empty());
             var mine = q.entryOf(p.getUniqueId());

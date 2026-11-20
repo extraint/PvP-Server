@@ -66,7 +66,7 @@ public final class ScoreboardManager {
         var q = plugin.queue().entryOf(id);
         if (q != null && !plugin.combat().isTagged(id)) {
             long sec = (System.currentTimeMillis() - q.since()) / 1000;
-            Component bar = t.text("queued · " + (q.type() == dev.mintpvp.managers.QueueManager.Type.RANKED ? "ranked · " : "")
+            Component bar = t.text("queued · " + (q.type() == dev.mintpvp.managers.QueueManager.Type.RANKED ? "ranked · " : q.type() == dev.mintpvp.managers.QueueManager.Type.TEST ? "tier test · " : "")
                     + q.kit().display + " · ", t.secondary())
                     .append(Component.text(String.format("%d:%02d", sec / 60, sec % 60), t.accent()));
             if (q.type() == dev.mintpvp.managers.QueueManager.Type.RANKED) {

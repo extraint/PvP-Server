@@ -49,6 +49,15 @@ public final class HubGui extends Gui {
                         t.text("click to choose", t.secondary()))
                 .build(), e -> Guis.challenge(plugin, p, () -> new HubGui(plugin, p).open(p)));
 
+        set(25, Items.of(Material.TARGET)
+                .name(t.text("✦ instant tier test", t.primary()))
+                .lore(t.text("skip the grind: win a first-to-4", t.accent()),
+                        t.text("by 2+ rounds to move up a tier", t.accent()),
+                        t.text("a loss never drops you", t.muted()),
+                        Component.empty(),
+                        t.text("click to pick a kit", t.secondary()))
+                .glow().build(), e -> Guis.queueKits(plugin, p, QueueManager.Type.TEST, () -> new HubGui(plugin, p).open(p)));
+
         set(28, Items.of(Material.ENDER_CHEST)
                 .name(t.text("✦ kit layout", t.primary()))
                 .lore(t.text("arrange your kit slots how", t.accent()),

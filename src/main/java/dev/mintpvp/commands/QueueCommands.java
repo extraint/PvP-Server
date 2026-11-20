@@ -49,6 +49,16 @@ public final class QueueCommands implements CommandExecutor, TabCompleter {
                     ? t.info("you left the queue.") : t.error("you're not in a queue."));
             return true;
         }
+        if (args[0].equalsIgnoreCase("test")) {
+            if (args.length < 2) {
+                Guis.queueKits(plugin, p, QueueManager.Type.TEST, null);
+                return true;
+            }
+            Kit tk = plugin.kits().get(args[1]);
+            if (tk == null) { p.sendMessage(t.error("that kit doesn't exist.")); return true; }
+            plugin.queue().join(p, tk, QueueManager.Type.TEST);
+            return true;
+        }
         boolean ranked = args[0].equalsIgnoreCase("ranked");
         if (ranked || args[0].equalsIgnoreCase("unranked")) {
             QueueManager.Type type = ranked ? QueueManager.Type.RANKED : QueueManager.Type.UNRANKED;
@@ -74,10 +84,10 @@ public final class QueueCommands implements CommandExecutor, TabCompleter {
     public List<String> onTabComplete(CommandSender s, Command cmd, String label, String[] args) {
         List<String> out = new ArrayList<>();
         if (cmd.getName().equalsIgnoreCase("queue") && args.length == 1) {
-            out.addAll(List.of("leave", "again", "ranked", "unranked"));
+            out.addAll(List.of("leave", "again", "ranked", "unranked", "test"));
             plugin.kits().all().forEach(k -> out.add(k.id));
         } else if (cmd.getName().equalsIgnoreCase("queue") && args.length == 2
-                && (args[0].equalsIgnoreCase("ranked") || args[0].equalsIgnoreCase("unranked"))) {
+                && (args[0].equalsIgnoreCase("ranked") || args[0].equalsIgnoreCase("unranked") || args[0].equalsIgnoreCase("test"))) {
             plugin.kits().all().forEach(k -> out.add(k.id));
         }
         String pre = args.length == 0 ? "" : args[args.length - 1].toLowerCase(Locale.ROOT);

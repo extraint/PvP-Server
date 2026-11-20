@@ -20,6 +20,8 @@ public final class StatsManager {
         public final Map<String, Long> kitLast = new HashMap<>();
         /** highest tier reached per kit */
         public final Map<String, Integer> kitPeak = new HashMap<>();
+        /** last tier test per kit (ms) */
+        public final Map<String, Long> kitTest = new HashMap<>();
         /** ranked streak */
         public int rankedStreak;
 
@@ -75,6 +77,8 @@ public final class StatsManager {
         if (kp != null) for (String k : kp.getKeys(false)) s.kitProgress.put(k, kp.getInt(k));
         var kl = section.getConfigurationSection("kit-last");
         if (kl != null) for (String k : kl.getKeys(false)) s.kitLast.put(k, kl.getLong(k));
+        var kx = section.getConfigurationSection("kit-test");
+        if (kx != null) for (String k : kx.getKeys(false)) s.kitTest.put(k, kx.getLong(k));
         var kk = section.getConfigurationSection("kit-peak");
         if (kk != null) for (String k : kk.getKeys(false)) s.kitPeak.put(k, kk.getInt(k));
         s.rankedWins = section.getInt("ranked-wins");
@@ -93,6 +97,7 @@ public final class StatsManager {
         s.kitProgress.forEach((k, v) -> { if (v != 0) y.set("kit-progress." + k, v); });
         s.kitLast.forEach((k, v) -> y.set("kit-last." + k, v));
         s.kitPeak.forEach((k, v) -> y.set("kit-peak." + k, v));
+        s.kitTest.forEach((k, v) -> y.set("kit-test." + k, v));
         y.set("ranked-wins", s.rankedWins);
         y.set("ranked-losses", s.rankedLosses);
         y.set("ranked-streak", s.rankedStreak);
@@ -213,6 +218,8 @@ public final class StatsManager {
             cur.kitLast.putAll(parsed.kitLast);
             cur.kitPeak.clear();
             cur.kitPeak.putAll(parsed.kitPeak);
+            cur.kitTest.clear();
+            cur.kitTest.putAll(parsed.kitTest);
             if (r.name() != null) names.put(r.id(), r.name());
             lastPull = Math.max(lastPull, r.updated());
         } catch (Exception e) {
@@ -489,6 +496,50 @@ public final class StatsManager {
         int top = dev.mintpvp.util.Tier.values().length - 1;
         for (var en : stats.entrySet()) if (en.getValue().tierIndex(kitId) == top) return en.getKey();
         return null;
+    }
+
+    /** minutes until this player can take another tier test in a kit (0 = now) */
+    public long testCooldownMinutes(UUID id, String kitId) {
+        Long last = get(id).kitTest.get(kitId);
+        if (last == null) return 0;
+        long cool = plugin.getConfig().getInt("test.cooldown-minutes", 30);
+        long left = cool - (System.currentTimeMillis() - last) / 60_000L;
+        return Math.max(0, left);
+    }
+
+    /**
+     * An instant tier test result (no ranked matches needed). The winner moves up one tier if they win by 2+ rounds
+     * (4-2 or better); nobody loses a tier except an HT1 holder, who falls to LT1. Ranked progress is not touched.
+     */
+    public TierChange[] recordTest(UUID winner, UUID loser, String kitId, int winnerRounds, int loserRounds, int firstTo) {
+        touch(winner);
+        touch(loser);
+        Stats sw = get(winner), sl = get(loser);
+        int tw = sw.tierIndex(kitId), tl = sl.tierIndex(kitId);
+        int scoreW = sw.score(), scoreL = sl.score();
+        int top = dev.mintpvp.util.Tier.values().length - 1;
+        UUID king = crownHolder(kitId);
+        var crown = king == null ? TierTestRules.Crown.NONE
+                : king.equals(winner) ? TierTestRules.Crown.WINNER
+                : king.equals(loser) ? TierTestRules.Crown.LOSER : TierTestRules.Crown.OTHER;
+        var o = TierTestRules.resolve(tw, tl, winnerRounds, loserRounds, firstTo, top, crown);
+        long now = System.currentTimeMillis();
+        sw.kitTest.put(kitId, now);
+        sl.kitTest.put(kitId, now);
+        sw.kitLast.put(kitId, now);
+        sl.kitLast.put(kitId, now);
+        if (o.winnerTier() != tw) {
+            sw.kitTier.put(kitId, o.winnerTier());
+            sw.kitProgress.put(kitId, 0);
+            sw.kitPeak.merge(kitId, o.winnerTier(), Math::max);
+        }
+        if (o.loserTier() != tl) {
+            sl.kitTier.put(kitId, o.loserTier());
+            sl.kitProgress.put(kitId, 0);
+        }
+        return new TierChange[] {
+                new TierChange(kitId, tw, sw.tierIndex(kitId), sw.kitProgress.getOrDefault(kitId, 0), sw.score() - scoreW, sw.score(), tw < 0 && o.winnerTier() >= 0, o.winnerNote()),
+                new TierChange(kitId, tl, sl.tierIndex(kitId), sl.kitProgress.getOrDefault(kitId, 0), sl.score() - scoreL, sl.score(), false, o.loserNote())};
     }
 
     /** peak tier in a kit (at least the current one) */

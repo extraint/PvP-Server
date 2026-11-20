@@ -56,6 +56,10 @@ public final class TierGui {
                 lore.add(t.line(prog >= 0 ? "promotion" : "demotion", dev.mintpvp.managers.StatsManager.progressText(prog, need)));
                 int peak = plugin.stats().peakTier(s, kit.id);
                 if (peak > idx) lore.add(t.line("peak", Tier.name(peak)));
+                if (mine) {
+                    long cd = plugin.stats().testCooldownMinutes(target, kit.id);
+                    lore.add(t.line("tier test", cd > 0 ? "again in " + cd + " min" : "ready"));
+                }
                 UUID king = plugin.stats().crownHolder(kit.id);
                 if (idx == top) lore.add(t.text("you hold the HT1 crown", t.accent()));
                 else if (idx == top - 1 && king != null) lore.add(t.text("beat " + plugin.stats().nameOf(king) + " to take HT1", t.accent()));

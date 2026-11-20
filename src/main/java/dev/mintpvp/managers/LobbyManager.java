@@ -95,9 +95,9 @@ public final class LobbyManager {
         Theme t = plugin.theme();
         boolean ranked = type == QueueManager.Type.RANKED;
         var q = plugin.queue().entryOf(p.getUniqueId());
-        if (q != null && q.type() == type) {
+        if (q != null && (q.type() == type || (q.type() == QueueManager.Type.TEST && type == QueueManager.Type.RANKED))) {
             return Items.of(Material.REDSTONE).name(t.text("✦ leave queue", t.secondary()))
-                    .lore(t.text("queued: " + (ranked ? "ranked " : "") + q.kit().display, t.muted()),
+                    .lore(t.text("queued: " + (q.type() == QueueManager.Type.TEST ? "tier test " : ranked ? "ranked " : "") + q.kit().display, t.muted()),
                             t.text("right-click to leave", t.accent()))
                     .glow().tag("leave_queue").build();
         }

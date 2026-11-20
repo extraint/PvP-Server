@@ -46,6 +46,8 @@ public final class DuelManager {
         public State state = State.COUNTDOWN;
         /** rounds to win */
         public int firstTo = 1;
+        /** an instant tier test, not a ranked match */
+        public boolean test;
         public int round = 1;
         /** round score */
         public final int[] score = new int[2];
@@ -595,6 +597,55 @@ public final class DuelManager {
             other.sendMessage(plugin.theme().error("your opponent left, you're back in the queue."));
             plugin.queue().join(other, v.kit, QueueManager.Type.RANKED);
         }
+    }
+
+    /** an instant tier test: first to a few rounds, no ranked progress involved */
+    public boolean startTest(Player a, Player b, Kit kit) {
+        Arena arena = plugin.arenas().randomFree(true, kit.id).orElse(null);
+        if (arena == null) {
+            plugin.generator().requestExtra(true, kit.id);
+            return false;
+        }
+        Theme t = plugin.theme();
+        int ft = Math.max(2, plugin.getConfig().getInt("test.first-to", 4));
+        for (Player p : List.of(a, b)) {
+            Player other = p == a ? b : a;
+            p.sendMessage(t.info(t.text("tier test found! opponent: ", t.accent()).append(t.raw(other.getName(), t.primary()))
+                    .append(t.text(" (" + dev.mintpvp.util.Tier.name(plugin.stats().get(other.getUniqueId()).tierIndex(kit.id))
+                            + ", " + kit.display + ", first to " + ft + ")", t.muted()))));
+            p.sendMessage(t.info(t.text("win by " + ft + "-" + (ft - 2) + " or better to move up a tier.", t.accent())));
+        }
+        start(a, b, arena, kit, false, ft);
+        Duel d = byPlayer.get(a.getUniqueId());
+        if (d != null) d.test = true;
+        return true;
+    }
+
+    /** the result of an instant tier test */
+    private void testResult(Duel duel, Player winner) {
+        Player loser = duel.opponentOf(winner);
+        int wt = duel.teamOf(winner);
+        int wr = duel.score[wt], lr = duel.score[1 - wt];
+        var c = plugin.stats().recordTest(winner.getUniqueId(), loser.getUniqueId(), duel.kit.id, wr, lr, duel.firstTo);
+        testMessage(winner, duel.kit.display, c[0], wr, lr);
+        testMessage(loser, duel.kit.display, c[1], wr, lr);
+        announceElite(winner, duel.kit.display, c[0]);
+    }
+
+    private void testMessage(Player p, String kitName, StatsManager.TierChange c, int wr, int lr) {
+        Theme t = plugin.theme();
+        Component msg;
+        if (c.newTier() > c.oldTier()) {
+            msg = t.text("tier test passed (" + wr + "-" + lr + "): " + kitName + " "
+                    + (c.oldTier() < 0 ? "placed at " : dev.mintpvp.util.Tier.name(c.oldTier()) + " → ") + dev.mintpvp.util.Tier.name(c.newTier()), t.primary());
+        } else if (c.newTier() < c.oldTier()) {
+            msg = t.text("tier test lost (" + wr + "-" + lr + "): " + kitName + " " + dev.mintpvp.util.Tier.name(c.oldTier()) + " → " + dev.mintpvp.util.Tier.name(c.newTier()), t.secondary());
+        } else {
+            msg = t.text("tier test over (" + wr + "-" + lr + "): " + kitName + " stays " + dev.mintpvp.util.Tier.name(c.newTier()), t.accent());
+        }
+        if (!c.note().isEmpty()) msg = msg.append(t.text(" · " + c.note(), t.muted()));
+        msg = msg.append(t.text(" · tier " + dev.mintpvp.util.Tier.overallLabel(c.score()), t.muted()));
+        p.sendMessage(t.info(msg));
     }
 
     /** queue match start */
@@ -1181,6 +1232,7 @@ public final class DuelManager {
             };
             Bukkit.broadcast(msg);
             if (duel.mode == Mode.DUEL && duel.ranked && count) rankedResult(duel, winners.get(0), false);
+            if (duel.mode == Mode.DUEL && duel.test && count) testResult(duel, winners.get(0));
         } else {
             for (Player p : duel.players) p.sendMessage(t.info("the match ended in a draw: " + duel.drawReason + "."));
             plugin.getLogger().info("Match " + duel.title() + " on " + duel.arena.name + " ended in a draw: " + duel.drawReason);
@@ -1188,7 +1240,7 @@ public final class DuelManager {
         }
         restoreWorld(duel);
         for (Player p : duel.players) if (!duel.left.contains(p.getUniqueId())) restore(p, duel.saved.get(p.getUniqueId()));
-        if (duel.mode == Mode.DUEL && count && duel.players.size() == 2) offerRematch(duel);
+        if (duel.mode == Mode.DUEL && count && !duel.test && duel.players.size() == 2) offerRematch(duel);
         releaseArena(duel);
     }
 

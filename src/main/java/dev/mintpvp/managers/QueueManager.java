@@ -12,7 +12,7 @@ import java.util.*;
 /** matchmaking */
 public final class QueueManager {
 
-    public enum Type { UNRANKED, RANKED }
+    public enum Type { UNRANKED, RANKED, TEST }
 
     public record Entry(UUID id, Kit kit, Type type, long since) {}
 
@@ -77,6 +77,11 @@ public final class QueueManager {
         Theme t = plugin.theme();
         UUID id = p.getUniqueId();
         if (type == Type.RANKED && !rankedEnabled()) { p.sendMessage(t.error("ranked is disabled right now.")); return false; }
+        if (type == Type.TEST) {
+            if (!plugin.getConfig().getBoolean("test.enabled", true)) { p.sendMessage(t.error("tier tests are disabled right now.")); return false; }
+            long left = plugin.stats().testCooldownMinutes(id, kit.id);
+            if (left > 0) { p.sendMessage(t.error("you can take another " + kit.display + " tier test in " + left + " min.")); return false; }
+        }
         if (plugin.duels().inDuel(id)) { p.sendMessage(t.error("you're already in a duel.")); return false; }
         if (plugin.duels().inVeto(id)) { p.sendMessage(t.error("you're choosing a map.")); return false; }
         if (plugin.duels().isSpectating(id)) { p.sendMessage(t.error("stop spectating first (/spectate leave).")); return false; }
@@ -135,8 +140,20 @@ public final class QueueManager {
         while (pool.size() >= 2) {
             Player a = pool.get(0);
             Player b = null;
-            if (!ranked) {
+            if (type == Type.UNRANKED) {
                 b = pool.get(1);
+            } else if (type == Type.TEST) {
+                // a tier test is always against someone one tier above, one below or the same
+                int tierA = plugin.stats().get(a.getUniqueId()).tierIndex(kit.id);
+                int bestDiff = Integer.MAX_VALUE;
+                for (int i = 1; i < pool.size(); i++) {
+                    Player c = pool.get(i);
+                    int diff = Math.abs(tierA - plugin.stats().get(c.getUniqueId()).tierIndex(kit.id));
+                    if (diff <= 1 && diff < bestDiff) {
+                        b = c;
+                        bestDiff = diff;
+                    }
+                }
             } else {
                 int tierA = plugin.stats().get(a.getUniqueId()).tierIndex(kit.id);
                 int bestDiff = Integer.MAX_VALUE;
@@ -158,7 +175,8 @@ public final class QueueManager {
             }
             pool.remove(a);
             pool.remove(b);
-            if (!plugin.duels().startMatch(a, b, kit, ranked)) return;
+            boolean started = type == Type.TEST ? plugin.duels().startTest(a, b, kit) : plugin.duels().startMatch(a, b, kit, ranked);
+            if (!started) return;
         }
     }
 }

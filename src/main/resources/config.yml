@@ -122,3 +122,8 @@ storage:
 
 tags:
   teams: true  # tier tags in nametags and tab
+
+test:
+  enabled: true  # instant tier tests
+  first-to: 4  # rounds to win
+  cooldown-minutes: 30  # wait between tests in a kit
