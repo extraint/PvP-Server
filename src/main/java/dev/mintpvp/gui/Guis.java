@@ -103,8 +103,9 @@ public final class Guis {
             }
             if (test) {
                 int ft = Math.max(2, plugin.getConfig().getInt("test.first-to", 4));
-                lore.add(t.text("first to " + ft + " · win by " + ft + "-" + (ft - 2) + " or better", t.muted()));
-                lore.add(t.text("opponent: 1 tier above, below or the same", t.muted()));
+                lore.add(t.text("first to " + ft + " · opponent 1 tier above, below or same", t.muted()));
+                lore.add(t.text("same or higher: any win moves you up", t.muted()));
+                lore.add(t.text("lower: win " + ft + "-" + (ft - 2) + "+, a loss can drop you", t.muted()));
                 long cd = plugin.stats().testCooldownMinutes(p.getUniqueId(), kit.id);
                 if (cd > 0) lore.add(t.text("available again in " + cd + " min", t.secondary()));
             }

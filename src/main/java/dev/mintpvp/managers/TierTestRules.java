@@ -10,22 +10,27 @@ final class TierTestRules {
 
     private TierTestRules() {}
 
-    /** a test is passed by finishing the first-to with at most firstTo - 2 rounds lost (4-2 or better) */
-    static boolean passed(int winnerRounds, int loserRounds, int firstTo) {
-        return winnerRounds >= firstTo && loserRounds <= firstTo - 2;
+    /**
+     * A test is passed by winning the first-to. Against someone at your tier or higher any win counts (4-3 is
+     * enough); against someone lower you must win by 2+ rounds (4-2 or better).
+     */
+    static boolean passed(int tw, int tl, int winnerRounds, int loserRounds, int firstTo) {
+        if (winnerRounds < firstTo) return false;
+        return tl >= tw || loserRounds <= firstTo - 2;
     }
 
     /**
-     * Winner who passes goes up one tier (an unranked player is placed at LT5). A loser never goes down, except an
-     * HT1 holder, who falls to LT1. There is only one HT1: it can only be won from the holder, or taken while free.
+     * Winner who passes goes up one tier (an unranked player is placed at LT5). A loser goes down one tier only when
+     * they lose to someone in a LOWER tier (an HT1 holder always falls to LT1). There is only one HT1: it can only be
+     * won from the holder, or taken while free.
      * @param tw winner's tier (-1 unranked), tl loser's tier, top = index of HT1
      */
     static Outcome resolve(int tw, int tl, int wr, int lr, int firstTo, int top, Crown crown) {
-        boolean pass = passed(wr, lr, firstTo);
+        boolean pass = passed(tw, tl, wr, lr, firstTo);
         int newW = tw;
         String noteW = "";
         if (!pass) {
-            noteW = "win by 2+ rounds (" + firstTo + "-" + (firstTo - 2) + " or better) to move up";
+            noteW = wr < firstTo ? "the test wasn't finished" : "win by " + firstTo + "-" + (firstTo - 2) + " or better against a lower tier";
         } else if (tw >= top) {
             noteW = "already at the top";
         } else {
@@ -42,6 +47,9 @@ final class TierTestRules {
         if (tl >= top) {
             newL = top - 1;
             noteL = "HT1 drops to LT1 on a loss";
+        } else if (tl > 0 && tw < tl) {
+            newL = tl - 1;
+            noteL = "lost to a lower tier";
         } else {
             noteL = "no tier lost";
         }

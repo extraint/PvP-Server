@@ -613,7 +613,10 @@ public final class DuelManager {
             p.sendMessage(t.info(t.text("tier test found! opponent: ", t.accent()).append(t.raw(other.getName(), t.primary()))
                     .append(t.text(" (" + dev.mintpvp.util.Tier.name(plugin.stats().get(other.getUniqueId()).tierIndex(kit.id))
                             + ", " + kit.display + ", first to " + ft + ")", t.muted()))));
-            p.sendMessage(t.info(t.text("win by " + ft + "-" + (ft - 2) + " or better to move up a tier.", t.accent())));
+            int mine = plugin.stats().get(p.getUniqueId()).tierIndex(kit.id), theirs = plugin.stats().get(other.getUniqueId()).tierIndex(kit.id);
+            p.sendMessage(t.info(t.text(theirs >= mine
+                    ? "same tier or higher: any win moves you up a tier (" + ft + "-" + (ft - 1) + " is enough)."
+                    : "lower tier: win by " + ft + "-" + (ft - 2) + " or better to move up, and losing can drop you a tier.", t.accent())));
         }
         start(a, b, arena, kit, false, ft);
         Duel d = byPlayer.get(a.getUniqueId());

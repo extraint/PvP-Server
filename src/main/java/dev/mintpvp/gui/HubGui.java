@@ -51,9 +51,9 @@ public final class HubGui extends Gui {
 
         set(25, Items.of(Material.TARGET)
                 .name(t.text("✦ instant tier test", t.primary()))
-                .lore(t.text("skip the grind: win a first-to-4", t.accent()),
-                        t.text("by 2+ rounds to move up a tier", t.accent()),
-                        t.text("a loss never drops you", t.muted()),
+                .lore(t.text("skip the grind: a first-to-4 vs", t.accent()),
+                        t.text("a tier above, below or the same", t.accent()),
+                        t.text("beat a lower tier by 4-2+ or risk a drop", t.muted()),
                         Component.empty(),
                         t.text("click to pick a kit", t.secondary()))
                 .glow().build(), e -> Guis.queueKits(plugin, p, QueueManager.Type.TEST, () -> new HubGui(plugin, p).open(p)));
