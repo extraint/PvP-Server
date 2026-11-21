@@ -321,6 +321,11 @@ public final class StatsManager {
         db = null;
     }
 
+    /** read only: the stats if known, without creating an entry (safe from other threads) */
+    public Stats peek(UUID id) {
+        return stats.get(id);
+    }
+
     public Stats get(UUID id) {
         return stats.computeIfAbsent(id, k -> new Stats());
     }

@@ -2,6 +2,7 @@ name: MintPvP
 version: '${project.version}'
 main: dev.mintpvp.MintPvP
 api-version: '26.3'
+softdepend: [TAB]
 authors: [MintPvP]
 description: ᴍɪɴᴛ ᴘᴠᴘ - a fresh mint-green PvP experience.
 commands:

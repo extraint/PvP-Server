@@ -143,7 +143,7 @@ public final class ScoreboardManager {
         var match = plugin.duels().duelOf(p.getUniqueId());
         if (match == null) match = plugin.duels().spectatedDuel(p.getUniqueId());
         boolean teams = match != null && match.mode == DuelManager.Mode.PARTY;
-        if (plugin.getConfig().getBoolean("tags.teams", true)) {
+        if (plugin.getConfig().getBoolean("tags.teams", true) && !TabHook.tabPresent()) { // TAB owns nametags when it is installed
             try {
                 tagPlayers(board, match);
             } catch (RuntimeException e) {

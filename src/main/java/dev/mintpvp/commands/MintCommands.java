@@ -2,6 +2,7 @@ package dev.mintpvp.commands;
 
 import dev.mintpvp.MintPvP;
 import dev.mintpvp.managers.StatsManager;
+import dev.mintpvp.managers.TabHook;
 import dev.mintpvp.util.Theme;
 import org.bukkit.Bukkit;
 import org.bukkit.command.Command;
@@ -59,6 +60,7 @@ public final class MintCommands implements CommandExecutor, TabCompleter {
             }
             plugin.reloadConfig();
             plugin.applyConfig();
+            if (plugin.tab() != null) plugin.tab().reregister();
             s.sendMessage(t.info("config reloaded."));
             return;
         }
@@ -106,6 +108,10 @@ public final class MintCommands implements CommandExecutor, TabCompleter {
                 return;
             }
             s.sendMessage(t.info("tier tags check"));
+            s.sendMessage(t.raw(TabHook.tabPresent()
+                    ? "TAB is installed: it owns nametags and the tab list. placeholders registered: " + (plugin.tab() != null && plugin.tab().hooked())
+                            + ". put %mintpvp_tag% (and %mintpvp_teamcolor% just before the name) in TAB's tagprefix and tabprefix."
+                    : "TAB is not installed: the plugin sets nametags and the tab list itself.", t.accent()));
             var plain = net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer.plainText();
             if (s instanceof Player viewer) {
                 var board = viewer.getScoreboard();
