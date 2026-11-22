@@ -599,6 +599,21 @@ public final class DuelManager {
         }
     }
 
+    /** in a party team match every piece of armor gets a Silence trim in the team colour: red or blue */
+    private void trimForTeam(Duel d, Player p) {
+        if (d.mode != Mode.PARTY || d.teamOf(p) < 0) return;
+        var material = d.teamOf(p) == 1 ? org.bukkit.inventory.meta.trim.TrimMaterial.LAPIS : org.bukkit.inventory.meta.trim.TrimMaterial.REDSTONE;
+        var trim = new org.bukkit.inventory.meta.trim.ArmorTrim(material, org.bukkit.inventory.meta.trim.TrimPattern.SILENCE);
+        ItemStack[] armor = p.getInventory().getArmorContents();
+        for (int i = 0; i < armor.length; i++) {
+            if (armor[i] != null && armor[i].getItemMeta() instanceof org.bukkit.inventory.meta.ArmorMeta meta) {
+                meta.setTrim(trim);
+                armor[i].setItemMeta(meta);
+            }
+        }
+        p.getInventory().setArmorContents(armor);
+    }
+
     /** an instant tier test: first to a few rounds, no ranked progress involved */
     public boolean startTest(Player a, Player b, Kit kit) {
         Arena arena = plugin.arenas().randomFree(true, kit.id).orElse(null);
@@ -789,6 +804,7 @@ public final class DuelManager {
             p.setLevel(0);
             p.setExp(0);
             plugin.kits().give(p, kit);
+            trimForTeam(duel, p);
         }
         for (Player p : duel.players) {
             p.teleport(duel.spawnOf(p));
@@ -1125,6 +1141,7 @@ public final class DuelManager {
             p.setFallDistance(0);
             p.setVelocity(new org.bukkit.util.Vector(0, 0, 0));
             plugin.kits().give(p, d.kit);
+            trimForTeam(d, p);
             p.teleport(d.spawnOf(p));
         }
         d.state = State.COUNTDOWN;
