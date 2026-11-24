@@ -25,11 +25,14 @@ final class ArenaModel {
     /** barrier top */
     final int barrierTop;
 
+    /** makes every arena copy different */
+    final int seed;
     private final Cell[] cells;
     private final Map<Long, BlockData> overlay;
 
-    ArenaModel(ArenaTheme theme, boolean large, int radius) {
+    ArenaModel(ArenaTheme theme, boolean large, int radius, int seed) {
         this.theme = theme;
+        this.seed = seed;
         this.large = large;
         if (large) {
             this.rPlay = radius - 1.5;
@@ -73,6 +76,11 @@ final class ArenaModel {
         return overlay.get(Pack.key(dx, y, dz));
     }
 
+    /** smooth noise at a real (not mirrored) position, shifted and re-seeded per arena */
+    private double sm(int x, int z, int s, double scale) {
+        return ArenaLayout.smooth(x + seed * 53, z + seed * 71, s + seed, scale);
+    }
+
     /** spawn distance */
     double spawnDistance(int dx, int dz) {
         return Math.hypot(Math.abs(dx) - spawnX, dz);
@@ -95,7 +103,7 @@ final class ArenaModel {
             case CRIMSON -> 6.0;
             case PEAKS -> 10.0;
         };
-        double n = (ArenaLayout.smooth(ax, az, 101, 38) - .5) * 2 * amp + (ArenaLayout.smooth(ax, az, 102, 15) - .5) * amp * 0.7;
+        double n = (sm(dx, dz, 101, 38) - .5) * 2 * amp + (sm(dx, dz, 102, 15) - .5) * amp * 0.7;
         double flatSpawn = clamp((Math.hypot(ax - spawnX, az) - 7) / 12.0);
         double flatCentre = clamp((Math.hypot(ax, az) - 5) / 12.0);
         double flatEdge = 1 - clamp((Math.hypot(ax, az) - (rPlay - 10)) / 8.0);
@@ -123,25 +131,25 @@ final class ArenaModel {
         double ringR = rPlay * 0.5;
         boolean onRing = d > ringR && d <= ringR + 1.3;
         return switch (theme) {
-            case PLAINS -> onRing ? "path" : (ArenaLayout.smooth(ax, az, 11, 9) > .72 ? "coarse" : "grass");
-            case DESERT -> ArenaLayout.smooth(ax, az, 21, 10) > .76 ? "smooth" : "sand";
+            case PLAINS -> onRing ? "path" : (sm(dx, dz, 11, 9) > .72 ? "coarse" : "grass");
+            case DESERT -> sm(dx, dz, 21, 10) > .76 ? "smooth" : "sand";
             case POPLAR -> {
-                double n = ArenaLayout.smooth(ax, az, 31, 8);
+                double n = sm(dx, dz, 31, 8);
                 yield n > .74 ? "podzol" : n < .22 ? "coarse" : "grass";
             }
-            case SNOWY -> ArenaLayout.smooth(ax, az, 41, 12) > .86 ? "ice" : "snow";
+            case SNOWY -> sm(dx, dz, 41, 12) > .86 ? "ice" : "snow";
             case CHERRY -> onRing ? "stonebrick" : "grass";
             case STADIUM -> "mud";
-            case BADLANDS -> ArenaLayout.smooth(ax, az, 61, 10) > .7 ? "orangeterra" : ArenaLayout.smooth(ax, az, 62, 7) > .74 ? "yellowterra" : "redsand";
+            case BADLANDS -> sm(dx, dz, 61, 10) > .7 ? "orangeterra" : sm(dx, dz, 62, 7) > .74 ? "yellowterra" : "redsand";
             case JUNGLE -> {
-                double n = ArenaLayout.smooth(ax, az, 71, 8);
+                double n = sm(dx, dz, 71, 8);
                 yield n > .72 ? "podzol" : n < .25 ? "moss" : "grass";
             }
-            case SAVANNA -> ArenaLayout.smooth(ax, az, 81, 10) > .6 ? "coarse" : "grass";
-            case CRIMSON -> ArenaLayout.smooth(ax, az, 91, 9) > .7 ? "netherrack" : "nylium";
+            case SAVANNA -> sm(dx, dz, 81, 10) > .6 ? "coarse" : "grass";
+            case CRIMSON -> sm(dx, dz, 91, 9) > .7 ? "netherrack" : "nylium";
             case PEAKS -> {
                 int h = surface(dx, dz) - BASE_Y;
-                yield h >= 5 ? "snow" : h >= 2 ? "stone" : ArenaLayout.smooth(ax, az, 111, 9) > .5 ? "gravel" : "grass";
+                yield h >= 5 ? "snow" : h >= 2 ? "stone" : sm(dx, dz, 111, 9) > .5 ? "gravel" : "grass";
             }
         };
     }
@@ -244,7 +252,7 @@ final class ArenaModel {
         Map<Long, BlockData> out = new HashMap<>();
         BiPredicate<Integer, Integer> allow = (x, z) -> Math.hypot(x, z) <= rPlay - 1 && spawnDistance(x, z) > 5;
         IntBinaryOperator surf = this::surface;
-        int cell = radius < 80 ? 8 : 13, seed = 500 + theme.ordinal() * 17; // normal-size arenas get a tighter grid
+        int cell = radius < 80 ? 8 : 13, hs = 500 + theme.ordinal() * 17 + seed * 131; // normal-size arenas get a tighter grid
         double density = switch (theme) {
             case PLAINS -> .30;
             case DESERT -> .26;
@@ -259,18 +267,15 @@ final class ArenaModel {
             case PEAKS -> .25;
         };
         int max = radius / cell + 1;
-        for (int gx = 0; gx <= max; gx++) {
-            for (int gz = 0; gz <= max; gz++) {
-                if (ArenaLayout.hash(gx, gz, seed) > density) continue;
-                int fx = gx * cell + (int) (ArenaLayout.hash(gx, gz, seed + 1) * cell);
-                int fz = gz * cell + (int) (ArenaLayout.hash(gx, gz, seed + 2) * cell);
-                if (fx < 5 || fz < 5) continue;
+        for (int gx = -max; gx <= max; gx++) {
+            for (int gz = -max; gz <= max; gz++) {
+                if (ArenaLayout.hash(gx, gz, hs) > density) continue;
+                int fx = gx * cell + (int) (ArenaLayout.hash(gx, gz, hs + 1) * cell);
+                int fz = gz * cell + (int) (ArenaLayout.hash(gx, gz, hs + 2) * cell);
                 double d = Math.hypot(fx, fz);
-                if (d > rPlay - 6 || d < 8 || Math.hypot(fx - spawnX, fz) < 14) continue;
-                double t = ArenaLayout.hash(gx, gz, seed + 3), u = ArenaLayout.hash(gx, gz, seed + 4);
-                for (int sx : new int[] {1, -1}) {
-                    for (int sz : new int[] {1, -1}) place(out, allow, surf, sx * fx, sz * fz, t, u);
-                }
+                if (d > rPlay - 6 || d < 8 || Math.hypot(Math.abs(fx) - spawnX, fz) < 14) continue;
+                double t = ArenaLayout.hash(gx, gz, hs + 3), u = ArenaLayout.hash(gx, gz, hs + 4);
+                place(out, allow, surf, fx, fz, t, u); // one piece, no mirror copy
             }
         }
         return out;

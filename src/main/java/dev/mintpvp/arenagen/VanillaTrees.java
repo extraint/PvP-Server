@@ -44,7 +44,7 @@ final class VanillaTrees {
     /** grow one tree at tx, tz */
     static void grow(Map<Long, BlockData> out, BiPredicate<Integer, Integer> allow, IntBinaryOperator surf,
                      String trunkKey, String leafKey, int tx, int tz) {
-        long seed = (Math.abs(tx) * 73856093L) ^ (Math.abs(tz) * 19349663L) ^ (trunkKey.hashCode() * 83492791L);
+        long seed = (tx * 73856093L) ^ (tz * 19349663L) ^ (trunkKey.hashCode() * 83492791L);
         var t = new VanillaTrees(out, allow, surf.applyAsInt(tx, tz), Blocks.data(leafKey), Blocks.log(trunkKey, org.bukkit.Axis.Y),
                 new SplittableRandom(seed), tx < 0 ? -1 : 1, tz < 0 ? -1 : 1, tx, tz);
         switch (trunkKey) {

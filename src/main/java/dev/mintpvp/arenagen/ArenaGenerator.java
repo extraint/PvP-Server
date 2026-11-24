@@ -64,7 +64,7 @@ public final class ArenaGenerator {
     }
 
     ArenaModel model(Slot s) {
-        return models.computeIfAbsent(s.index(), i -> new ArenaModel(s.theme(), s.large() || s.theme().procedural, s.radius()));
+        return models.computeIfAbsent(s.index(), i -> new ArenaModel(s.theme(), s.large() || s.theme().procedural, s.radius(), s.index()));
     }
 
     Map<Long, BlockData> lobbyChunk(int cx, int cz) {
@@ -76,7 +76,7 @@ public final class ArenaGenerator {
     }
 
     /** bump on design change */
-    static final int DESIGN_VERSION = 9;
+    static final int DESIGN_VERSION = 10;
 
     /** clear stale chunks */
     private void dropStaleTerrain(String worldName) {
@@ -213,9 +213,9 @@ public final class ArenaGenerator {
         }
     }
 
-    private int perTheme() { return Math.max(0, plugin.getConfig().getInt("arena-generator.per-theme", 2)); }
+    private int perTheme() { return Math.max(0, plugin.getConfig().getInt("arena-generator.copies", 4)); }
 
-    private int stadiumCount() { return Math.max(0, plugin.getConfig().getInt("arena-generator.stadium-count", 2)); }
+    private int stadiumCount() { return Math.max(0, plugin.getConfig().getInt("arena-generator.stadium-copies", 4)); }
 
     private ArenaTheme randomTheme() {
         ArenaTheme[] all = ArenaTheme.values();
@@ -226,11 +226,11 @@ public final class ArenaGenerator {
         return t;
     }
 
-    private int rankedPerTheme() { return Math.max(0, plugin.getConfig().getInt("arena-generator.ranked-per-theme", 1)); }
+    private int rankedPerTheme() { return Math.max(0, plugin.getConfig().getInt("arena-generator.ranked-copies", 2)); }
 
     private int maxTotal() {
         int themes = ArenaTheme.values().length - 1; // all but the stadium
-        int need = themes * (perTheme() + rankedPerTheme()) + stadiumCount() + 6;
+        int need = themes * (perTheme() + rankedPerTheme()) + stadiumCount() + 10; // room to grow on demand
         return Math.max(need, plugin.getConfig().getInt("arena-generator.max-total", 30));
     }
 

@@ -87,9 +87,9 @@ arena-generator:
   world-name: mint_arenas_2  # arena world name
   lobby: true  # generate lobby island
   stadium-kits: [sword, uhc, diamondpotion]  # kits played in the stadium
-  stadium-count: 2  # stadium arenas
-  per-theme: 2  # normal arenas per theme
-  ranked-per-theme: 1  # ranked arenas per theme
+  stadium-copies: 4  # stadium arenas
+  copies: 4  # normal arenas per theme
+  ranked-copies: 2  # ranked arenas per theme
   ranked-radius-min: 100  # ranked radius range
   ranked-radius-max: 150
   max-total: 30  # on-demand arena cap

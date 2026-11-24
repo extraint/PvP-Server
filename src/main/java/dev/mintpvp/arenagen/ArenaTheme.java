@@ -7,11 +7,11 @@ import java.util.Locale;
 
 /** arena themes */
 public enum ArenaTheme {
-    PLAINS("plains", "Plains", Material.GRASS_BLOCK, Material.DIRT),
-    DESERT("desert", "Desert", Material.SAND, Material.SANDSTONE),
-    POPLAR("poplar", "Poplar Grove", Material.YELLOW_POPLAR_LEAVES, Material.DIRT),
-    SNOWY("snowy", "Snowy", Material.SNOW_BLOCK, Material.DIRT),
-    CHERRY("cherry", "Cherry Grove", Material.CHERRY_LEAVES, Material.DIRT),
+    PLAINS("plains", "Plains", Material.GRASS_BLOCK, Material.DIRT, true),
+    DESERT("desert", "Desert", Material.SAND, Material.SANDSTONE, true),
+    POPLAR("poplar", "Poplar Grove", Material.YELLOW_POPLAR_LEAVES, Material.DIRT, true),
+    SNOWY("snowy", "Snowy", Material.SNOW_BLOCK, Material.DIRT, true),
+    CHERRY("cherry", "Cherry Grove", Material.CHERRY_LEAVES, Material.DIRT, true),
     STADIUM("stadium", "Stadium", Material.MUD, Material.PACKED_MUD),
     BADLANDS("badlands", "Badlands", Material.RED_SAND, Material.TERRACOTTA, true),
     JUNGLE("jungle", "Jungle", Material.JUNGLE_LEAVES, Material.DIRT, true),

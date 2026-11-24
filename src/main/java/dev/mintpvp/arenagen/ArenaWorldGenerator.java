@@ -60,7 +60,7 @@ final class ArenaWorldGenerator extends ChunkGenerator {
         // solid ground
 
         for (int y = minY; y <= s - 4; y++) {
-            BlockData b = Underground.block(ax, y, az, s, false, edge, minY);
+            BlockData b = Underground.block(dx + m.seed * 977, y, dz + m.seed * 1319, s, false, edge, minY);
             if (b != null) data.setBlock(lx, y, lz, b);
         }
         BlockData sub = m.sub();
