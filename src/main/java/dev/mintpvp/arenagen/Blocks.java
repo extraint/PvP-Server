@@ -34,6 +34,7 @@ public final class Blocks {
         MAT.put("crimsonstem", Material.CRIMSON_STEM);
         MAT.put("wartblock", Material.NETHER_WART_BLOCK);
         MAT.put("gravel", Material.GRAVEL);
+        MAT.put("snowspruce", Material.SPRUCE_LOG);
         MAT.put("stone", Material.STONE);
         MAT.put("packedmud", Material.PACKED_MUD);
         MAT.put("mudbricks", Material.MUD_BRICKS);
@@ -81,7 +82,19 @@ public final class Blocks {
         });
     }
 
+    private static final Map<String, BlockData> SPECIAL = new java.util.concurrent.ConcurrentHashMap<>();
+    private static final BlockData[] SNOW = new BlockData[9];
+
+    /** a snow layer, 1 to 8 high */
+    public static synchronized BlockData snow(int layers) {
+        int n = Math.max(1, Math.min(8, layers));
+        if (SNOW[n] == null) SNOW[n] = Bukkit.createBlockData("minecraft:snow[layers=" + n + "]");
+        return SNOW[n];
+    }
+
     public static BlockData data(String key) {
+        if (key.equals("snowgrass")) return SPECIAL.computeIfAbsent(key, k -> Bukkit.createBlockData("minecraft:grass_block[snowy=true]"));
+        if (key.equals("snowpodzol")) return SPECIAL.computeIfAbsent(key, k -> Bukkit.createBlockData("minecraft:podzol[snowy=true]"));
         Material m = MAT.get(key);
         if (m == null) throw new IllegalStateException("No block for '" + key + "'");
         return data(m);

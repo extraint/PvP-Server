@@ -88,6 +88,11 @@ final class ArenaModel {
 
     /** ground height */
     int surface(int dx, int dz) {
+        if (isPond(dx, dz)) return BASE_Y - 1;
+        return rawSurface(dx, dz);
+    }
+
+    private int rawSurface(int dx, int dz) {
         if (!large) return BASE_Y;
         int ax = Math.abs(dx), az = Math.abs(dz);
         double amp = switch (theme) {
@@ -109,6 +114,33 @@ final class ArenaModel {
         double flatEdge = 1 - clamp((Math.hypot(ax, az) - (rPlay - 10)) / 8.0);
         n *= flatSpawn * flatCentre * flatEdge;
         return BASE_Y + (int) Math.round(n);
+    }
+
+    /** a frozen pond: only in low flat ground away from the spawns, so the water under the ice can't leak sideways */
+    boolean isPond(int dx, int dz) {
+        if (theme != ArenaTheme.SNOWY || !large) return false;
+        double d = Math.hypot(dx, dz);
+        if (d < 14 || d > rPlay - 10 || spawnDistance(dx, dz) < 16) return false;
+        if (sm(dx, dz, 230, 12) < 0.7) return false;
+        for (int ox = -1; ox <= 1; ox++) {
+            for (int oz = -1; oz <= 1; oz++) {
+                int h = rawSurface(dx + ox, dz + oz);
+                if (h < BASE_Y - 2 || h > BASE_Y + 2) return false; // not lower than the water, not a deep pit
+            }
+        }
+        return true;
+    }
+
+    /** within two blocks of a pond: no caves are carved here, so the water can't spill into one */
+    boolean nearPond(int dx, int dz) {
+        if (theme != ArenaTheme.SNOWY || !large || sm(dx, dz, 230, 12) < 0.55) return false;
+        for (int ox = -2; ox <= 2; ox++) for (int oz = -2; oz <= 2; oz++) if (isPond(dx + ox, dz + oz)) return true;
+        return false;
+    }
+
+    /** blocks of water under the top block (the ice of a frozen pond) */
+    int waterDepth(int dx, int dz) {
+        return isPond(dx, dz) ? 2 : 0;
     }
 
     private static double clamp(double v) {
@@ -137,7 +169,14 @@ final class ArenaModel {
                 double n = sm(dx, dz, 31, 8);
                 yield n > .74 ? "podzol" : n < .22 ? "coarse" : "grass";
             }
-            case SNOWY -> sm(dx, dz, 41, 12) > .86 ? "ice" : "snow";
+            case SNOWY -> {
+                if (isPond(dx, dz)) yield "ice";
+                if (sm(dx, dz, 230, 12) > 0.62) { // a gravel shore around the pond
+                    for (int ox = -1; ox <= 1; ox++) for (int oz = -1; oz <= 1; oz++) if (isPond(dx + ox, dz + oz)) yield "gravel";
+                }
+                double n = sm(dx, dz, 41, 10);
+                yield n > .82 ? "gravel" : n < .16 ? "snowpodzol" : "snowgrass";
+            }
             case CHERRY -> onRing ? "stonebrick" : "grass";
             case STADIUM -> "mud";
             case BADLANDS -> sm(dx, dz, 61, 10) > .7 ? "orangeterra" : sm(dx, dz, 62, 7) > .74 ? "yellowterra" : "redsand";
@@ -248,16 +287,31 @@ final class ArenaModel {
         return out;
     }
 
+    /** a blanket of snow layers over the ground: mostly thin, deeper where it has drifted */
+    private void snowCover(Map<Long, BlockData> out, int radius) {
+        int r = (int) Math.ceil(rPlay);
+        for (int dx = -r; dx <= r; dx++) {
+            for (int dz = -r; dz <= r; dz++) {
+                double d = Math.hypot(dx, dz);
+                if (d > rPlay - 0.5 || d < 4 || spawnDistance(dx, dz) < 3.5 || isPond(dx, dz)) continue;
+                double n = sm(dx, dz, 210, 7);
+                if (n < 0.1) continue; // bare patches where the wind cleared it
+                int layers = n > 0.82 ? 3 : n > 0.62 ? 2 : 1;
+                out.put(Pack.key(dx, surface(dx, dz) + 1, dz), Blocks.snow(layers));
+            }
+        }
+    }
+
     private Map<Long, BlockData> buildLargeOverlay(int radius) {
         Map<Long, BlockData> out = new HashMap<>();
-        BiPredicate<Integer, Integer> allow = (x, z) -> Math.hypot(x, z) <= rPlay - 1 && spawnDistance(x, z) > 5;
+        BiPredicate<Integer, Integer> allow = (x, z) -> Math.hypot(x, z) <= rPlay - 1 && spawnDistance(x, z) > 5 && !isPond(x, z);
         IntBinaryOperator surf = this::surface;
         int cell = radius < 80 ? 8 : 13, hs = 500 + theme.ordinal() * 17 + seed * 131; // normal-size arenas get a tighter grid
         double density = switch (theme) {
             case PLAINS -> .30;
             case DESERT -> .26;
             case POPLAR -> .55;
-            case SNOWY -> .30;
+            case SNOWY -> .42;
             case CHERRY -> .30;
             case STADIUM -> 0;
             case BADLANDS -> .22;
@@ -266,12 +320,15 @@ final class ArenaModel {
             case CRIMSON -> .45;
             case PEAKS -> .25;
         };
+        if (theme == ArenaTheme.SNOWY) snowCover(out, radius);
         int max = radius / cell + 1;
         for (int gx = -max; gx <= max; gx++) {
             for (int gz = -max; gz <= max; gz++) {
-                if (ArenaLayout.hash(gx, gz, hs) > density) continue;
                 int fx = gx * cell + (int) (ArenaLayout.hash(gx, gz, hs + 1) * cell);
                 int fz = gz * cell + (int) (ArenaLayout.hash(gx, gz, hs + 2) * cell);
+                double dens = density;
+                if (theme == ArenaTheme.SNOWY) dens *= 0.12 + 2.1 * clamp((sm(fx, fz, 260, 18) - 0.3) / 0.4); // spruce groves with open snow between
+                if (ArenaLayout.hash(gx, gz, hs) > dens) continue;
                 double d = Math.hypot(fx, fz);
                 if (d > rPlay - 6 || d < 8 || Math.hypot(Math.abs(fx) - spawnX, fz) < 14) continue;
                 double t = ArenaLayout.hash(gx, gz, hs + 3), u = ArenaLayout.hash(gx, gz, hs + 4);
@@ -300,7 +357,7 @@ final class ArenaModel {
                 }
             }
             case SNOWY -> {
-                if (t < .6) Shapes.tree(out, allow, surf, "sprucelog", "spruce", 2, 6 + (int) (u * 3), x, z);
+                if (t < .8) Shapes.tree(out, allow, surf, "snowspruce", "spruce", 2, 6, x, z);
                 else Shapes.mound(out, allow, surf, x, z, 3 + u * 2, 2, Blocks.data("drift"));
             }
             case STADIUM -> { }

@@ -17,6 +17,7 @@ import java.util.Random;
 /** chunk generator */
 final class ArenaWorldGenerator extends ChunkGenerator {
 
+    private static final BlockData WATER = Blocks.data(org.bukkit.Material.WATER);
     private static final BlockData BARRIER = Blocks.data(Material.BARRIER);
 
     private final ArenaGenerator owner;
@@ -56,7 +57,7 @@ final class ArenaWorldGenerator extends ChunkGenerator {
         double d = Math.hypot(dx, dz);
         int s = m.surface(dx, dz);
         boolean ring = m.ring(dx, dz);
-        boolean edge = d > m.rWall - 3;
+        boolean edge = d > m.rWall - 3 || m.nearPond(dx, dz); // no caves at the edge or beside a pond
         // solid ground
 
         for (int y = minY; y <= s - 4; y++) {
@@ -65,6 +66,8 @@ final class ArenaWorldGenerator extends ChunkGenerator {
         }
         BlockData sub = m.sub();
         for (int y = s - 3; y < s; y++) data.setBlock(lx, y, lz, sub);
+        int water = m.waterDepth(dx, dz);
+        for (int y = s - water; y < s; y++) data.setBlock(lx, y, lz, WATER); // a frozen pond: water under the ice
         data.setBlock(lx, s, lz, m.top(dx, dz));
 
         int top = Math.min(maxY - 1, s + m.maxOverlayHeight());

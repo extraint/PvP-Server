@@ -76,7 +76,7 @@ public final class ArenaGenerator {
     }
 
     /** bump on design change */
-    static final int DESIGN_VERSION = 10;
+    static final int DESIGN_VERSION = 11;
 
     /** clear stale chunks */
     private void dropStaleTerrain(String worldName) {

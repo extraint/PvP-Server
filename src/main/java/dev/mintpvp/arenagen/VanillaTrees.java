@@ -49,6 +49,10 @@ final class VanillaTrees {
                 new SplittableRandom(seed), tx < 0 ? -1 : 1, tz < 0 ? -1 : 1, tx, tz);
         switch (trunkKey) {
             case "sprucelog" -> t.spruce();
+            case "snowspruce" -> {
+                t.spruce();
+                t.snowCaps();
+            }
             case "junglelog" -> t.jungle();
             case "acacialog" -> t.acacia();
             case "cherrylog" -> t.cherry();
@@ -61,8 +65,20 @@ final class VanillaTrees {
 
     // placing
 
+    private final java.util.Map<Long, Integer> tops = new java.util.HashMap<>();
+
     private void leaf(int x, int y, int z) {
         Shapes.put(out, allow, ox + x, y0 + y, oz + z, leaf);
+        tops.merge(((long) x << 32) ^ (z & 0xFFFFFFFFL), y, Math::max);
+    }
+
+    /** a thin layer of snow on the top of most leaf stacks, like a spruce after a snowfall */
+    private void snowCaps() {
+        for (var en : tops.entrySet()) {
+            if (r.nextInt(100) >= 78) continue;
+            int x = (int) (en.getKey() >> 32), z = (int) (long) en.getKey();
+            Shapes.put(out, allow, ox + x, y0 + en.getValue() + 1, oz + z, Blocks.snow(1));
+        }
     }
 
     private void trunk(int x, int y, int z) {
