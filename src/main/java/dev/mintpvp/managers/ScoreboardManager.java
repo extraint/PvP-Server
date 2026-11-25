@@ -92,7 +92,8 @@ public final class ScoreboardManager {
         java.util.Set<String> online = new java.util.HashSet<>();
         for (Player o : Bukkit.getOnlinePlayers()) {
             var st = plugin.stats().get(o.getUniqueId());
-            int idx = kitId != null ? st.tierIndex(kitId) : st.bestTier();
+            boolean floating = plugin.aboveTags() != null && plugin.aboveTags().above();
+            int idx = floating ? -2 : kitId != null ? st.tierIndex(kitId) : st.bestTier();
             NamedTextColor color = null;
             String ck = "n";
             if (teams && match.players.contains(o)) {
@@ -104,7 +105,9 @@ public final class ScoreboardManager {
             var want = board.getTeam(name);
             if (want == null) {
                 want = board.registerNewTeam(name);
-                if (idx < 0) {
+                if (idx == -2) {
+                    // floating tag, no prefix
+                } else if (idx < 0) {
                     want.prefix(Component.text("UNRANKED ", NamedTextColor.GRAY)
                             .decoration(net.kyori.adventure.text.format.TextDecoration.BOLD, true)
                             .decoration(net.kyori.adventure.text.format.TextDecoration.ITALIC, false));

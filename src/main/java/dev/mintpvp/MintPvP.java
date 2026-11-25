@@ -34,6 +34,7 @@ public final class MintPvP extends JavaPlugin {
     private KitManager kits;
     private ScoreboardManager boards;
     private dev.mintpvp.managers.TabHook tab;
+    private dev.mintpvp.managers.AboveTags aboveTags;
     private ArenaManager arenas;
     private ArenaGenerator generator;
     private DuelManager duels;
@@ -118,6 +119,8 @@ public final class MintPvP extends JavaPlugin {
         }
         boards.start();
         tab = new dev.mintpvp.managers.TabHook(this);
+        aboveTags = new dev.mintpvp.managers.AboveTags(this);
+        aboveTags.start();
         getServer().getScheduler().runTask(this, () -> tab.start()); // after TAB has enabled
         queue.start();
         generator.start();
@@ -131,6 +134,7 @@ public final class MintPvP extends JavaPlugin {
         if (generator != null) generator.stop();
         if (guis != null) guis.shutdown();
         if (tab != null) tab.stop();
+        if (aboveTags != null) aboveTags.stop();
         if (queue != null) queue.stop();
         if (duels != null) duels.shutdown();
         if (kits != null) kits.saveLayouts();
@@ -153,6 +157,7 @@ public final class MintPvP extends JavaPlugin {
     public KitManager kits() { return kits; }
     public ScoreboardManager boards() { return boards; }
     public dev.mintpvp.managers.TabHook tab() { return tab; }
+    public dev.mintpvp.managers.AboveTags aboveTags() { return aboveTags; }
     public ArenaManager arenas() { return arenas; }
     public ArenaGenerator generator() { return generator; }
     public DuelManager duels() { return duels; }

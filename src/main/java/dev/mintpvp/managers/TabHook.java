@@ -113,8 +113,13 @@ public final class TabHook {
         if (set == null) return;
         String base = orig == null ? "" : String.valueOf(orig.invoke(mgr, tp));
         if (base == null || base.equals("null")) base = "";
-        String want = tag(id) + base + (nametag ? teamColor(id) : "");
+        boolean floating = nametag && plugin.aboveTags() != null && plugin.aboveTags().above();
+        String want = (floating ? "" : tag(id)) + base + (nametag ? teamColor(id) : "");
         Object have = get == null ? null : get.invoke(mgr, tp);
+        if (floating && teamColor(id).isEmpty()) {
+            if (have != null) set.invoke(mgr, tp, (String) null);
+            return;
+        }
         if (want.equals(have)) return;
         set.invoke(mgr, tp, want);
         if (nametag) lastPush = want;
