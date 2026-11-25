@@ -130,17 +130,13 @@ public final class ScoreboardManager {
         }
     }
 
-    private boolean match0(Player p) {
-        return plugin.duels().duelOf(p.getUniqueId()) != null || plugin.duels().spectatedDuel(p.getUniqueId()) != null;
-    }
-
     private static final java.time.format.DateTimeFormatter DATE = java.time.format.DateTimeFormatter.ofPattern("MM/dd/yyyy");
 
-    /** match sidebar: opponent, score and ping, then place, game id and date */
+    /** match sidebar: opponent, score and ping, then arena, game id and date */
     private List<Component> duelLines(Player p, DuelManager.Duel d, Theme t) {
         var cfg = plugin.getConfig();
-        NamedTextColor icon = NamedTextColor.YELLOW;
-        NamedTextColor txt = NamedTextColor.WHITE;
+        var icon = t.secondary();
+        var txt = t.accent();
         Player focus = d.players.contains(p) ? p : d.first();
         List<Component> out = new ArrayList<>();
         out.add(Component.text(" "));
@@ -148,27 +144,27 @@ public final class ScoreboardManager {
             Player foe = d.opponentOf(focus);
             out.add(Component.text("\u2694 ", icon).append(Component.text(foe.getName(), txt)));
         } else if (d.mode == DuelManager.Mode.PARTY) {
-            int mine = d.teamOf(focus);
-            boolean blue = mine == 1;
+            boolean blue = d.teamOf(focus) == 1;
             long alive = d.players.stream().filter(x -> d.isAlive(x) && d.teamOf(x) == d.teamOf(focus)).count();
             long total = d.players.stream().filter(x -> d.teamOf(x) == d.teamOf(focus)).count();
-            out.add(Component.text("\u2694 ", icon).append(Component.text(blue ? "blue team" : "red team", blue ? NamedTextColor.BLUE : NamedTextColor.RED))
+            out.add(Component.text("\u2694 ", icon).append(t.text(blue ? "blue team" : "red team", blue ? NamedTextColor.BLUE : NamedTextColor.RED))
                     .append(Component.text(" " + alive + "/" + total, txt)));
         } else {
-            out.add(Component.text("\u2694 ", icon).append(Component.text(d.alive.size() + " alive", txt)));
+            out.add(Component.text("\u2694 ", icon).append(t.text(d.alive.size() + " alive", txt)));
         }
         int ping = focus.getPing();
         NamedTextColor pc = ping < 80 ? NamedTextColor.GREEN : ping < 150 ? NamedTextColor.YELLOW : NamedTextColor.RED;
         int me = Math.max(0, d.teamOf(focus)), them = 1 - me;
-        Component score = d.mode == DuelManager.Mode.FFA ? Component.text("round " + d.round, txt)
+        Component score = d.mode == DuelManager.Mode.FFA ? t.text("round " + d.round, txt)
                 : Component.text(d.score[me] + " - " + d.score[them], txt);
         out.add(Component.text("\u2726 ", icon).append(score).append(Component.text("  " + ping + "ms", pc)));
         out.add(Component.text("  "));
-        out.add(Component.text("\u2691 ", icon).append(Component.text(cfg.getString("sidebar.location", "Salt Lake City"), txt)));
+        out.add(Component.text("\u25c6 ", icon).append(t.text(d.arena.name, txt)));
+        out.add(Component.text("\u2691 ", icon).append(t.text(cfg.getString("sidebar.location", "Salt Lake City"), txt)));
         out.add(Component.text("\u25ce ", icon).append(Component.text(d.gameId, txt)));
         out.add(Component.text("\u231a ", icon).append(Component.text(java.time.LocalDate.now().format(DATE), txt)));
         out.add(Component.text("   "));
-        out.add(Component.text(cfg.getString("sidebar.ip", "mintpvp.playfps.nl"), NamedTextColor.YELLOW));
+        out.add(Component.text(cfg.getString("sidebar.ip", "mintpvp.playfps.nl"), t.primary()));
         return out;
     }
 
@@ -178,14 +174,13 @@ public final class ScoreboardManager {
 
         Scoreboard board = boards.computeIfAbsent(p.getUniqueId(), k -> {
             Scoreboard nb = Bukkit.getScoreboardManager().getNewScoreboard();
-            Objective o = nb.registerNewObjective("mint", Criteria.DUMMY, t.text(t.serverName(), t.primary()));
+            Objective o = nb.registerNewObjective("mint", Criteria.DUMMY, t.text(t.serverName(), t.primary()).decorate(net.kyori.adventure.text.format.TextDecoration.BOLD));
             o.setDisplaySlot(DisplaySlot.SIDEBAR);
             o.numberFormat(NumberFormat.blank());
             return nb;
         });
         Objective obj = board.getObjective("mint");
-        obj.displayName(match0(p) ? Component.text(t.serverName().toUpperCase(Locale.ROOT), t.primary()).decorate(net.kyori.adventure.text.format.TextDecoration.BOLD)
-                : t.text(t.serverName(), t.primary()));
+        obj.displayName(t.text(t.serverName(), t.primary()).decorate(net.kyori.adventure.text.format.TextDecoration.BOLD));
 
         var match = plugin.duels().duelOf(p.getUniqueId());
         if (match == null) match = plugin.duels().spectatedDuel(p.getUniqueId());
