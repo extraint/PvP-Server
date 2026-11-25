@@ -73,6 +73,8 @@ public final class TabHook {
             Object ntm = apiClass.getMethod("getNameTagManager").invoke(api);
             nametagActive = ntm != null;
             status = ntm == null ? "TAB's nametag feature is off, using scoreboard teams" : "tag pushed through TAB";
+            if (!logged) plugin.getLogger().info("TAB nametag tier prefix: " + status);
+            logged = true;
             apply(ntm, "me.neznamy.tab.api.nametag.NameTagManager", tp, true);
             apply(apiClass.getMethod("getTabListFormatManager").invoke(api), "me.neznamy.tab.api.tablist.TabListFormatManager", tp, false);
         } catch (Throwable e) {
@@ -84,6 +86,7 @@ public final class TabHook {
     }
 
     private boolean warned;
+    private boolean logged;
     private volatile boolean nametagActive;
     private volatile String status = "not run yet";
 

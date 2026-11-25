@@ -183,10 +183,7 @@ public final class ScoreboardManager {
 
         var match = plugin.duels().duelOf(p.getUniqueId());
         if (match == null) match = plugin.duels().spectatedDuel(p.getUniqueId());
-        boolean viaTab = plugin.tab() != null && plugin.tab().nametagActive();
-        if (viaTab) {
-            for (var tm : new ArrayList<>(board.getTeams())) if (tm.getName().startsWith("m")) tm.unregister();
-        } else if (plugin.getConfig().getBoolean("tags.teams", true)) {
+        if (plugin.getConfig().getBoolean("tags.teams", true)) { // also with TAB: covers worlds where TAB is disabled
             try {
                 tagPlayers(board, match);
             } catch (RuntimeException e) {
