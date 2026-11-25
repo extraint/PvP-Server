@@ -23,8 +23,6 @@ public final class TabHook {
     private final MintPvP plugin;
     private boolean hooked;
     private org.bukkit.scheduler.BukkitTask task;
-    private static final String PREFIX = "%mintpvp_tag%";
-    private static final String SUFFIX = "%mintpvp_teamcolor%";
 
     public TabHook(MintPvP plugin) {
         this.plugin = plugin;
@@ -57,7 +55,7 @@ public final class TabHook {
         if (!plugin.getConfig().getBoolean("tags.tab-prefix", true)) return;
         task = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
             for (var p : Bukkit.getOnlinePlayers()) applyPrefix(p.getUniqueId());
-        }, 20L, 40L);
+        }, 20L, 20L);
     }
 
     public void refresh(UUID id) {
@@ -75,8 +73,8 @@ public final class TabHook {
             status = ntm == null ? "TAB's nametag feature is off, using scoreboard teams" : "tag pushed through TAB";
             if (!logged) plugin.getLogger().info("TAB nametag tier prefix: " + status);
             logged = true;
-            apply(ntm, "me.neznamy.tab.api.nametag.NameTagManager", tp, true);
-            apply(apiClass.getMethod("getTabListFormatManager").invoke(api), "me.neznamy.tab.api.tablist.TabListFormatManager", tp, false);
+            apply(ntm, "me.neznamy.tab.api.nametag.NameTagManager", tp, id, true);
+            apply(apiClass.getMethod("getTabListFormatManager").invoke(api), "me.neznamy.tab.api.tablist.TabListFormatManager", tp, id, false);
         } catch (Throwable e) {
             nametagActive = false;
             status = "TAB call failed: " + e;
@@ -89,6 +87,7 @@ public final class TabHook {
     private boolean logged;
     private volatile boolean nametagActive;
     private volatile String status = "not run yet";
+    private volatile String lastPush = "";
 
     /** true when TAB's nametag feature is on and carries our tag */
     public boolean nametagActive() {
@@ -96,10 +95,10 @@ public final class TabHook {
     }
 
     public String status() {
-        return status;
+        return status + (lastPush.isEmpty() ? "" : "; last prefix sent: " + lastPush);
     }
 
-    private void apply(Object mgr, String iface, Object tp, boolean nametag) throws Exception {
+    private void apply(Object mgr, String iface, Object tp, UUID id, boolean nametag) throws Exception {
         if (mgr == null) return;
         Class<?> tpClass = Class.forName("me.neznamy.tab.api.TabPlayer");
         Class<?> c;
@@ -114,11 +113,11 @@ public final class TabHook {
         if (set == null) return;
         String base = orig == null ? "" : String.valueOf(orig.invoke(mgr, tp));
         if (base == null || base.equals("null")) base = "";
-        String want = PREFIX + base + (nametag ? SUFFIX : "");
+        String want = tag(id) + base + (nametag ? teamColor(id) : "");
         Object have = get == null ? null : get.invoke(mgr, tp);
         if (want.equals(have)) return;
-        if (base.contains(PREFIX)) return;
         set.invoke(mgr, tp, want);
+        if (nametag) lastPush = want;
     }
 
     private static Method find(Class<?> c, String name, Class<?>... args) {
