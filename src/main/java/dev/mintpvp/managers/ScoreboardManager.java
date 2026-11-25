@@ -104,7 +104,11 @@ public final class ScoreboardManager {
             var want = board.getTeam(name);
             if (want == null) {
                 want = board.registerNewTeam(name);
-                if (idx >= 0) {
+                if (idx < 0) {
+                    want.prefix(Component.text("UNRANKED ", NamedTextColor.GRAY)
+                            .decoration(net.kyori.adventure.text.format.TextDecoration.BOLD, true)
+                            .decoration(net.kyori.adventure.text.format.TextDecoration.ITALIC, false));
+                } else {
                     String label = (idx == crown ? "★" : "") + dev.mintpvp.util.Tier.name(idx).toUpperCase(Locale.ROOT);
                     want.prefix(Component.text(label + " ", dev.mintpvp.util.Tier.at(idx).color)
                             .decoration(net.kyori.adventure.text.format.TextDecoration.BOLD, true)

@@ -179,7 +179,7 @@ public final class TabHook {
 
     private String tag(UUID id) {
         int idx = tierIndex(id);
-        if (idx < 0) return "";
+        if (idx < 0) return id == null ? "" : "#AAAAAA&lUNRANKED&r ";
         Tier t = Tier.at(idx);
         String hex = String.format("#%06X", t.color.value());
         return hex + "&l" + (idx == Tier.values().length - 1 ? "★" : "") + t.label.toUpperCase(Locale.ROOT) + "&r ";
@@ -187,7 +187,7 @@ public final class TabHook {
 
     private String tier(UUID id) {
         int idx = tierIndex(id);
-        return idx < 0 ? "" : Tier.name(idx).toUpperCase(Locale.ROOT);
+        return idx < 0 ? "UNRANKED" : Tier.name(idx).toUpperCase(Locale.ROOT);
     }
 
     private String teamColor(UUID id) {
