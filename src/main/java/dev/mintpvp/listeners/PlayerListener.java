@@ -47,6 +47,13 @@ public final class PlayerListener implements Listener {
         plugin.boards().update(p);
     }
 
+    @EventHandler(priority = org.bukkit.event.EventPriority.MONITOR, ignoreCancelled = true)
+    public void onTeleport(org.bukkit.event.player.PlayerTeleportEvent e) {
+        if (plugin.aboveTags() == null) return;
+        Player p = e.getPlayer();
+        org.bukkit.Bukkit.getScheduler().runTask(plugin, () -> { if (p.isOnline()) plugin.aboveTags().reattach(p); });
+    }
+
     @EventHandler
     public void onQuit(PlayerQuitEvent e) {
         Theme t = plugin.theme();

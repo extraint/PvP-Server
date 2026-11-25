@@ -186,7 +186,9 @@ public final class ScoreboardManager {
 
         var match = plugin.duels().duelOf(p.getUniqueId());
         if (match == null) match = plugin.duels().spectatedDuel(p.getUniqueId());
-        if (plugin.getConfig().getBoolean("tags.teams", true)) { // also with TAB: covers worlds where TAB is disabled
+        boolean floating = plugin.aboveTags() != null && plugin.aboveTags().above();
+        boolean needTeams = !floating || (match != null && match.mode == DuelManager.Mode.PARTY);
+        if (needTeams && plugin.getConfig().getBoolean("tags.teams", true)) { // also with TAB: covers worlds where TAB is disabled
             try {
                 tagPlayers(board, match);
             } catch (RuntimeException e) {

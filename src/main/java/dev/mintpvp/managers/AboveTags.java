@@ -26,7 +26,7 @@ public final class AboveTags {
 
     private final MintPvP plugin;
     private final Map<UUID, TextDisplay> shown = new HashMap<>();
-    private final Map<UUID, Component> texts = new HashMap<>();
+    private final Map<UUID, Integer> keys = new HashMap<>();
     private BukkitTask task;
 
     public AboveTags(MintPvP plugin) {
@@ -41,7 +41,7 @@ public final class AboveTags {
     public void start() {
         stop();
         if (!above()) return;
-        task = Bukkit.getScheduler().runTaskTimer(plugin, this::tick, 20L, 10L);
+        task = Bukkit.getScheduler().runTaskTimer(plugin, this::tick, 20L, 20L);
     }
 
     public void stop() {
@@ -49,12 +49,12 @@ public final class AboveTags {
         task = null;
         for (TextDisplay d : shown.values()) if (d.isValid()) d.remove();
         shown.clear();
-        texts.clear();
+        keys.clear();
     }
 
     public void forget(UUID id) {
         TextDisplay d = shown.remove(id);
-        texts.remove(id);
+        keys.remove(id);
         if (d != null && d.isValid()) d.remove();
     }
 
@@ -65,7 +65,7 @@ public final class AboveTags {
                 if (Bukkit.getPlayer(id) != null) return false;
                 TextDisplay d = shown.get(id);
                 if (d != null && d.isValid()) d.remove();
-                texts.remove(id);
+                keys.remove(id);
                 return true;
             });
         } catch (RuntimeException e) {
@@ -73,20 +73,38 @@ public final class AboveTags {
         }
     }
 
+    /** put a dropped tag back on its player: after a teleport it is left behind */
+    public void reattach(Player p) {
+        TextDisplay d = shown.get(p.getUniqueId());
+        if (d == null || !d.isValid() || p.equals(d.getVehicle())) return;
+        if (!d.getWorld().equals(p.getWorld())) {
+            forget(p.getUniqueId());
+            return;
+        }
+        d.teleport(p.getLocation());
+        p.addPassenger(d);
+    }
+
     private void update(Player p) {
         boolean hide = p.getGameMode() == GameMode.SPECTATOR || p.isDead()
                 || p.hasPotionEffect(org.bukkit.potion.PotionEffectType.INVISIBILITY);
-        TextDisplay d = shown.get(p.getUniqueId());
+        UUID id = p.getUniqueId();
+        TextDisplay d = shown.get(id);
         if (hide) {
-            if (d != null) forget(p.getUniqueId());
+            if (d != null) forget(id);
             return;
         }
-        if (d != null && (!d.isValid() || !p.equals(d.getVehicle()) || !d.getWorld().equals(p.getWorld()))) {
-            forget(p.getUniqueId());
+        if (d != null && !d.isValid()) {
+            forget(id);
             d = null;
         }
-        Component text = tag(p.getUniqueId());
+        if (d != null && !p.equals(d.getVehicle())) {
+            reattach(p);
+            d = shown.get(id);
+        }
+        int key = tierIndex(id);
         if (d == null) {
+            Component text = tag(key);
             d = p.getWorld().spawn(p.getLocation(), TextDisplay.class, e -> {
                 e.setPersistent(false);
                 e.setBillboard(Display.Billboard.CENTER);
@@ -100,24 +118,26 @@ public final class AboveTags {
             });
             p.addPassenger(d);
             p.hideEntity(plugin, d);
-            shown.put(p.getUniqueId(), d);
-            texts.put(p.getUniqueId(), text);
+            shown.put(id, d);
+            keys.put(id, key);
             return;
         }
-        if (!text.equals(texts.get(p.getUniqueId()))) {
-            d.text(text);
-            texts.put(p.getUniqueId(), text);
+        Integer old = keys.get(id);
+        if (old == null || old != key) {
+            d.text(tag(key));
+            keys.put(id, key);
         }
     }
 
-    /** tier in the kit they are playing, else their best tier */
-    private Component tag(UUID id) {
+    /** tier in the kit they are playing, else their best tier; -1 = unranked */
+    private int tierIndex(UUID id) {
         var st = plugin.stats().peek(id);
-        int idx = -1;
-        if (st != null) {
-            var duel = plugin.duels().duelOf(id);
-            idx = duel != null ? st.tierIndex(duel.kit.id) : st.bestTier();
-        }
+        if (st == null) return -1;
+        var duel = plugin.duels().duelOf(id);
+        return duel != null ? st.tierIndex(duel.kit.id) : st.bestTier();
+    }
+
+    private Component tag(int idx) {
         if (idx < 0) return Component.text("UNRANKED", NamedTextColor.GRAY).decoration(TextDecoration.BOLD, true);
         String label = (idx == Tier.values().length - 1 ? "★" : "") + Tier.name(idx).toUpperCase(Locale.ROOT);
         return Component.text(label, Tier.at(idx).color).decoration(TextDecoration.BOLD, true);

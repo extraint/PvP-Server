@@ -55,7 +55,7 @@ public final class TabHook {
         if (!plugin.getConfig().getBoolean("tags.tab-prefix", true)) return;
         task = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
             for (var p : Bukkit.getOnlinePlayers()) applyPrefix(p.getUniqueId());
-        }, 20L, 20L);
+        }, 20L, 40L);
     }
 
     public void refresh(UUID id) {
@@ -64,17 +64,17 @@ public final class TabHook {
 
     private void applyPrefix(UUID id) {
         try {
-            Class<?> apiClass = Class.forName("me.neznamy.tab.api.TabAPI");
-            Object api = apiClass.getMethod("getInstance").invoke(null);
-            Object tp = apiClass.getMethod("getPlayer", UUID.class).invoke(api, id);
+            Class<?> apiClass = cls("me.neznamy.tab.api.TabAPI");
+            Object api = find(apiClass, "getInstance").invoke(null);
+            Object tp = find(apiClass, "getPlayer", UUID.class).invoke(api, id);
             if (tp == null) return;
-            Object ntm = apiClass.getMethod("getNameTagManager").invoke(api);
+            Object ntm = find(apiClass, "getNameTagManager").invoke(api);
             nametagActive = ntm != null;
             status = ntm == null ? "TAB's nametag feature is off, using scoreboard teams" : "tag pushed through TAB";
             if (!logged) plugin.getLogger().info("TAB nametag tier prefix: " + status);
             logged = true;
             apply(ntm, "me.neznamy.tab.api.nametag.NameTagManager", tp, id, true);
-            apply(apiClass.getMethod("getTabListFormatManager").invoke(api), "me.neznamy.tab.api.tablist.TabListFormatManager", tp, id, false);
+            apply(find(apiClass, "getTabListFormatManager").invoke(api), "me.neznamy.tab.api.tablist.TabListFormatManager", tp, id, false);
         } catch (Throwable e) {
             nametagActive = false;
             status = "TAB call failed: " + e;
@@ -100,10 +100,10 @@ public final class TabHook {
 
     private void apply(Object mgr, String iface, Object tp, UUID id, boolean nametag) throws Exception {
         if (mgr == null) return;
-        Class<?> tpClass = Class.forName("me.neznamy.tab.api.TabPlayer");
+        Class<?> tpClass = cls("me.neznamy.tab.api.TabPlayer");
         Class<?> c;
         try {
-            c = Class.forName(iface);
+            c = cls(iface);
         } catch (ClassNotFoundException e) {
             c = mgr.getClass();
         }
@@ -125,12 +125,30 @@ public final class TabHook {
         if (nametag) lastPush = want;
     }
 
-    private static Method find(Class<?> c, String name, Class<?>... args) {
+    private final java.util.Map<String, Class<?>> classes = new java.util.HashMap<>();
+    private final java.util.Map<String, java.util.Optional<Method>> methods = new java.util.HashMap<>();
+
+    private Class<?> cls(String name) throws ClassNotFoundException {
+        Class<?> c = classes.get(name);
+        if (c == null) {
+            c = Class.forName(name);
+            classes.put(name, c);
+        }
+        return c;
+    }
+
+    /** looked up once, then reused */
+    private Method find(Class<?> c, String name, Class<?>... args) {
+        String key = c.getName() + "#" + name + java.util.Arrays.toString(args);
+        return methods.computeIfAbsent(key, k -> java.util.Optional.ofNullable(lookup(c, name, args))).orElse(null);
+    }
+
+    private static Method lookup(Class<?> c, String name, Class<?>... args) {
         try {
             return c.getMethod(name, args);
         } catch (NoSuchMethodException e) {
             for (Class<?> i : c.getInterfaces()) {
-                Method m = find(i, name, args);
+                Method m = lookup(i, name, args);
                 if (m != null) return m;
             }
             return null;
@@ -138,6 +156,8 @@ public final class TabHook {
     }
 
     private boolean register() {
+        classes.clear();
+        methods.clear();
         try {
             Class<?> apiClass = Class.forName("me.neznamy.tab.api.TabAPI");
             Object api = apiClass.getMethod("getInstance").invoke(null);
