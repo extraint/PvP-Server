@@ -22,6 +22,9 @@ public final class TabHook {
 
     private final MintPvP plugin;
     private boolean hooked;
+    private org.bukkit.scheduler.BukkitTask task;
+    private static final String PREFIX = "%mintpvp_tag%";
+    private static final String SUFFIX = "%mintpvp_teamcolor%";
 
     public TabHook(MintPvP plugin) {
         this.plugin = plugin;
@@ -37,7 +40,78 @@ public final class TabHook {
 
     public void start() {
         if (!tabPresent()) return;
-        if (register()) listenForReloads();
+        if (register()) {
+            listenForReloads();
+            startPrefixes();
+        }
+    }
+
+    public void stop() {
+        if (task != null) task.cancel();
+        task = null;
+    }
+
+    /** put the tier tag into every nametag and tab entry through TAB */
+    private void startPrefixes() {
+        if (task != null) task.cancel();
+        if (!plugin.getConfig().getBoolean("tags.tab-prefix", true)) return;
+        task = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
+            for (var p : Bukkit.getOnlinePlayers()) applyPrefix(p.getUniqueId());
+        }, 20L, 40L);
+    }
+
+    public void refresh(UUID id) {
+        if (hooked) Bukkit.getScheduler().runTaskLater(plugin, () -> applyPrefix(id), 10L);
+    }
+
+    private void applyPrefix(UUID id) {
+        try {
+            Class<?> apiClass = Class.forName("me.neznamy.tab.api.TabAPI");
+            Object api = apiClass.getMethod("getInstance").invoke(null);
+            Object tp = apiClass.getMethod("getPlayer", UUID.class).invoke(api, id);
+            if (tp == null) return;
+            apply(apiClass.getMethod("getNameTagManager").invoke(api), "me.neznamy.tab.api.nametag.NameTagManager", tp, true);
+            apply(apiClass.getMethod("getTabListFormatManager").invoke(api), "me.neznamy.tab.api.tablist.TabListFormatManager", tp, false);
+        } catch (Throwable e) {
+            if (!warned) plugin.getLogger().warning("Could not set the TAB tier prefix: " + e);
+            warned = true;
+        }
+    }
+
+    private boolean warned;
+
+    private void apply(Object mgr, String iface, Object tp, boolean nametag) throws Exception {
+        if (mgr == null) return;
+        Class<?> tpClass = Class.forName("me.neznamy.tab.api.TabPlayer");
+        Class<?> c;
+        try {
+            c = Class.forName(iface);
+        } catch (ClassNotFoundException e) {
+            c = mgr.getClass();
+        }
+        Method get = find(c, "getCustomPrefix", tpClass);
+        Method orig = find(c, "getOriginalRawPrefix", tpClass);
+        Method set = find(c, "setPrefix", tpClass, String.class);
+        if (set == null) return;
+        String base = orig == null ? "" : String.valueOf(orig.invoke(mgr, tp));
+        if (base == null || base.equals("null")) base = "";
+        String want = PREFIX + base + (nametag ? SUFFIX : "");
+        Object have = get == null ? null : get.invoke(mgr, tp);
+        if (want.equals(have)) return;
+        if (base.contains(PREFIX)) return;
+        set.invoke(mgr, tp, want);
+    }
+
+    private static Method find(Class<?> c, String name, Class<?>... args) {
+        try {
+            return c.getMethod(name, args);
+        } catch (NoSuchMethodException e) {
+            for (Class<?> i : c.getInterfaces()) {
+                Method m = find(i, name, args);
+                if (m != null) return m;
+            }
+            return null;
+        }
     }
 
     private boolean register() {
@@ -70,7 +144,7 @@ public final class TabHook {
             Class<?> loadEvent = Class.forName("me.neznamy.tab.api.event.plugin.TabLoadEvent");
             Class<?> handler = Class.forName("me.neznamy.tab.api.event.EventHandler");
             Object h = Proxy.newProxyInstance(handler.getClassLoader(), new Class<?>[] {handler}, (proxy, m, args) -> {
-                if (m.getName().equals("handle")) Bukkit.getScheduler().runTask(plugin, this::register);
+                if (m.getName().equals("handle")) Bukkit.getScheduler().runTask(plugin, () -> { register(); startPrefixes(); });
                 if (m.getName().equals("equals")) return proxy == args[0];
                 if (m.getName().equals("hashCode")) return System.identityHashCode(proxy);
                 if (m.getName().equals("toString")) return "MintPvP TAB reload hook";

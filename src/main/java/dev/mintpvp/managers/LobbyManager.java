@@ -172,7 +172,7 @@ public final class LobbyManager {
         Theme t = plugin.theme();
         switch (id) {
             case "queue_unranked" -> Guis.queueKits(plugin, p, QueueManager.Type.UNRANKED, null);
-            case "queue_ranked" -> Guis.queueKits(plugin, p, QueueManager.Type.RANKED, null);
+            case "queue_ranked" -> Guis.ranked(plugin, p, null);
             case "leave_queue" -> {
                 plugin.queue().leave(p.getUniqueId());
                 p.sendMessage(t.info("you left the queue."));

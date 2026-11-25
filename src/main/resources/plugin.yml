@@ -56,6 +56,9 @@ commands:
   duel:
     description: Challenge a player to a duel.
     usage: /<command> [player] [kit] [arena] | accept [player] | deny [player] | forfeit
+  leave:
+    description: Leave your duel, queue or spectating.
+    usage: /<command>
   challenge:
     description: Challenge a player to a ranked duel.
     aliases: [ranked]

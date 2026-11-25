@@ -79,7 +79,7 @@ public final class MintPvP extends JavaPlugin {
         }
 
         DuelCommands duelCommands = new DuelCommands(this);
-        for (String name : new String[] {"duel", "arena", "spectate", "challenge"}) {
+        for (String name : new String[] {"duel", "arena", "spectate", "challenge", "leave"}) {
             var cmd = getCommand(name);
             if (cmd != null) {
                 cmd.setExecutor(duelCommands);
@@ -130,6 +130,7 @@ public final class MintPvP extends JavaPlugin {
     public void onDisable() {
         if (generator != null) generator.stop();
         if (guis != null) guis.shutdown();
+        if (tab != null) tab.stop();
         if (queue != null) queue.stop();
         if (duels != null) duels.shutdown();
         if (kits != null) kits.saveLayouts();

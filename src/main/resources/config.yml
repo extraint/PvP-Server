@@ -29,6 +29,7 @@ gameplay:
 
 duel:
   countdown-seconds: 5
+  idle-teleport-seconds: 120  # no hits for this long = teleport to middle (0 = off)
   request-expire-seconds: 30
   default-arena-radius: 40  # arena half-width
   height-limit: false  # false = no height limit
@@ -122,6 +123,11 @@ storage:
 
 tags:
   teams: true  # tier tags in nametags and tab
+  tab-prefix: true  # push the tag into TAB nametags and tab list
+
+sidebar:
+  location: "Salt Lake City"  # shown in match sidebar
+  ip: "mintpvp.playfps.nl"  # footer line
 
 test:
   enabled: true  # instant tier tests

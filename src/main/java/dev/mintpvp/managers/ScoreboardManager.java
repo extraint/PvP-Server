@@ -126,6 +126,48 @@ public final class ScoreboardManager {
         }
     }
 
+    private boolean match0(Player p) {
+        return plugin.duels().duelOf(p.getUniqueId()) != null || plugin.duels().spectatedDuel(p.getUniqueId()) != null;
+    }
+
+    private static final java.time.format.DateTimeFormatter DATE = java.time.format.DateTimeFormatter.ofPattern("MM/dd/yyyy");
+
+    /** match sidebar: opponent, score and ping, then place, game id and date */
+    private List<Component> duelLines(Player p, DuelManager.Duel d, Theme t) {
+        var cfg = plugin.getConfig();
+        NamedTextColor icon = NamedTextColor.YELLOW;
+        NamedTextColor txt = NamedTextColor.WHITE;
+        Player focus = d.players.contains(p) ? p : d.first();
+        List<Component> out = new ArrayList<>();
+        out.add(Component.text(" "));
+        if (d.mode == DuelManager.Mode.DUEL) {
+            Player foe = d.opponentOf(focus);
+            out.add(Component.text("\u2694 ", icon).append(Component.text(foe.getName(), txt)));
+        } else if (d.mode == DuelManager.Mode.PARTY) {
+            int mine = d.teamOf(focus);
+            boolean blue = mine == 1;
+            long alive = d.players.stream().filter(x -> d.isAlive(x) && d.teamOf(x) == d.teamOf(focus)).count();
+            long total = d.players.stream().filter(x -> d.teamOf(x) == d.teamOf(focus)).count();
+            out.add(Component.text("\u2694 ", icon).append(Component.text(blue ? "blue team" : "red team", blue ? NamedTextColor.BLUE : NamedTextColor.RED))
+                    .append(Component.text(" " + alive + "/" + total, txt)));
+        } else {
+            out.add(Component.text("\u2694 ", icon).append(Component.text(d.alive.size() + " alive", txt)));
+        }
+        int ping = focus.getPing();
+        NamedTextColor pc = ping < 80 ? NamedTextColor.GREEN : ping < 150 ? NamedTextColor.YELLOW : NamedTextColor.RED;
+        int me = Math.max(0, d.teamOf(focus)), them = 1 - me;
+        Component score = d.mode == DuelManager.Mode.FFA ? Component.text("round " + d.round, txt)
+                : Component.text(d.score[me] + " - " + d.score[them], txt);
+        out.add(Component.text("\u2726 ", icon).append(score).append(Component.text("  " + ping + "ms", pc)));
+        out.add(Component.text("  "));
+        out.add(Component.text("\u2691 ", icon).append(Component.text(cfg.getString("sidebar.location", "Salt Lake City"), txt)));
+        out.add(Component.text("\u25ce ", icon).append(Component.text(d.gameId, txt)));
+        out.add(Component.text("\u231a ", icon).append(Component.text(java.time.LocalDate.now().format(DATE), txt)));
+        out.add(Component.text("   "));
+        out.add(Component.text(cfg.getString("sidebar.ip", "mintpvp.playfps.nl"), NamedTextColor.YELLOW));
+        return out;
+    }
+
     public void update(Player p) {
         Theme t = plugin.theme();
         StatsManager.Stats s = plugin.stats().get(p.getUniqueId());
@@ -138,11 +180,11 @@ public final class ScoreboardManager {
             return nb;
         });
         Objective obj = board.getObjective("mint");
-        obj.displayName(t.text(t.serverName(), t.primary()));
+        obj.displayName(match0(p) ? Component.text(t.serverName().toUpperCase(Locale.ROOT), t.primary()).decorate(net.kyori.adventure.text.format.TextDecoration.BOLD)
+                : t.text(t.serverName(), t.primary()));
 
         var match = plugin.duels().duelOf(p.getUniqueId());
         if (match == null) match = plugin.duels().spectatedDuel(p.getUniqueId());
-        boolean teams = match != null && match.mode == DuelManager.Mode.PARTY;
         if (plugin.getConfig().getBoolean("tags.teams", true) && !TabHook.tabPresent()) { // TAB owns nametags when it is installed
             try {
                 tagPlayers(board, match);
@@ -151,7 +193,7 @@ public final class ScoreboardManager {
             }
         }
 
-        List<Component> lines = new ArrayList<>(List.of(
+        List<Component> lines = match != null ? duelLines(p, match, t) : new ArrayList<>(List.of(
                 Component.text(" "),
                 t.line("tier", dev.mintpvp.util.Tier.overallLabel(s.score())),
                 t.line("kills", String.valueOf(s.kills)),
@@ -163,11 +205,6 @@ public final class ScoreboardManager {
                 t.text("online: ", t.secondary())
                         .append(Component.text(String.valueOf(Bukkit.getOnlinePlayers().size()), t.accent()))
         ));
-        if (teams && match.teamOf(p) >= 0) {
-            boolean blue = match.teamOf(p) == 1;
-            lines.add(1, t.text("team: ", t.secondary()).append(Component.text(blue ? "blue" : "red", blue ? NamedTextColor.BLUE : NamedTextColor.RED)));
-        }
-
         int score = lines.size();
         for (int i = 0; i < lines.size(); i++) {
             String entry = "§" + Integer.toHexString(i);

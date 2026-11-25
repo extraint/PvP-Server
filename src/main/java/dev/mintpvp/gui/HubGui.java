@@ -33,13 +33,13 @@ public final class HubGui extends Gui {
 
         StatsManager.Stats mineStats = plugin.stats().get(p.getUniqueId());
         set(21, Items.of(Material.DIAMOND_SWORD)
-                .name(t.text("✦ queue - ranked", t.primary()))
-                .lore(t.text("kit tiers: lt5 → ht1", t.accent()),
+                .name(t.text("✦ ranked", t.primary()))
+                .lore(t.text("queue or instant tier test", t.accent()),
                         t.line("your tier", Tier.overallLabel(mineStats.score())),
                         t.line("ranked", mineStats.rankedWins + "w / " + mineStats.rankedLosses + "l"),
                         Component.empty(),
-                        t.text(plugin.queue().rankedEnabled() ? "click to pick a kit" : "currently disabled", t.secondary()))
-                .glow().build(), e -> Guis.queueKits(plugin, p, QueueManager.Type.RANKED, () -> new HubGui(plugin, p).open(p)));
+                        t.text("click to open", t.secondary()))
+                .glow().build(), e -> Guis.ranked(plugin, p, () -> new HubGui(plugin, p).open(p)));
 
         set(23, Items.of(Material.BOW)
                 .name(t.text("✦ challenge a player", t.primary()))
@@ -48,15 +48,6 @@ public final class HubGui extends Gui {
                         Component.empty(),
                         t.text("click to choose", t.secondary()))
                 .build(), e -> Guis.challenge(plugin, p, () -> new HubGui(plugin, p).open(p)));
-
-        set(25, Items.of(Material.TARGET)
-                .name(t.text("✦ instant tier test", t.primary()))
-                .lore(t.text("skip the grind: a first-to-4 vs", t.accent()),
-                        t.text("a tier above, below or the same", t.accent()),
-                        t.text("beat a lower tier by 4-2+ or risk a drop", t.muted()),
-                        Component.empty(),
-                        t.text("click to pick a kit", t.secondary()))
-                .glow().build(), e -> Guis.queueKits(plugin, p, QueueManager.Type.TEST, () -> new HubGui(plugin, p).open(p)));
 
         set(28, Items.of(Material.ENDER_CHEST)
                 .name(t.text("✦ kit layout", t.primary()))

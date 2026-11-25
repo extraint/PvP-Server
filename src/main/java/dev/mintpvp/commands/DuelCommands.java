@@ -45,6 +45,7 @@ public final class DuelCommands implements CommandExecutor, TabCompleter {
         switch (cmd.getName().toLowerCase(Locale.ROOT)) {
             case "arena" -> arena(p, args);
             case "spectate" -> spectate(p, args);
+            case "leave" -> leave(p);
             case "challenge" -> challenge(p, args);
             default -> duel(p, args);
         }
@@ -119,6 +120,24 @@ public final class DuelCommands implements CommandExecutor, TabCompleter {
         String kit = args.length > 1 ? args[1] : null;
         if (kit != null && plugin.kits().get(kit) == null) { p.sendMessage(t.error("that kit doesn't exist.")); return; }
         plugin.duels().request(p, target, kit, null, true);
+    }
+
+    /** leave whatever you are in: spectating, a duel, a veto or a queue */
+    private void leave(Player p) {
+        Theme t = plugin.theme();
+        var duels = plugin.duels();
+        if (duels.isSpectating(p.getUniqueId())) {
+            duels.stopSpectating(p);
+            p.sendMessage(t.info("stopped spectating."));
+        } else if (duels.inDuel(p.getUniqueId())) {
+            duels.forfeit(p);
+        } else if (duels.inVeto(p.getUniqueId())) {
+            duels.cancelVeto(p);
+        } else if (plugin.queue().leave(p.getUniqueId())) {
+            p.sendMessage(t.info("you left the queue."));
+        } else {
+            p.sendMessage(t.error("you're not in a duel, queue or spectating."));
+        }
     }
 
     private void spectate(Player p, String[] args) {

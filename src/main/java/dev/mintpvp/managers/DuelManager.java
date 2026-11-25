@@ -32,6 +32,8 @@ public final class DuelManager {
         public final Kit kit;
         public final boolean ranked;
         public final Mode mode;
+        /** short match id */
+        public final String gameId = String.format("game_%04x", java.util.concurrent.ThreadLocalRandom.current().nextInt(0x10000));
         /** all participants */
         public final List<Player> players = new ArrayList<>();
         final Map<UUID, Integer> team = new HashMap<>();
@@ -49,6 +51,8 @@ public final class DuelManager {
         /** an instant tier test, not a ranked match */
         public boolean test;
         public int round = 1;
+        /** last time one player hurt another, ms */
+        public long lastHit = System.currentTimeMillis();
         /** round score */
         public final int[] score = new int[2];
         /** round pause */
@@ -148,7 +152,7 @@ public final class DuelManager {
 
     private record LastMatch(UUID opponent, String kit, boolean ranked, int rounds, long expires) {}
 
-    private record Request(UUID from, String kit, String arena, long expires, boolean ranked, boolean party, int rounds) {}
+    private record Request(UUID from, String kit, String arena, long expires, boolean ranked, boolean party, int rounds, boolean test) {}
 
     private static final int[][] OFFSETS = spawnOffsets();
 
@@ -168,8 +172,42 @@ public final class DuelManager {
     private final Map<UUID, Duel> spectating = new HashMap<>();
     private final Map<UUID, SpecSaved> specSaved = new HashMap<>();
 
+    private org.bukkit.scheduler.BukkitTask idleTask;
+
     public DuelManager(MintPvP plugin) {
         this.plugin = plugin;
+        idleTask = Bukkit.getScheduler().runTaskTimer(plugin, this::idleCheck, 100L, 20L);
+    }
+
+    /** pull fighters to the middle when nobody has landed a hit in a while */
+    private void idleCheck() {
+        long limit = plugin.getConfig().getInt("duel.idle-teleport-seconds", 120) * 1000L;
+        if (limit <= 0) return;
+        long now = System.currentTimeMillis();
+        for (Duel d : new HashSet<>(byPlayer.values())) {
+            try {
+                if (d.ended || d.state != State.FIGHTING || d.roundBreak || d.mode == Mode.FFA) continue;
+                if (now - d.lastHit < limit) continue;
+                d.lastHit = now;
+                Location c = d.arena.center();
+                List<Player> fighters = new ArrayList<>();
+                for (Player p : d.players) if (d.isAlive(p) && p.isOnline()) fighters.add(p);
+                if (fighters.size() < 2) continue;
+                Theme t = plugin.theme();
+                for (int i = 0; i < fighters.size(); i++) {
+                    double ang = Math.PI * 2 * i / fighters.size();
+                    int x = (int) Math.round(c.getX() + Math.cos(ang) * 2), z = (int) Math.round(c.getZ() + Math.sin(ang) * 2);
+                    Location spot = standingSpot(d.arena, c.getWorld(), x, z);
+                    spot.setYaw((float) Math.toDegrees(Math.atan2(c.getZ() - z, c.getX() - x)) - 90f);
+                    Player p = fighters.get(i);
+                    p.teleport(spot);
+                    p.setFallDistance(0);
+                    p.sendMessage(t.info(t.text("no hits for " + (limit / 1000) + "s - you were moved to the middle.", t.accent())));
+                }
+            } catch (RuntimeException ex) {
+                plugin.getLogger().warning("Idle check failed: " + ex);
+            }
+        }
     }
 
     public boolean inVeto(UUID id) {
@@ -281,8 +319,18 @@ public final class DuelManager {
     }
 
     public void request(Player from, Player to, String kitId, String arenaName, boolean ranked, int rounds) {
+        request(from, to, kitId, arenaName, ranked, rounds, false);
+    }
+
+    /** challenge a player to an instant tier test in a kit */
+    public void requestTest(Player from, Player to, String kitId) {
+        request(from, to, kitId, null, true, 1, true);
+    }
+
+    private void request(Player from, Player to, String kitId, String arenaName, boolean ranked, int rounds, boolean test) {
         rounds = Math.max(1, Math.min(rounds, plugin.getConfig().getInt("duel.max-rounds", 15)));
         if (ranked) rounds = rankedRounds();
+        if (test) rounds = Math.max(2, plugin.getConfig().getInt("test.first-to", 4));
         Theme t = plugin.theme();
         Kit kit = kitId == null ? plugin.kits().defaultKit() : plugin.kits().get(kitId);
         if (kit == null) { from.sendMessage(t.error("that kit doesn't exist.")); return; }
@@ -290,7 +338,17 @@ public final class DuelManager {
         if (plugin.parties().inParty(to.getUniqueId())) { from.sendMessage(t.error("that player is in a party.")); return; }
         if (plugin.queue().isQueued(from.getUniqueId())) { from.sendMessage(t.error("leave the queue first (/queue leave).")); return; }
         if (ranked && !plugin.queue().rankedEnabled()) { from.sendMessage(t.error("ranked is disabled right now.")); return; }
-        if (ranked && overRankedLimit(from.getUniqueId(), to.getUniqueId())) {
+        if (test && !plugin.getConfig().getBoolean("test.enabled", true)) { from.sendMessage(t.error("tier tests are disabled right now.")); return; }
+        if (test) {
+            for (Player q : List.of(from, to)) {
+                long left = plugin.stats().testCooldownMinutes(q.getUniqueId(), kit.id);
+                if (left > 0) {
+                    from.sendMessage(t.error((q == from ? "you can" : q.getName() + " can") + " take another " + kit.display + " tier test in " + left + " min."));
+                    return;
+                }
+            }
+        }
+        if (ranked && !test && overRankedLimit(from.getUniqueId(), to.getUniqueId())) {
             from.sendMessage(t.error("you've already played a lot of ranked duels against that player this hour - try someone else or the queue."));
             return;
         }
@@ -315,16 +373,16 @@ public final class DuelManager {
         }
 
         int expire = plugin.getConfig().getInt("duel.request-expire-seconds", 30);
-        requests.put(to.getUniqueId(), new Request(from.getUniqueId(), kit.id, chosen, System.currentTimeMillis() + expire * 1000L, ranked, false, rounds));
+        requests.put(to.getUniqueId(), new Request(from.getUniqueId(), kit.id, chosen, System.currentTimeMillis() + expire * 1000L, ranked, false, rounds, test));
 
         from.sendMessage(t.info(t.text("duel request sent to ", t.accent()).append(t.raw(to.getName(), t.primary()))
-                .append(t.text(" (" + (ranked ? "ranked " : "") + kit.display + (rounds > 1 ? ", first to " + rounds : "") + ")", t.muted()))));
+                .append(t.text(" (" + (test ? "tier test " : ranked ? "ranked " : "") + kit.display + (rounds > 1 ? ", first to " + rounds : "") + ")", t.muted()))));
         Component accept = t.text("[accept]", t.primary())
                 .clickEvent(ClickEvent.runCommand("/duel accept " + from.getName()));
         Component deny = t.text("[deny]", t.muted())
                 .clickEvent(ClickEvent.runCommand("/duel deny " + from.getName()));
         to.sendMessage(t.info(t.raw(from.getName(), t.primary())
-                .append(t.text(" challenged you to a " + (ranked ? "ranked " : "") + kit.display + " duel" + (rounds > 1 ? " (first to " + rounds + ")" : "") + (chosen != null ? " on " + chosen : "") + "! ", t.accent()))
+                .append(t.text(" challenged you to a " + (ranked && !test ? "ranked " : "") + kit.display + (test ? " tier test" : " duel") + (rounds > 1 ? " (first to " + rounds + ")" : "") + (chosen != null ? " on " + chosen : "") + "! ", t.accent()))
                 .append(accept).append(Component.text(" ")).append(deny)));
     }
 
@@ -356,7 +414,7 @@ public final class DuelManager {
         }
 
         int expire = plugin.getConfig().getInt("duel.request-expire-seconds", 30);
-        requests.put(theirLeader.getUniqueId(), new Request(leader.getUniqueId(), kit.id, null, System.currentTimeMillis() + expire * 1000L, false, true, 1));
+        requests.put(theirLeader.getUniqueId(), new Request(leader.getUniqueId(), kit.id, null, System.currentTimeMillis() + expire * 1000L, false, true, 1, false));
         leader.sendMessage(t.info(t.text("party duel request sent to ", t.accent()).append(t.raw(theirLeader.getName() + "'s party", t.primary()))
                 .append(t.text(" (" + mine.members.size() + "v" + theirs.members.size() + ", " + kit.display + ")", t.muted()))));
         Component accept = t.text("[accept]", t.primary()).clickEvent(ClickEvent.runCommand("/duel accept " + leader.getName()));
@@ -452,6 +510,21 @@ public final class DuelManager {
                 || isSpectating(from.getUniqueId()) || isSpectating(target.getUniqueId())
                 || plugin.combat().isTagged(from.getUniqueId()) || plugin.combat().isTagged(target.getUniqueId())) {
             target.sendMessage(t.error("the duel can't start right now."));
+            return;
+        }
+        if (r.test()) {
+            for (Player q : List.of(from, target)) {
+                long left = plugin.stats().testCooldownMinutes(q.getUniqueId(), kit.id);
+                if (left > 0) {
+                    target.sendMessage(t.error(q.getName() + " can take another " + kit.display + " tier test in " + left + " min."));
+                    from.sendMessage(t.error(q.getName() + " can take another " + kit.display + " tier test in " + left + " min."));
+                    return;
+                }
+            }
+            if (!startTest(from, target, kit)) {
+                target.sendMessage(t.error("that arena isn't available."));
+                from.sendMessage(t.error("that arena isn't available."));
+            }
             return;
         }
         Arena arena = r.arena != null ? plugin.arenas().get(r.arena) : plugin.arenas().randomFree(r.ranked(), kit.id).orElse(null);
@@ -861,6 +934,7 @@ public final class DuelManager {
             }
             duel.countdown.cancel();
             duel.state = State.FIGHTING;
+            duel.lastHit = System.currentTimeMillis();
             for (Player p : duel.players) {
                 p.showTitle(Title.title(t.text("fight!", t.primary()), duel.firstTo > 1 ? t.text("round " + duel.round, t.accent()) : Component.empty()));
                 p.playSound(p.getLocation(), Sound.BLOCK_NOTE_BLOCK_PLING, 1f, 2f);
@@ -1400,6 +1474,7 @@ public final class DuelManager {
     }
 
     public void shutdown() {
+        if (idleTask != null) idleTask.cancel();
         new HashSet<>(byPlayer.values()).forEach(d -> {
             d.drawReason = "the server is restarting";
             end(d, -1, false);

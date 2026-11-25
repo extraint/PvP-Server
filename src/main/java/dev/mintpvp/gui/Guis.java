@@ -137,14 +137,19 @@ public final class Guis {
         Theme t = plugin.theme();
         Gui g = new Gui(plugin, 3, t.title("challenge"));
         g.frame(true);
-        g.set(11, Items.of(Material.IRON_SWORD).name(t.text("✦ friendly duel", t.primary()))
+        g.set(10, Items.of(Material.IRON_SWORD).name(t.text("✦ friendly duel", t.primary()))
                 .lore(t.text("you pick the kit and rounds", t.accent()), Component.empty(), t.text("click to continue", t.secondary()))
                 .build(), e -> kitAndRounds(plugin, p, target, false, () -> challengeMode(plugin, p, target, back)));
         boolean ranked = plugin.queue().rankedEnabled();
-        g.set(15, Items.of(Material.DIAMOND_SWORD).name(t.text("✦ ranked duel", ranked ? t.primary() : t.muted()))
+        g.set(13, Items.of(Material.DIAMOND_SWORD).name(t.text("✦ ranked duel", ranked ? t.primary() : t.muted()))
                 .lore(t.text(ranked ? "counts for your tier, first to " + plugin.duels().rankedRounds() : "ranked is disabled", t.accent()),
                         Component.empty(), t.text(ranked ? "click to continue" : "unavailable", t.secondary()))
                 .glow().build(), ranked ? e -> kitAndRounds(plugin, p, target, true, () -> challengeMode(plugin, p, target, back)) : null);
+        boolean test = ranked && plugin.getConfig().getBoolean("test.enabled", true);
+        g.set(16, Items.of(Material.TARGET).name(t.text("✦ instant tier test", test ? t.primary() : t.muted()))
+                .lore(t.text(test ? "first to " + Math.max(2, plugin.getConfig().getInt("test.first-to", 4)) + " for a quick tier move" : "tier tests are disabled", t.accent()),
+                        Component.empty(), t.text(test ? "click to pick a kit" : "unavailable", t.secondary()))
+                .glow().build(), test ? e -> testKits(plugin, p, target, () -> challengeMode(plugin, p, target, back)) : null);
         g.set(18, Items.of(Material.SPECTRAL_ARROW).name(t.text("« back", t.secondary())).build(), e -> back.run());
         g.open(p);
     }
@@ -156,6 +161,47 @@ public final class Guis {
     }
 
     /** kit then rounds */
+    public static void testKits(MintPvP plugin, Player p, Player target, Runnable back) {
+        Theme t = plugin.theme();
+        pickKit(plugin, p, "tier test", back, kit -> {
+            List<Component> lore = new ArrayList<>();
+            lore.add(t.text("your tier: " + Tier.name(plugin.stats().get(p.getUniqueId()).tierIndex(kit.id)), t.muted()));
+            long cd = plugin.stats().testCooldownMinutes(p.getUniqueId(), kit.id);
+            lore.add(cd > 0 ? t.text("available again in " + cd + " min", t.secondary()) : t.text("click to send", t.secondary()));
+            return lore;
+        }, kit -> {
+            p.closeInventory();
+            plugin.duels().requestTest(p, target, kit.id);
+        });
+    }
+
+    /** ranked section: queue and instant tier test */
+    public static void ranked(MintPvP plugin, Player p, Runnable back) {
+        Theme t = plugin.theme();
+        var st = plugin.stats().get(p.getUniqueId());
+        boolean on = plugin.queue().rankedEnabled();
+        Gui g = new Gui(plugin, 3, t.title("ranked"));
+        g.frame(true);
+        g.set(11, Items.of(Material.DIAMOND_SWORD).name(t.text("✦ ranked queue", on ? t.primary() : t.muted()))
+                .lore(t.text("kit tiers: lt5 → ht1", t.accent()),
+                        t.line("your tier", Tier.overallLabel(st.score())),
+                        t.line("ranked", st.rankedWins + "w / " + st.rankedLosses + "l"),
+                        Component.empty(),
+                        t.text(on ? "click to pick a kit" : "currently disabled", t.secondary()))
+                .glow().build(), on ? e -> queueKits(plugin, p, QueueManager.Type.RANKED, () -> ranked(plugin, p, back)) : null);
+        boolean test = plugin.getConfig().getBoolean("test.enabled", true);
+        int ft = Math.max(2, plugin.getConfig().getInt("test.first-to", 4));
+        g.set(15, Items.of(Material.TARGET).name(t.text("✦ instant tier test", test ? t.primary() : t.muted()))
+                .lore(t.text("skip the grind: a first-to-" + ft + " vs", t.accent()),
+                        t.text("a tier above, below or the same", t.accent()),
+                        t.text("beat a lower tier by " + ft + "-" + (ft - 2) + "+ or risk a drop", t.muted()),
+                        Component.empty(),
+                        t.text(test ? "click to pick a kit" : "currently disabled", t.secondary()))
+                .glow().build(), test ? e -> queueKits(plugin, p, QueueManager.Type.TEST, () -> ranked(plugin, p, back)) : null);
+        g.set(18, Items.of(Material.SPECTRAL_ARROW).name(t.text("« back", t.secondary())).build(), e -> { if (back != null) back.run(); else p.closeInventory(); });
+        g.open(p);
+    }
+
     public static void kitAndRounds(MintPvP plugin, Player p, Player target, boolean ranked, Runnable back) {
         pickKit(plugin, p, "choose kit", back,
                 kit -> List.of(plugin.theme().text(ranked ? "first to " + plugin.duels().rankedRounds() + " · click to send" : "click to pick the rounds", plugin.theme().secondary())),

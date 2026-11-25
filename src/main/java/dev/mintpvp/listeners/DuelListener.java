@@ -46,6 +46,7 @@ public final class DuelListener implements Listener {
         Duel d = plugin.duels().duelOf(victim.getUniqueId());
         if (d == null || d != plugin.duels().duelOf(attacker.getUniqueId())) return;
         d.lastHitBy.put(victim.getUniqueId(), attacker.getUniqueId());
+        if (!d.sameTeam(attacker, victim)) d.lastHit = System.currentTimeMillis();
     }
 
     /** isolate fights */
