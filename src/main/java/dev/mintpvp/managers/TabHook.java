@@ -111,6 +111,11 @@ public final class TabHook {
         Method orig = find(c, "getOriginalRawPrefix", tpClass);
         Method set = find(c, "setPrefix", tpClass, String.class);
         if (set == null) return;
+        if (!nametag) { // the tab list stays clean: drop any tag we set earlier
+            Object cur = get == null ? null : get.invoke(mgr, tp);
+            if (cur != null) set.invoke(mgr, tp, (String) null);
+            return;
+        }
         String base = orig == null ? "" : String.valueOf(orig.invoke(mgr, tp));
         if (base == null || base.equals("null")) base = "";
         boolean floating = nametag && plugin.aboveTags() != null && plugin.aboveTags().above();
