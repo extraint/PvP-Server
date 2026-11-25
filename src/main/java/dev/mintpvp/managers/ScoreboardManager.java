@@ -161,7 +161,6 @@ public final class ScoreboardManager {
         out.add(Component.text("  "));
         out.add(Component.text("\u25c6 ", icon).append(t.text(d.arena.name, txt)));
         out.add(Component.text("\u2691 ", icon).append(t.text(cfg.getString("sidebar.location", "Salt Lake City"), txt)));
-        out.add(Component.text("\u25ce ", icon).append(Component.text(d.gameId, txt)));
         out.add(Component.text("\u231a ", icon).append(Component.text(java.time.LocalDate.now().format(DATE), txt)));
         out.add(Component.text("   "));
         out.add(Component.text(cfg.getString("sidebar.ip", "mintpvp.playfps.nl"), t.primary()));
@@ -184,7 +183,10 @@ public final class ScoreboardManager {
 
         var match = plugin.duels().duelOf(p.getUniqueId());
         if (match == null) match = plugin.duels().spectatedDuel(p.getUniqueId());
-        if (plugin.getConfig().getBoolean("tags.teams", true) && !TabHook.tabPresent()) { // TAB owns nametags when it is installed
+        boolean viaTab = plugin.tab() != null && plugin.tab().nametagActive();
+        if (viaTab) {
+            for (var tm : new ArrayList<>(board.getTeams())) if (tm.getName().startsWith("m")) tm.unregister();
+        } else if (plugin.getConfig().getBoolean("tags.teams", true)) {
             try {
                 tagPlayers(board, match);
             } catch (RuntimeException e) {

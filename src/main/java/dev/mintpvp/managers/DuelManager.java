@@ -32,8 +32,6 @@ public final class DuelManager {
         public final Kit kit;
         public final boolean ranked;
         public final Mode mode;
-        /** short match id */
-        public final String gameId = String.format("game_%04x", java.util.concurrent.ThreadLocalRandom.current().nextInt(0x10000));
         /** all participants */
         public final List<Player> players = new ArrayList<>();
         final Map<UUID, Integer> team = new HashMap<>();
