@@ -862,6 +862,7 @@ public final class DuelManager {
             byPlayer.put(p.getUniqueId(), duel);
             requests.remove(p.getUniqueId());
         }
+        if (plugin.aboveTags() != null) for (Player p : duel.players) { plugin.aboveTags().refresh(p.getUniqueId()); if (plugin.tab() != null) plugin.tab().refresh(p.getUniqueId()); }
         computeSpawns(duel, teams);
 
         for (Player p : duel.players) {
@@ -1293,6 +1294,7 @@ public final class DuelManager {
         if (duel.sweep != null) duel.sweep.cancel();
         if (duel.ending != null) duel.ending.cancel();
         for (Player p : duel.players) if (byPlayer.get(p.getUniqueId()) == duel) byPlayer.remove(p.getUniqueId());
+        if (plugin.aboveTags() != null) for (Player p : duel.players) { plugin.aboveTags().refreshSoon(p.getUniqueId()); if (plugin.tab() != null) plugin.tab().refresh(p.getUniqueId()); }
 
         for (UUID sid : new ArrayList<>(duel.spectators)) {
             Player sp = Bukkit.getPlayer(sid);
@@ -1459,6 +1461,7 @@ public final class DuelManager {
     /** remove from match */
     private void removeFromMatch(Duel d, Player p) {
         byPlayer.remove(p.getUniqueId());
+        if (plugin.aboveTags() != null) plugin.aboveTags().refreshSoon(p.getUniqueId());
         d.alive.remove(p.getUniqueId());
         d.left.add(p.getUniqueId());
         restore(p, d.saved.get(p.getUniqueId()));

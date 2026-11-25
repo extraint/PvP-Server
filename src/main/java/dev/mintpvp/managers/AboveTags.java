@@ -11,7 +11,6 @@ import org.bukkit.GameMode;
 import org.bukkit.entity.Display;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.TextDisplay;
-import org.bukkit.scheduler.BukkitTask;
 import org.bukkit.util.Transformation;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
@@ -27,7 +26,6 @@ public final class AboveTags {
     private final MintPvP plugin;
     private final Map<UUID, TextDisplay> shown = new HashMap<>();
     private final Map<UUID, Integer> keys = new HashMap<>();
-    private BukkitTask task;
 
     public AboveTags(MintPvP plugin) {
         this.plugin = plugin;
@@ -38,39 +36,40 @@ public final class AboveTags {
         return plugin.getConfig().getString("tags.mode", "above").equalsIgnoreCase("above");
     }
 
+    /** no polling: tags change on tier, match, join, teleport and respawn events */
     public void start() {
         stop();
         if (!above()) return;
-        task = Bukkit.getScheduler().runTaskTimer(plugin, this::tick, 20L, 20L);
+        for (Player p : Bukkit.getOnlinePlayers()) refresh(p.getUniqueId());
     }
 
     public void stop() {
-        if (task != null) task.cancel();
-        task = null;
         for (TextDisplay d : shown.values()) if (d.isValid()) d.remove();
         shown.clear();
         keys.clear();
+    }
+
+    /** bring one player's tag up to date (safe from any thread) */
+    public void refresh(UUID id) {
+        if (!plugin.isEnabled() || !above()) return;
+        if (Bukkit.isPrimaryThread()) {
+            Player p = Bukkit.getPlayer(id);
+            if (p != null) update(p);
+        } else {
+            Bukkit.getScheduler().runTask(plugin, () -> refresh(id));
+        }
+    }
+
+    /** one tick later, after the event that changed things has finished */
+    public void refreshSoon(UUID id) {
+        if (!plugin.isEnabled() || !above()) return;
+        Bukkit.getScheduler().runTask(plugin, () -> refresh(id));
     }
 
     public void forget(UUID id) {
         TextDisplay d = shown.remove(id);
         keys.remove(id);
         if (d != null && d.isValid()) d.remove();
-    }
-
-    private void tick() {
-        try {
-            for (Player p : Bukkit.getOnlinePlayers()) update(p);
-            shown.keySet().removeIf(id -> {
-                if (Bukkit.getPlayer(id) != null) return false;
-                TextDisplay d = shown.get(id);
-                if (d != null && d.isValid()) d.remove();
-                keys.remove(id);
-                return true;
-            });
-        } catch (RuntimeException e) {
-            plugin.getLogger().warning("Floating tags failed: " + e);
-        }
     }
 
     /** put a dropped tag back on its player: after a teleport it is left behind */

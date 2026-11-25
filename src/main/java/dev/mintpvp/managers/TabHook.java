@@ -55,7 +55,7 @@ public final class TabHook {
         if (!plugin.getConfig().getBoolean("tags.tab-prefix", true)) return;
         task = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
             for (var p : Bukkit.getOnlinePlayers()) applyPrefix(p.getUniqueId());
-        }, 20L, 40L);
+        }, 20L, 200L); // slow safety sweep; changes are pushed by events
     }
 
     public void refresh(UUID id) {

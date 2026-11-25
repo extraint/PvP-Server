@@ -45,6 +45,31 @@ public final class PlayerListener implements Listener {
             plugin.kits().give(p);
         }
         plugin.boards().update(p);
+        if (plugin.aboveTags() != null) plugin.aboveTags().refreshSoon(p.getUniqueId());
+    }
+
+    @EventHandler
+    public void onDeath(org.bukkit.event.entity.PlayerDeathEvent e) {
+        if (plugin.aboveTags() != null) plugin.aboveTags().forget(e.getPlayer().getUniqueId());
+    }
+
+    @EventHandler
+    public void onRespawn(org.bukkit.event.player.PlayerRespawnEvent e) {
+        if (plugin.aboveTags() != null) plugin.aboveTags().refreshSoon(e.getPlayer().getUniqueId());
+    }
+
+    @EventHandler(ignoreCancelled = true)
+    public void onMode(org.bukkit.event.player.PlayerGameModeChangeEvent e) {
+        if (plugin.aboveTags() != null) plugin.aboveTags().refreshSoon(e.getPlayer().getUniqueId());
+    }
+
+    @EventHandler(ignoreCancelled = true)
+    public void onEffect(org.bukkit.event.entity.EntityPotionEffectEvent e) {
+        if (plugin.aboveTags() != null && e.getEntity() instanceof Player p
+                && (e.getNewEffect() != null ? e.getNewEffect() : e.getOldEffect()) != null
+                && (e.getNewEffect() != null ? e.getNewEffect() : e.getOldEffect()).getType().equals(org.bukkit.potion.PotionEffectType.INVISIBILITY)) {
+            plugin.aboveTags().refreshSoon(p.getUniqueId());
+        }
     }
 
     @EventHandler(priority = org.bukkit.event.EventPriority.MONITOR, ignoreCancelled = true)

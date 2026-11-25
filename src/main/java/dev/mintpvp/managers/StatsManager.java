@@ -156,6 +156,8 @@ public final class StatsManager {
 
     private void touch(UUID id) {
         if (db != null) dirty.add(id);
+        if (plugin.aboveTags() != null) plugin.aboveTags().refresh(id);
+        if (plugin.tab() != null) plugin.tab().refresh(id);
     }
 
     /** start the shared database (storage.type: mysql) */
@@ -221,6 +223,7 @@ public final class StatsManager {
             cur.kitTest.clear();
             cur.kitTest.putAll(parsed.kitTest);
             if (r.name() != null) names.put(r.id(), r.name());
+            if (plugin.aboveTags() != null) plugin.aboveTags().refresh(r.id());
             lastPull = Math.max(lastPull, r.updated());
         } catch (Exception e) {
             plugin.getLogger().warning("Skipped a bad stats row for " + r.id() + ": " + e.getMessage());
