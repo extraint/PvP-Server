@@ -24,11 +24,13 @@ import java.util.UUID;
 public final class AboveTags {
 
     private final MintPvP plugin;
+    private final org.bukkit.NamespacedKey MARK;
     private final Map<UUID, TextDisplay> shown = new HashMap<>();
     private final Map<UUID, Integer> keys = new HashMap<>();
 
     public AboveTags(MintPvP plugin) {
         this.plugin = plugin;
+        this.MARK = new org.bukkit.NamespacedKey(plugin, "tiertag");
     }
 
     /** true when the tag is the floating line instead of a prefix */
@@ -39,6 +41,11 @@ public final class AboveTags {
     /** no polling: tags change on tier, match, join, teleport and respawn events */
     public void start() {
         stop();
+        for (var w : Bukkit.getWorlds()) { // leftovers from a reload
+            for (TextDisplay old : w.getEntitiesByClass(TextDisplay.class)) {
+                if (old.getPersistentDataContainer().has(MARK)) old.remove();
+            }
+        }
         if (!above()) return;
         for (Player p : Bukkit.getOnlinePlayers()) refresh(p.getUniqueId());
     }
@@ -81,7 +88,10 @@ public final class AboveTags {
             return;
         }
         d.teleport(p.getLocation());
-        p.addPassenger(d);
+        // add it again a tick later so nearby clients get the new ride
+        Bukkit.getScheduler().runTaskLater(plugin, () -> {
+            if (p.isOnline() && d.isValid() && !p.equals(d.getVehicle())) p.addPassenger(d);
+        }, 2L);
     }
 
     private void update(Player p) {
@@ -103,15 +113,19 @@ public final class AboveTags {
         }
         int key = tierIndex(id);
         if (d == null) {
+            for (var rider : new java.util.ArrayList<>(p.getPassengers())) { // never two tags on one player
+                if (rider instanceof TextDisplay old && old.getPersistentDataContainer().has(MARK)) old.remove();
+            }
             Component text = tag(key);
             d = p.getWorld().spawn(p.getLocation(), TextDisplay.class, e -> {
                 e.setPersistent(false);
+                e.getPersistentDataContainer().set(MARK, org.bukkit.persistence.PersistentDataType.BYTE, (byte) 1);
                 e.setBillboard(Display.Billboard.CENTER);
                 e.setBackgroundColor(Color.fromARGB(0, 0, 0, 0));
                 e.setShadowed(true);
-                e.setSeeThrough(false);
+                e.setSeeThrough(true);
                 e.setViewRange(0.5f);
-                double up = plugin.getConfig().getDouble("tags.above-offset", 0.65);
+                double up = plugin.getConfig().getDouble("tags.above-height", 0.9);
                 e.setTransformation(new Transformation(new Vector3f(0, (float) up, 0), new Quaternionf(), new Vector3f(1, 1, 1), new Quaternionf()));
                 e.text(text);
             });
