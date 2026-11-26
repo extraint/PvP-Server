@@ -130,7 +130,7 @@ public final class CustomKitEditorGui extends Gui {
     private void addItems() {
         if (cursorBusy()) return;
         CustomKits.keepDraft(viewer.getUniqueId(), kit, capture());
-        new ItemBrowserGui(plugin, viewer, kit, "", 0, 0, back).open(viewer);
+        new ItemBrowserGui(plugin, viewer, kit, "", -1, 0, back).open(viewer);
     }
 
     private void leave(boolean saved) {

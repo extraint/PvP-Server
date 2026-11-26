@@ -22,7 +22,9 @@ import java.util.Locale;
 /** every item, searchable */
 public final class ItemBrowserGui extends Gui {
 
-    private static final String[] CATEGORIES = {"all", "combat", "potions", "food", "blocks", "tools & misc"};
+    private static final String[] CATEGORIES = {"weapons & gear", "potions", "food", "blocks", "miscellaneous", "all items"};
+    private static final Material[] ICONS = {Material.DIAMOND_SWORD, Material.SPLASH_POTION, Material.GOLDEN_APPLE, Material.GRASS_BLOCK, Material.ENDER_CHEST, Material.COMPASS};
+    private static final int[] SECTION_SLOTS = {10, 12, 14, 16, 22, 31};
     private static final int PER_PAGE = 45;
     private static List<ItemStack> catalog;
 
@@ -41,6 +43,11 @@ public final class ItemBrowserGui extends Gui {
         this.category = category;
         this.back = back;
         Theme t = plugin.theme();
+        if (category < 0) {
+            this.page = 0;
+            sections(t);
+            return;
+        }
 
         List<ItemStack> list = new ArrayList<>();
         String f = filter.toLowerCase(Locale.ROOT).replace(' ', '_');
@@ -80,9 +87,9 @@ public final class ItemBrowserGui extends Gui {
             int next = this.page + 1;
             set(49, Items.of(Material.ARROW).name(t.text("next ›", t.primary())).build(), e -> new ItemBrowserGui(plugin, p, kit, filter, category, next, back).open(p));
         }
-        set(51, Items.of(Material.COMPASS).name(t.text("✦ category: " + CATEGORIES[category], t.primary()))
-                .lore(t.text("click to change", t.secondary())).build(),
-                e -> new ItemBrowserGui(plugin, p, kit, filter, (category + 1) % CATEGORIES.length, 0, back).open(p));
+        set(51, Items.of(ICONS[category]).name(t.text("✦ " + CATEGORIES[category], t.primary()))
+                .lore(t.text("click for all sections", t.secondary())).build(),
+                e -> new ItemBrowserGui(plugin, p, kit, filter, -1, 0, back).open(p));
         set(52, Items.of(Material.OAK_SIGN).name(t.text("✦ search" + (filter.isEmpty() ? "" : ": " + filter), t.primary()))
                 .lore(t.text("click, then type in chat", t.secondary()), t.text("right-click to clear", t.muted())).build(), e -> {
             if (e.isRightClick()) {
@@ -148,23 +155,46 @@ public final class ItemBrowserGui extends Gui {
         return base;
     }
 
+    private void sections(Theme t) {
+        ItemStack dark = Items.of(Material.BLACK_STAINED_GLASS_PANE).blank().build();
+        for (int i = 0; i < 54; i++) set(i, dark);
+        int[] counts = new int[CATEGORIES.length];
+        for (ItemStack it : catalog()) {
+            counts[sectionOf(it)]++;
+            counts[5]++;
+        }
+        for (int i = 0; i < CATEGORIES.length; i++) {
+            int cat = i;
+            set(SECTION_SLOTS[i], Items.of(ICONS[i]).name(t.text(CATEGORIES[i], t.primary()))
+                    .lore(t.text(counts[i] + " items", t.accent()), Component.empty(), t.text("click to browse", t.secondary())).glow().build(),
+                    e -> new ItemBrowserGui(plugin, viewer, kit, filter, cat, 0, back).open(viewer));
+        }
+        set(4, Items.of(Material.PAPER).name(t.text("add items", t.primary()))
+                .lore(t.text("pick a section, then click items", t.accent()), t.text("to add them to your kit", t.accent())).build());
+        set(45, Items.of(Material.SPECTRAL_ARROW).name(t.text("« done", t.secondary()))
+                .lore(t.text("back to the kit", t.muted())).build(), e -> new CustomKitEditorGui(plugin, viewer, kit, back).open(viewer));
+    }
+
     private boolean matchesCategory(ItemStack it) {
+        return category == 5 || sectionOf(it) == category;
+    }
+
+    /** 0 gear, 1 potions, 2 food, 3 blocks, 4 miscellaneous */
+    private static int sectionOf(ItemStack it) {
         Material m = it.getType();
         String n = m.name();
-        return switch (category) {
-            case 1 -> n.endsWith("_SWORD") || n.endsWith("_AXE") || n.endsWith("_HELMET") || n.endsWith("_CHESTPLATE")
-                    || n.endsWith("_LEGGINGS") || n.endsWith("_BOOTS") || n.endsWith("_SPEAR") || n.equals("BOW") || n.equals("CROSSBOW")
-                    || n.equals("TRIDENT") || n.equals("MACE") || n.equals("SHIELD") || n.equals("ELYTRA") || n.equals("TOTEM_OF_UNDYING")
-                    || n.equals("ARROW") || n.equals("SPECTRAL_ARROW") || n.equals("ENDER_PEARL") || n.equals("WIND_CHARGE")
-                    || n.equals("FIRE_CHARGE") || n.equals("FLINT_AND_STEEL") || n.equals("TNT") || n.equals("FISHING_ROD")
-                    || n.equals("SNOWBALL") || n.equals("EGG") || n.equals("COBWEB") || n.equals("LAVA_BUCKET") || n.equals("WATER_BUCKET")
-                    || n.equals("FIREWORK_ROCKET") || n.equals("END_CRYSTAL") || n.equals("RESPAWN_ANCHOR") || n.equals("GLOWSTONE");
-            case 2 -> it.getItemMeta() instanceof PotionMeta;
-            case 3 -> m.isEdible();
-            case 4 -> m.isBlock();
-            case 5 -> !m.isBlock() && !m.isEdible() && !(it.getItemMeta() instanceof PotionMeta);
-            default -> true;
-        };
+        if (it.getItemMeta() instanceof PotionMeta) return 1;
+        if (n.endsWith("_SWORD") || n.endsWith("_AXE") || n.endsWith("_PICKAXE") || n.endsWith("_SHOVEL") || n.endsWith("_HOE")
+                || n.endsWith("_HELMET") || n.endsWith("_CHESTPLATE") || n.endsWith("_LEGGINGS") || n.endsWith("_BOOTS") || n.endsWith("_SPEAR")
+                || n.equals("BOW") || n.equals("CROSSBOW") || n.equals("TRIDENT") || n.equals("MACE") || n.equals("SHIELD") || n.equals("ELYTRA")
+                || n.equals("TOTEM_OF_UNDYING") || n.equals("ARROW") || n.equals("SPECTRAL_ARROW") || n.equals("ENDER_PEARL")
+                || n.equals("WIND_CHARGE") || n.equals("FIRE_CHARGE") || n.equals("FLINT_AND_STEEL") || n.equals("TNT") || n.equals("FISHING_ROD")
+                || n.equals("SNOWBALL") || n.equals("EGG") || n.equals("COBWEB") || n.equals("LAVA_BUCKET") || n.equals("WATER_BUCKET")
+                || n.equals("FIREWORK_ROCKET") || n.equals("END_CRYSTAL") || n.equals("RESPAWN_ANCHOR") || n.equals("GLOWSTONE")
+                || n.equals("SHEARS") || n.equals("TURTLE_HELMET") || n.equals("CARVED_PUMPKIN")) return 0;
+        if (m.isEdible()) return 2;
+        if (m.isBlock()) return 3;
+        return 4;
     }
 
     /** all items except spawn eggs */
