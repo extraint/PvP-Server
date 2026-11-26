@@ -5,16 +5,16 @@ import org.bukkit.Material;
 
 /** tiers */
 public enum Tier {
-    LT5("lt5", Material.COPPER_INGOT, 3, C.LIGHTGREEN),
-    HT5("ht5", Material.IRON_INGOT, 8, C.LIGHTGREEN),
-    LT4("lt4", Material.GOLD_INGOT, 12, C.GREYBLUE),
-    HT4("ht4", Material.LAPIS_LAZULI, 20, C.GREYBLUE),
-    LT3("lt3", Material.EMERALD, 28, C.BRONZE),
-    HT3("ht3", Material.DIAMOND, 38, C.BRONZE),
-    LT2("lt2", Material.AMETHYST_SHARD, 50, C.SILVER),
-    HT2("ht2", Material.NETHERITE_SCRAP, 65, C.SILVER),
-    LT1("lt1", Material.NETHERITE_INGOT, 92, C.GOLD),
-    HT1("ht1", Material.NETHER_STAR, 110, C.CHAMP);
+    LT5("lt5", Material.COPPER_INGOT, 1, C.LIGHTGREEN),
+    HT5("ht5", Material.IRON_INGOT, 2, C.LIGHTGREEN),
+    LT4("lt4", Material.GOLD_INGOT, 4, C.GREYBLUE),
+    HT4("ht4", Material.LAPIS_LAZULI, 6, C.GREYBLUE),
+    LT3("lt3", Material.EMERALD, 10, C.BRONZE),
+    HT3("ht3", Material.DIAMOND, 15, C.BRONZE),
+    LT2("lt2", Material.AMETHYST_SHARD, 25, C.SILVER),
+    HT2("ht2", Material.NETHERITE_SCRAP, 35, C.SILVER),
+    LT1("lt1", Material.NETHERITE_INGOT, 60, C.GOLD),
+    HT1("ht1", Material.NETHER_STAR, 80, C.CHAMP);
 
     public final String label;
     public final Material icon;
@@ -49,13 +49,13 @@ public enum Tier {
     /** overall title */
     public static String overall(int totalPoints) {
         double avg = totalPoints / (double) Math.max(1, kitCount.getAsInt());
-        if (avg >= 105) return "grandmaster";
-        if (avg >= 80) return "master";
-        if (avg >= 50) return "ace";
-        if (avg >= 28) return "specialist";
-        if (avg >= 16) return "cadet";
-        if (avg >= 8) return "novice";
-        if (avg >= 3) return "rookie";
+        if (avg >= 60) return "grandmaster";
+        if (avg >= 35) return "master";
+        if (avg >= 20) return "ace";
+        if (avg >= 10) return "specialist";
+        if (avg >= 6) return "cadet";
+        if (avg >= 2) return "novice";
+        if (avg >= 1) return "rookie";
         return "unranked";
     }
 
