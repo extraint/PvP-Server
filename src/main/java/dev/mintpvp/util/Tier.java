@@ -49,13 +49,13 @@ public enum Tier {
     /** overall title */
     public static String overall(int totalPoints) {
         double avg = totalPoints / (double) Math.max(1, kitCount.getAsInt());
-        if (avg >= 60) return "grandmaster";
-        if (avg >= 35) return "master";
-        if (avg >= 20) return "ace";
-        if (avg >= 10) return "specialist";
-        if (avg >= 6) return "cadet";
-        if (avg >= 2) return "novice";
-        if (avg >= 1) return "rookie";
+        if (avg >= 80) return "grandmaster"; // ht1 in every kit
+        if (avg >= 60) return "master"; // lt1 in every kit
+        if (avg >= 25) return "ace"; // lt2 in every kit
+        if (avg >= 15) return "specialist"; // ht3 in every kit
+        if (avg >= 10) return "cadet"; // lt3 in every kit
+        if (avg >= 4) return "novice"; // lt4 in every kit
+        if (avg >= 1) return "rookie"; // lt5 in every kit
         return "unranked";
     }
 
