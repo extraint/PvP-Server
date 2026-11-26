@@ -32,15 +32,18 @@ public final class ItemBrowserGui extends Gui {
     private final Player viewer;
     private final String filter;
     private final int category;
+    private final int target;
     private final int page;
     private final Runnable back;
 
-    public ItemBrowserGui(MintPvP plugin, Player p, Kit kit, String filter, int category, int page, Runnable back) {
+    public ItemBrowserGui(MintPvP plugin, Player p, Kit kit, String filter, int categoryIn, int page, int target, Runnable back) {
         super(plugin, 6, plugin.theme().title("add items"));
         this.kit = kit;
         this.viewer = p;
         this.filter = filter;
-        this.category = category;
+        this.target = target;
+        boolean armorTarget = target >= 36 && target <= 39;
+        this.category = armorTarget ? 5 : categoryIn;
         this.back = back;
         Theme t = plugin.theme();
         if (category < 0) {
@@ -53,6 +56,7 @@ public final class ItemBrowserGui extends Gui {
         String f = filter.toLowerCase(Locale.ROOT).replace(' ', '_');
         for (ItemStack it : catalog()) {
             if (!matchesCategory(it)) continue;
+            if (target >= 36 && target <= 39 && it.getType().getEquipmentSlot() != armorSlot(target)) continue;
             if (!f.isEmpty() && !name(it).contains(f)) continue;
             list.add(it);
         }
@@ -79,26 +83,35 @@ public final class ItemBrowserGui extends Gui {
                 .lore(t.text("back to the kit", t.muted())).build(), e -> new CustomKitEditorGui(plugin, p, kit, back).open(p));
         if (this.page > 0) {
             int prev = this.page - 1;
-            set(47, Items.of(Material.ARROW).name(t.text("‹ previous", t.primary())).build(), e -> new ItemBrowserGui(plugin, p, kit, filter, category, prev, back).open(p));
+            set(47, Items.of(Material.ARROW).name(t.text("‹ previous", t.primary())).build(), e -> new ItemBrowserGui(plugin, p, kit, filter, category, prev, target, back).open(p));
         }
         set(48, Items.of(Material.PAPER).name(t.text("page " + (this.page + 1) + " / " + pages, t.accent()))
                 .lore(t.text(list.size() + " items", t.muted())).build());
         if (this.page < pages - 1) {
             int next = this.page + 1;
-            set(49, Items.of(Material.ARROW).name(t.text("next ›", t.primary())).build(), e -> new ItemBrowserGui(plugin, p, kit, filter, category, next, back).open(p));
+            set(49, Items.of(Material.ARROW).name(t.text("next ›", t.primary())).build(), e -> new ItemBrowserGui(plugin, p, kit, filter, category, next, target, back).open(p));
         }
         set(51, Items.of(ICONS[category]).name(t.text("✦ " + CATEGORIES[category], t.primary()))
                 .lore(t.text("click for all sections", t.secondary())).build(),
-                e -> new ItemBrowserGui(plugin, p, kit, filter, -1, 0, back).open(p));
+                e -> new ItemBrowserGui(plugin, p, kit, filter, -1, 0, target, back).open(p));
         set(52, Items.of(Material.OAK_SIGN).name(t.text("✦ search" + (filter.isEmpty() ? "" : ": " + filter), t.primary()))
                 .lore(t.text("click, then type in chat", t.secondary()), t.text("right-click to clear", t.muted())).build(), e -> {
             if (e.isRightClick()) {
-                new ItemBrowserGui(plugin, p, kit, "", category, 0, back).open(p);
+                new ItemBrowserGui(plugin, p, kit, "", category, 0, target, back).open(p);
                 return;
             }
             plugin.chatPrompt().ask(p, "type part of an item name.", text ->
-                    new ItemBrowserGui(plugin, p, kit, text == null ? filter : text, category, 0, back).open(p));
+                    new ItemBrowserGui(plugin, p, kit, text == null ? filter : text, category, 0, target, back).open(p));
         });
+    }
+
+    private static EquipmentSlot armorSlot(int kitSlot) {
+        return switch (kitSlot) {
+            case 39 -> EquipmentSlot.HEAD;
+            case 38 -> EquipmentSlot.CHEST;
+            case 37 -> EquipmentSlot.LEGS;
+            default -> EquipmentSlot.FEET;
+        };
     }
 
     private void actionFor(int slot, ItemStack base) {
@@ -114,7 +127,7 @@ public final class ItemBrowserGui extends Gui {
     private void addToDraft(ItemStack item) {
         Theme t = plugin.theme();
         ItemStack[] draft = CustomKits.draft(viewer.getUniqueId(), kit);
-        int slot = freeSlot(draft, item);
+        int slot = target >= 0 && Items.isEmpty(draft[target]) ? target : freeSlot(draft, item);
         if (slot < 0) {
             viewer.sendMessage(t.error("the kit is full - remove something first."));
             return;
@@ -122,6 +135,10 @@ public final class ItemBrowserGui extends Gui {
         draft[slot] = item;
         CustomKits.keepDraft(viewer.getUniqueId(), kit, draft);
         viewer.playSound(viewer.getLocation(), Sound.ENTITY_ITEM_PICKUP, 0.5f, 1.6f);
+        if (target >= 0) {
+            new CustomKitEditorGui(plugin, viewer, kit, back).open(viewer);
+            return;
+        }
         viewer.sendActionBar(t.text("added " + readable(item.getType()) + " - " + count(draft) + " items", t.accent()));
     }
 
@@ -167,7 +184,7 @@ public final class ItemBrowserGui extends Gui {
             int cat = i;
             set(SECTION_SLOTS[i], Items.of(ICONS[i]).name(t.text(CATEGORIES[i], t.primary()))
                     .lore(t.text(counts[i] + " items", t.accent()), Component.empty(), t.text("click to browse", t.secondary())).glow().build(),
-                    e -> new ItemBrowserGui(plugin, viewer, kit, filter, cat, 0, back).open(viewer));
+                    e -> new ItemBrowserGui(plugin, viewer, kit, filter, cat, 0, target, back).open(viewer));
         }
         set(4, Items.of(Material.PAPER).name(t.text("add items", t.primary()))
                 .lore(t.text("pick a section, then click items", t.accent()), t.text("to add them to your kit", t.accent())).build());

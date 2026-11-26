@@ -60,7 +60,8 @@ public final class CustomKitEditorGui extends Gui {
             for (int i = 0; i < ARMOR_GUI.length; i++) inv.setItem(ARMOR_GUI[i], placeholder(ARMOR_NAME[i]));
         });
         set(4, Items.of(Material.PAPER).name(t.text("how it works", t.primary()))
-                .lore(t.text("click an item to move it", t.accent()),
+                .lore(t.text("click an empty slot to choose its item", t.accent()),
+                        t.text("click an item to pick it up and move it", t.accent()),
                         t.text("shift-click: enchant and options", t.accent()),
                         t.text("q: remove it, or drop it on the bin", t.accent()),
                         t.text("bottom row: armor and offhand", t.muted()),
@@ -130,7 +131,13 @@ public final class CustomKitEditorGui extends Gui {
     private void addItems() {
         if (cursorBusy()) return;
         CustomKits.keepDraft(viewer.getUniqueId(), kit, capture());
-        new ItemBrowserGui(plugin, viewer, kit, "", -1, 0, back).open(viewer);
+        new ItemBrowserGui(plugin, viewer, kit, "", -1, 0, -1, back).open(viewer);
+    }
+
+    /** choose an item for one slot */
+    private void pickFor(int kitSlot) {
+        CustomKits.keepDraft(viewer.getUniqueId(), kit, capture());
+        new ItemBrowserGui(plugin, viewer, kit, "", -1, 0, kitSlot, back).open(viewer);
     }
 
     private void leave(boolean saved) {
@@ -197,7 +204,13 @@ public final class CustomKitEditorGui extends Gui {
             if (!Items.isEmpty(cursor)) {
                 inv.setItem(raw, cursor.clone());
                 viewer.setItemOnCursor(null);
+            } else {
+                pickFor(ks);
             }
+            return;
+        }
+        if (empty && Items.isEmpty(cursor)) {
+            pickFor(ks);
             return;
         }
         e.setCancelled(false);
