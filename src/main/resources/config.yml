@@ -124,7 +124,7 @@ storage:
 tags:
   teams: true  # tier tags in nametags and tab
   mode: above  # above = floating line over the nametag, prefix = in front of the name
-  above-height: 0.9  # height of the floating line above the head (raise it if it touches the name)
+  above-height: 0.75  # height of the floating line above the head (lower = closer to the name)
   tab-prefix: true  # push the tag into TAB nametags and tab list
 
 sidebar:

@@ -136,7 +136,7 @@ public final class AboveTags {
                 e.setShadowed(true);
                 e.setSeeThrough(true);
                 e.setViewRange(0.5f);
-                double up = plugin.getConfig().getDouble("tags.above-height", 0.9);
+                double up = plugin.getConfig().getDouble("tags.above-height", 0.75);
                 e.setTransformation(new Transformation(new Vector3f(0, (float) up, 0), new Quaternionf(), new Vector3f(1, 1, 1), new Quaternionf()));
                 e.text(text);
             });
