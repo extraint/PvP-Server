@@ -24,6 +24,7 @@ import java.util.UUID;
 public final class AboveTags {
 
     private final MintPvP plugin;
+    private org.bukkit.scheduler.BukkitTask sweep;
     private final org.bukkit.NamespacedKey MARK;
     private final Map<UUID, TextDisplay> shown = new HashMap<>();
     private final Map<UUID, Integer> keys = new HashMap<>();
@@ -48,9 +49,15 @@ public final class AboveTags {
         }
         if (!above()) return;
         for (Player p : Bukkit.getOnlinePlayers()) refresh(p.getUniqueId());
+        // slow repair pass for anything an event missed
+        sweep = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
+            for (Player p : Bukkit.getOnlinePlayers()) update(p);
+        }, 100L, 100L);
     }
 
     public void stop() {
+        if (sweep != null) sweep.cancel();
+        sweep = null;
         for (TextDisplay d : shown.values()) if (d.isValid()) d.remove();
         shown.clear();
         keys.clear();
@@ -73,6 +80,12 @@ public final class AboveTags {
         Bukkit.getScheduler().runTask(plugin, () -> refresh(id));
     }
 
+    /** dim the tag while sneaking, like a vanilla nametag */
+    public void fade(Player p) {
+        TextDisplay d = shown.get(p.getUniqueId());
+        if (d != null && d.isValid()) d.setTextOpacity(p.isSneaking() ? (byte) 90 : (byte) -1);
+    }
+
     public void forget(UUID id) {
         TextDisplay d = shown.remove(id);
         keys.remove(id);
@@ -80,18 +93,13 @@ public final class AboveTags {
     }
 
     /** put a dropped tag back on its player: after a teleport it is left behind */
-    public void reattach(Player p) {
-        TextDisplay d = shown.get(p.getUniqueId());
-        if (d == null || !d.isValid() || p.equals(d.getVehicle())) return;
+    private void reattach(Player p, TextDisplay d) {
         if (!d.getWorld().equals(p.getWorld())) {
             forget(p.getUniqueId());
             return;
         }
         d.teleport(p.getLocation());
-        // add it again a tick later so nearby clients get the new ride
-        Bukkit.getScheduler().runTaskLater(plugin, () -> {
-            if (p.isOnline() && d.isValid() && !p.equals(d.getVehicle())) p.addPassenger(d);
-        }, 2L);
+        p.addPassenger(d);
     }
 
     private void update(Player p) {
@@ -108,7 +116,7 @@ public final class AboveTags {
             d = null;
         }
         if (d != null && !p.equals(d.getVehicle())) {
-            reattach(p);
+            reattach(p, d);
             d = shown.get(id);
         }
         int key = tierIndex(id);
@@ -119,6 +127,9 @@ public final class AboveTags {
             Component text = tag(key);
             d = p.getWorld().spawn(p.getLocation(), TextDisplay.class, e -> {
                 e.setPersistent(false);
+                e.setVisibleByDefault(false); // no flash at the feet before it rides
+                e.setBrightness(new Display.Brightness(15, 15));
+                e.setAlignment(TextDisplay.TextAlignment.CENTER);
                 e.getPersistentDataContainer().set(MARK, org.bukkit.persistence.PersistentDataType.BYTE, (byte) 1);
                 e.setBillboard(Display.Billboard.CENTER);
                 e.setBackgroundColor(Color.fromARGB(0, 0, 0, 0));
@@ -131,7 +142,9 @@ public final class AboveTags {
             });
             p.addPassenger(d);
             p.hideEntity(plugin, d);
+            d.setVisibleByDefault(true);
             shown.put(id, d);
+            fade(p);
             keys.put(id, key);
             return;
         }

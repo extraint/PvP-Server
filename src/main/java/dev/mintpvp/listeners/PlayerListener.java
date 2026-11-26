@@ -48,6 +48,13 @@ public final class PlayerListener implements Listener {
         if (plugin.aboveTags() != null) plugin.aboveTags().refreshSoon(p.getUniqueId());
     }
 
+    @EventHandler(ignoreCancelled = true)
+    public void onSneak(org.bukkit.event.player.PlayerToggleSneakEvent e) {
+        if (plugin.aboveTags() == null) return;
+        Player p = e.getPlayer();
+        org.bukkit.Bukkit.getScheduler().runTask(plugin, () -> plugin.aboveTags().fade(p));
+    }
+
     @EventHandler
     public void onDeath(org.bukkit.event.entity.PlayerDeathEvent e) {
         if (plugin.aboveTags() != null) plugin.aboveTags().forget(e.getPlayer().getUniqueId());
@@ -76,7 +83,7 @@ public final class PlayerListener implements Listener {
     public void onTeleport(org.bukkit.event.player.PlayerTeleportEvent e) {
         if (plugin.aboveTags() == null) return;
         Player p = e.getPlayer();
-        org.bukkit.Bukkit.getScheduler().runTask(plugin, () -> { if (p.isOnline()) plugin.aboveTags().reattach(p); });
+        plugin.aboveTags().refreshSoon(p.getUniqueId());
     }
 
     @EventHandler
