@@ -85,7 +85,7 @@ public final class Blocks {
     private static final Map<String, BlockData> SPECIAL = new java.util.concurrent.ConcurrentHashMap<>();
     private static final BlockData[] SNOW = new BlockData[9];
 
-    /** a snow layer, 1 to 8 high */
+    /** a snow layer */
     public static synchronized BlockData snow(int layers) {
         int n = Math.max(1, Math.min(8, layers));
         if (SNOW[n] == null) SNOW[n] = Bukkit.createBlockData("minecraft:snow[layers=" + n + "]");

@@ -1,6 +1,7 @@
 package dev.mintpvp.gui;
 
 import dev.mintpvp.MintPvP;
+import dev.mintpvp.managers.KitManager.Kit;
 import dev.mintpvp.managers.PartyManager.Party;
 import dev.mintpvp.util.Items;
 import dev.mintpvp.util.Theme;
@@ -27,6 +28,21 @@ public final class TeamsGui extends Gui {
 
     /** true = blue */
     private final Map<UUID, Boolean> blue = new LinkedHashMap<>();
+
+    private static void begin(MintPvP plugin, Player leader, Map<UUID, Boolean> blue, Kit redKit, Kit blueKit) {
+        Theme t = plugin.theme();
+        leader.closeInventory();
+        List<Player> red = new ArrayList<>(), blu = new ArrayList<>();
+        for (var en : blue.entrySet()) {
+            Player pl = Bukkit.getPlayer(en.getKey());
+            if (pl == null) {
+                leader.sendMessage(t.error("a party member is offline."));
+                return;
+            }
+            (en.getValue() ? blu : red).add(pl);
+        }
+        plugin.duels().startScrim(leader, red, blu, redKit.id, blueKit == null ? null : blueKit.id);
+    }
 
     public TeamsGui(MintPvP plugin, Player leader, Map<UUID, Boolean> existing, Runnable back) {
         super(plugin, 6, plugin.theme().title("custom teams"));
@@ -82,24 +98,22 @@ public final class TeamsGui extends Gui {
         });
 
         boolean ok = reds > 0 && blues > 0;
+        List<Kit> kits = CustomKits.partyKits(plugin, party.members);
+        Runnable reopen = () -> new TeamsGui(plugin, leader, blue, back).open(leader);
         set(49, Items.of(ok ? Material.EMERALD : Material.BARRIER)
                 .name(t.text(ok ? "✦ pick a kit and start" : "each team needs a player", ok ? t.primary() : t.muted()))
-                .lore(t.text(reds + " vs " + blues, t.accent())).glow().build(), ok ? e ->
-                Guis.pickKit(plugin, leader, "choose kit", () -> new TeamsGui(plugin, leader, blue, back).open(leader),
+                .lore(t.text(reds + " vs " + blues, t.accent()), t.text("both teams use the same kit", t.muted())).glow().build(), ok ? e ->
+                Guis.pickKit(plugin, leader, "choose kit", reopen,
                         kit -> List.of(t.text("click to start " + reds + "v" + blues, t.secondary())),
-                        kit -> {
-                            leader.closeInventory();
-                            List<Player> red = new ArrayList<>(), blu = new ArrayList<>();
-                            for (var en : blue.entrySet()) {
-                                Player pl = Bukkit.getPlayer(en.getKey());
-                                if (pl == null) {
-                                    leader.sendMessage(t.error("a party member is offline."));
-                                    return;
-                                }
-                                (en.getValue() ? blu : red).add(pl);
-                            }
-                            plugin.duels().startScrim(leader, red, blu, kit.id);
-                        }) : null);
+                        kit -> begin(plugin, leader, blue, kit, null), kits, List.of()) : null);
+        set(50, Items.of(ok ? Material.CRAFTING_TABLE : Material.BARRIER)
+                .name(t.text(ok ? "✦ a kit for each team" : "each team needs a player", ok ? t.primary() : t.muted()))
+                .lore(t.text("pick one for red, then one for blue", t.accent()), t.text("custom kits from your party work too", t.muted())).build(), ok ? e ->
+                Guis.pickKit(plugin, leader, "red team kit", reopen,
+                        kit -> List.of(t.text("click to pick for red", t.secondary())),
+                        red -> Guis.pickKit(plugin, leader, "blue team kit", reopen,
+                                kit -> List.of(t.text("click to start", t.secondary())),
+                                blueKit -> begin(plugin, leader, blue, red, blueKit), kits, List.of()), kits, List.of()) : null);
 
         if (back != null) {
             set(52, Items.of(Material.SPECTRAL_ARROW).name(t.text("« back", t.secondary())).build(), e -> back.run());

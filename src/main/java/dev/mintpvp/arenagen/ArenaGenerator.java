@@ -285,7 +285,7 @@ public final class ArenaGenerator {
         return a;
     }
 
-    /** load the stands too, in the background */
+    /** load the stands too */
     private void preloadStands(Slot slot) {
         int r = 78;
         for (int x = (slot.cx() - r) >> 4; x <= (slot.cx() + r) >> 4; x++) {
@@ -326,7 +326,7 @@ public final class ArenaGenerator {
         return requestExtra(large, null);
     }
 
-    /** extra arena; a stadium kit gets a stadium */
+    /** extra arena */
     public boolean requestExtra(boolean large, String kitId) {
         if (!enabled() || world == null) return false;
         if (building()) return true;

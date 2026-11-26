@@ -24,7 +24,7 @@ public enum ArenaTheme {
     public final Material icon;
     /** under-floor block */
     public final Material sub;
-    /** built by the rolling-terrain generator even at normal size */
+    /** built by the rolling-terrain generator */
     public final boolean procedural;
 
     ArenaTheme(String id, String display, Material icon, Material sub) {

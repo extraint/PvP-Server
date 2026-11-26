@@ -21,7 +21,7 @@ public enum Tier {
     public final int points;
     public final TextColor color;
 
-    /** tier colours (HT1 blue is taken from the champion banner) */
+    /** tier colours */
     private static final class C {
         static final TextColor LIGHTGREEN = TextColor.color(0x7CFC7C);
         static final TextColor GREYBLUE = TextColor.color(0x8FA9C4);

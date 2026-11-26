@@ -76,7 +76,7 @@ final class ArenaModel {
         return overlay.get(Pack.key(dx, y, dz));
     }
 
-    /** smooth noise at a real (not mirrored) position, shifted and re-seeded per arena */
+    /** smooth noise at a real */
     private double sm(int x, int z, int s, double scale) {
         return ArenaLayout.smooth(x + seed * 53, z + seed * 71, s + seed, scale);
     }
@@ -116,7 +116,7 @@ final class ArenaModel {
         return BASE_Y + (int) Math.round(n);
     }
 
-    /** a frozen pond: only in low flat ground away from the spawns, so the water under the ice can't leak sideways */
+    /** a frozen pond */
     boolean isPond(int dx, int dz) {
         if (theme != ArenaTheme.SNOWY || !large) return false;
         double d = Math.hypot(dx, dz);
@@ -125,20 +125,20 @@ final class ArenaModel {
         for (int ox = -1; ox <= 1; ox++) {
             for (int oz = -1; oz <= 1; oz++) {
                 int h = rawSurface(dx + ox, dz + oz);
-                if (h < BASE_Y - 2 || h > BASE_Y + 2) return false; // not lower than the water, not a deep pit
+                if (h < BASE_Y - 2 || h > BASE_Y + 2) return false; // not lower than the water
             }
         }
         return true;
     }
 
-    /** within two blocks of a pond: no caves are carved here, so the water can't spill into one */
+    /** within two blocks of a */
     boolean nearPond(int dx, int dz) {
         if (theme != ArenaTheme.SNOWY || !large || sm(dx, dz, 230, 12) < 0.55) return false;
         for (int ox = -2; ox <= 2; ox++) for (int oz = -2; oz <= 2; oz++) if (isPond(dx + ox, dz + oz)) return true;
         return false;
     }
 
-    /** blocks of water under the top block (the ice of a frozen pond) */
+    /** blocks of water under the */
     int waterDepth(int dx, int dz) {
         return isPond(dx, dz) ? 2 : 0;
     }
@@ -171,7 +171,7 @@ final class ArenaModel {
             }
             case SNOWY -> {
                 if (isPond(dx, dz)) yield "ice";
-                if (sm(dx, dz, 230, 12) > 0.62) { // a gravel shore around the pond
+                if (sm(dx, dz, 230, 12) > 0.62) { // a gravel shore around the
                     for (int ox = -1; ox <= 1; ox++) for (int oz = -1; oz <= 1; oz++) if (isPond(dx + ox, dz + oz)) yield "gravel";
                 }
                 double n = sm(dx, dz, 41, 10);
@@ -211,7 +211,7 @@ final class ArenaModel {
     /** outer radius of the stands */
     static final double STADIUM_OUTER = 74;
 
-    /** flat mud floor with a medallion, rays and rings */
+    /** flat mud floor with a */
     private String stadiumFloor(int dx, int dz) {
         int ax = Math.abs(dx), az = Math.abs(dz);
         double d = Math.hypot(dx, dz);
@@ -230,7 +230,7 @@ final class ArenaModel {
         return "mud";
     }
 
-    /** seating tiers, a rim wall and floodlights around the field */
+    /** seating tiers */
     private Map<Long, BlockData> buildStadium() {
         Map<Long, BlockData> out = new HashMap<>();
         BlockData fill = Blocks.data(Material.STONE_BRICKS);
@@ -287,7 +287,7 @@ final class ArenaModel {
         return out;
     }
 
-    /** a blanket of snow layers over the ground: mostly thin, deeper where it has drifted */
+    /** a blanket of snow layers */
     private void snowCover(Map<Long, BlockData> out, int radius) {
         int r = (int) Math.ceil(rPlay);
         for (int dx = -r; dx <= r; dx++) {
@@ -295,7 +295,7 @@ final class ArenaModel {
                 double d = Math.hypot(dx, dz);
                 if (d > rPlay - 0.5 || d < 4 || spawnDistance(dx, dz) < 3.5 || isPond(dx, dz)) continue;
                 double n = sm(dx, dz, 210, 7);
-                if (n < 0.1) continue; // bare patches where the wind cleared it
+                if (n < 0.1) continue; // bare patches where the wind
                 int layers = n > 0.82 ? 3 : n > 0.62 ? 2 : 1;
                 out.put(Pack.key(dx, surface(dx, dz) + 1, dz), Blocks.snow(layers));
             }
@@ -306,7 +306,7 @@ final class ArenaModel {
         Map<Long, BlockData> out = new HashMap<>();
         BiPredicate<Integer, Integer> allow = (x, z) -> Math.hypot(x, z) <= rPlay - 1 && spawnDistance(x, z) > 5 && !isPond(x, z);
         IntBinaryOperator surf = this::surface;
-        int cell = radius < 80 ? 8 : 13, hs = 500 + theme.ordinal() * 17 + seed * 131; // normal-size arenas get a tighter grid
+        int cell = radius < 80 ? 8 : 13, hs = 500 + theme.ordinal() * 17 + seed * 131; // normal-size arenas get a tighter
         double density = switch (theme) {
             case PLAINS -> .30;
             case DESERT -> .26;
@@ -327,7 +327,7 @@ final class ArenaModel {
                 int fx = gx * cell + (int) (ArenaLayout.hash(gx, gz, hs + 1) * cell);
                 int fz = gz * cell + (int) (ArenaLayout.hash(gx, gz, hs + 2) * cell);
                 double dens = density;
-                if (theme == ArenaTheme.SNOWY) dens *= 0.12 + 2.1 * clamp((sm(fx, fz, 260, 18) - 0.3) / 0.4); // spruce groves with open snow between
+                if (theme == ArenaTheme.SNOWY) dens *= 0.12 + 2.1 * clamp((sm(fx, fz, 260, 18) - 0.3) / 0.4); // spruce groves with open snow
                 if (ArenaLayout.hash(gx, gz, hs) > dens) continue;
                 double d = Math.hypot(fx, fz);
                 if (d > rPlay - 6 || d < 8 || Math.hypot(Math.abs(fx) - spawnX, fz) < 14) continue;

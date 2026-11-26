@@ -85,7 +85,11 @@ public final class DuelCommands implements CommandExecutor, TabCompleter {
                 Player target = Bukkit.getPlayerExact(args[0]);
                 if (target == null) { p.sendMessage(t.error("player not found.")); return; }
                 String kit = args.length > 1 ? args[1] : null;
-                if (kit != null && plugin.kits().get(kit) == null) { p.sendMessage(t.error("that kit doesn't exist.")); return; }
+                if (kit != null) {
+                    var found = plugin.kits().resolve(p, kit);
+                    if (found == null) { p.sendMessage(t.error("that kit doesn't exist.")); return; }
+                    kit = found.id;
+                }
                 String arena = null;
                 Integer rounds = null;
                 if (args.length > 2) {
@@ -122,7 +126,7 @@ public final class DuelCommands implements CommandExecutor, TabCompleter {
         plugin.duels().request(p, target, kit, null, true);
     }
 
-    /** leave whatever you are in: spectating, a duel, a veto or a queue */
+    /** leave whatever you are in */
     private void leave(Player p) {
         Theme t = plugin.theme();
         var duels = plugin.duels();
@@ -379,7 +383,10 @@ public final class DuelCommands implements CommandExecutor, TabCompleter {
             } else if (arena) plugin.arenas().all().forEach(a -> out.add(a.name));
             else if (args[0].equalsIgnoreCase("accept") || args[0].equalsIgnoreCase("deny")) {
                 Bukkit.getOnlinePlayers().forEach(pl -> out.add(pl.getName()));
-            } else plugin.kits().all().forEach(k -> out.add(k.id));
+            } else {
+                plugin.kits().all().forEach(k -> out.add(k.id));
+                if (s instanceof Player me) plugin.kits().customOf(me.getUniqueId()).forEach(k -> out.add(k.display.replace(' ', '_')));
+            }
         } else if (args.length == 3 && !arena) {
             plugin.arenas().all().forEach(a -> out.add(a.name));
         }

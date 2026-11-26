@@ -50,12 +50,12 @@ public final class HubGui extends Gui {
                 .build(), e -> Guis.challenge(plugin, p, () -> new HubGui(plugin, p).open(p)));
 
         set(28, Items.of(Material.ENDER_CHEST)
-                .name(t.text("✦ kit layout", t.primary()))
-                .lore(t.text("arrange your kit slots how", t.accent()),
-                        t.text("you like them", t.accent()),
+                .name(t.text("✦ edit kits", t.primary()))
+                .lore(t.text("kit layouts and your own", t.accent()),
+                        t.text("custom kits", t.accent()),
                         Component.empty(),
                         t.text("click to edit", t.secondary()))
-                .build(), e -> Guis.layoutKits(plugin, p, () -> new HubGui(plugin, p).open(p)));
+                .build(), e -> Guis.editKits(plugin, p, () -> new HubGui(plugin, p).open(p)));
 
         StatsManager.Stats s = plugin.stats().get(p.getUniqueId());
         set(30, Items.of(Material.GOLD_INGOT)

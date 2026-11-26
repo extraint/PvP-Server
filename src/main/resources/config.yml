@@ -135,3 +135,6 @@ test:
   enabled: true  # instant tier tests
   first-to: 4  # rounds to win
   cooldown-minutes: 30  # wait between tests in a kit
+
+custom-kits:
+  max: 5  # custom kits per player

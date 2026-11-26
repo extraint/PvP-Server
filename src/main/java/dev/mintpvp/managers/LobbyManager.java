@@ -81,8 +81,8 @@ public final class LobbyManager {
                 .lore(t.text("right-click for everything", t.accent())).glow().tag("menu").build());
         inv.setItem(5, Items.of(Material.FIREWORK_ROCKET).name(t.text("✦ party", t.primary()))
                 .lore(t.text("right-click to make or manage a party", t.accent())).glow().tag("party").build());
-        inv.setItem(6, Items.of(Material.ENDER_CHEST).name(t.text("✦ edit kit layout", t.primary()))
-                .lore(t.text("right-click to arrange your kits", t.accent())).tag("layout").build());
+        inv.setItem(6, Items.of(Material.ENDER_CHEST).name(t.text("✦ edit kits", t.primary()))
+                .lore(t.text("right-click: layouts and custom kits", t.accent())).tag("layout").build());
         inv.setItem(7, Items.of(Material.GOLD_INGOT).name(t.text("✦ leaderboard", t.primary()))
                 .lore(t.text("right-click: top players and kit tiers", t.accent())).tag("leaderboard").build());
         inv.setItem(8, Items.of(Material.COMPASS).name(t.text("✦ region", t.primary()))
@@ -95,9 +95,10 @@ public final class LobbyManager {
         Theme t = plugin.theme();
         boolean ranked = type == QueueManager.Type.RANKED;
         var q = plugin.queue().entryOf(p.getUniqueId());
-        if (q != null && (q.type() == type || (q.type() == QueueManager.Type.TEST && type == QueueManager.Type.RANKED))) {
+        if (q != null && (q.type() == type || (q.type() == QueueManager.Type.TEST && type == QueueManager.Type.RANKED)
+                || (q.type() == QueueManager.Type.HOST && type == QueueManager.Type.UNRANKED))) {
             return Items.of(Material.REDSTONE).name(t.text("✦ leave queue", t.secondary()))
-                    .lore(t.text("queued: " + (q.type() == QueueManager.Type.TEST ? "tier test " : ranked ? "ranked " : "") + q.kit().display, t.muted()),
+                    .lore(t.text((q.type() == QueueManager.Type.HOST ? "hosting: " : "queued: ") + (q.type() == QueueManager.Type.TEST ? "tier test " : ranked ? "ranked " : "") + q.kit().display, t.muted()),
                             t.text("right-click to leave", t.accent()))
                     .glow().tag("leave_queue").build();
         }
@@ -113,13 +114,13 @@ public final class LobbyManager {
         return v == null ? "na" : v.trim().toLowerCase(java.util.Locale.ROOT);
     }
 
-    /** address of a region, or null if not set */
+    /** address of a region */
     public String regionAddress(String id) {
         String a = plugin.getConfig().getString("region.servers." + id, "");
         return a == null || a.isBlank() ? null : a.trim();
     }
 
-    /** send a player to another region's server */
+    /** send a player to another */
     public void transfer(Player p, String id) {
         Theme t = plugin.theme();
         id = id.toLowerCase(java.util.Locale.ROOT);
@@ -180,7 +181,7 @@ public final class LobbyManager {
             case "challenge" -> Guis.challenge(plugin, p, null);
             case "challenge_ranked" -> Guis.challenge(plugin, p, null);
             case "menu" -> new HubGui(plugin, p).open(p);
-            case "layout" -> Guis.layoutKits(plugin, p, null);
+            case "layout" -> Guis.editKits(plugin, p, null);
             case "region" -> new dev.mintpvp.gui.RegionGui(plugin, p, null).open(p);
             case "leaderboard" -> new LeaderboardGui(plugin, p, "tier", null).open(p);
             case "spectate" -> Guis.spectateList(plugin, p, null);

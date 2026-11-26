@@ -1,6 +1,7 @@
 package dev.mintpvp.gui;
 
 import dev.mintpvp.MintPvP;
+import dev.mintpvp.managers.KitManager.Kit;
 import dev.mintpvp.managers.PartyManager.Party;
 import dev.mintpvp.util.Items;
 import dev.mintpvp.util.Theme;
@@ -110,12 +111,14 @@ public final class PartyGui extends Gui {
     /** party free-for-all */
     public static void ffaKit(MintPvP plugin, Player p, Runnable back) {
         Theme t = plugin.theme();
+        Party mine = plugin.parties().partyOf(p.getUniqueId());
+        List<Kit> kits = mine == null ? List.copyOf(plugin.kits().all()) : CustomKits.partyKits(plugin, mine.members);
         Guis.pickKit(plugin, p, "party free-for-all", back,
                 kit -> List.of(t.text("click to start", t.secondary())),
                 kit -> {
                     p.closeInventory();
                     plugin.duels().startPartyFfa(p, kit.id);
-                });
+                }, kits, List.of());
     }
 
     /** party challenge */
@@ -140,12 +143,25 @@ public final class PartyGui extends Gui {
                     t.text(other.members.size() + " members", t.accent()).decoration(TextDecoration.ITALIC, false),
                     t.text(sizeOk ? "click to challenge" : "needs " + mine.members.size() + " members", sizeOk ? t.secondary() : t.muted()).decoration(TextDecoration.ITALIC, false)));
             head.setItemMeta(meta);
-            entries.add(new PagedGui.Entry(head, e -> Guis.pickKit(plugin, p, "choose kit", () -> challengeParty(plugin, p, back),
-                    kit -> List.of(t.text("click to send the challenge", t.secondary())),
-                    kit -> {
-                        p.closeInventory();
-                        plugin.duels().requestParty(p, lead, kit.id);
-                    })));
+            java.util.Set<UUID> both = new java.util.HashSet<>(mine.members);
+            both.addAll(other.members);
+            List<Kit> kits = CustomKits.partyKits(plugin, both);
+            Runnable again = () -> challengeParty(plugin, p, back);
+            entries.add(new PagedGui.Entry(head, e -> Guis.pickKit(plugin, p, "your team's kit", again,
+                    kit -> List.of(t.text("click to pick", t.secondary())),
+                    mineKit -> {
+                        PagedGui.Entry same = new PagedGui.Entry(Items.of(Material.LIME_DYE).name(t.text("✦ same kit for both teams", t.primary()))
+                                .lore(t.text(mineKit.display, t.accent()), Component.empty(), t.text("click to send the challenge", t.secondary())).glow().build(), ev -> {
+                            p.closeInventory();
+                            plugin.duels().requestParty(p, lead, mineKit.id);
+                        });
+                        Guis.pickKit(plugin, p, "their team's kit", again,
+                                kit -> List.of(t.text("click to send the challenge", t.secondary())),
+                                theirKit -> {
+                                    p.closeInventory();
+                                    plugin.duels().requestParty(p, lead, mineKit.id, theirKit.id);
+                                }, kits, List.of(same));
+                    }, kits, List.of())));
         }
         new PagedGui(plugin, t.title("challenge a party"), entries, back, "no other parties yet").open(p);
     }

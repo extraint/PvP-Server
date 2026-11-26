@@ -12,7 +12,7 @@ import java.util.*;
 /** matchmaking */
 public final class QueueManager {
 
-    public enum Type { UNRANKED, RANKED, TEST }
+    public enum Type { UNRANKED, RANKED, TEST, HOST }
 
     public record Entry(UUID id, Kit kit, Type type, long since) {}
 
@@ -76,6 +76,10 @@ public final class QueueManager {
     public boolean join(Player p, Kit kit, Type type) {
         Theme t = plugin.theme();
         UUID id = p.getUniqueId();
+        boolean custom = plugin.kits().isCustom(kit);
+        if (custom && type != Type.HOST) { p.sendMessage(t.error("custom kits can only be hosted - use edit kits, custom kits.")); return false; }
+        if (!custom && type == Type.HOST) { p.sendMessage(t.error("only custom kits can be hosted.")); return false; }
+        if (custom && !kit.owner.equals(id)) { p.sendMessage(t.error("that isn't your kit.")); return false; }
         if (type == Type.RANKED && !rankedEnabled()) { p.sendMessage(t.error("ranked is disabled right now.")); return false; }
         if (type == Type.TEST) {
             if (!plugin.getConfig().getBoolean("test.enabled", true)) { p.sendMessage(t.error("tier tests are disabled right now.")); return false; }
@@ -94,6 +98,11 @@ public final class QueueManager {
         }
         queued.put(id, new Entry(id, kit, type, System.currentTimeMillis()));
         plugin.lobby().refresh(p);
+        if (type == Type.HOST) {
+            p.sendMessage(t.info(t.text("you're hosting ", t.accent()).append(t.raw(kit.display, t.primary()))
+                    .append(t.text(". anyone can join it from the custom kits menu. /leave to stop.", t.accent()))));
+            return true;
+        }
         p.sendMessage(t.info(t.text("you joined the ", t.accent())
                 .append(t.text(type.name().toLowerCase(Locale.ROOT) + " ", t.secondary()))
                 .append(t.text(kit.display, t.primary()))
@@ -111,6 +120,36 @@ public final class QueueManager {
         return removed;
     }
 
+    /** custom kits waiting for an */
+    public List<Entry> hosts() {
+        queued.keySet().removeIf(id -> Bukkit.getPlayer(id) == null);
+        return queued.values().stream().filter(e -> e.type() == Type.HOST).toList();
+    }
+
+    /** join a hosted custom kit */
+    public void joinHost(Player joiner, UUID hostId) {
+        Theme t = plugin.theme();
+        Entry e = queued.get(hostId);
+        Player host = Bukkit.getPlayer(hostId);
+        if (e == null || e.type() != Type.HOST || host == null) { joiner.sendMessage(t.error("that kit isn't being hosted any more.")); return; }
+        if (host.equals(joiner)) { joiner.sendMessage(t.error("that's your own kit - wait for someone to join.")); return; }
+        UUID id = joiner.getUniqueId();
+        if (plugin.duels().inDuel(id)) { joiner.sendMessage(t.error("you're already in a duel.")); return; }
+        if (plugin.duels().inVeto(id)) { joiner.sendMessage(t.error("you're choosing a map.")); return; }
+        if (plugin.duels().isSpectating(id)) { joiner.sendMessage(t.error("stop spectating first (/leave).")); return; }
+        if (plugin.combat().isTagged(id)) { joiner.sendMessage(t.error("you can't join while in combat.")); return; }
+        if (plugin.parties().blocks(joiner, "join a hosted kit")) return;
+        if (!eligible(host)) { joiner.sendMessage(t.error("the host can't play right now.")); return; }
+        queued.remove(id);
+        queued.remove(hostId);
+        if (!plugin.duels().startMatch(host, joiner, e.kit(), false)) {
+            queued.put(hostId, e);
+            joiner.sendMessage(t.error(plugin.duels().noArenaReason()));
+        }
+        plugin.lobby().refresh(host);
+        plugin.lobby().refresh(joiner);
+    }
+
     public void leaveKit(Kit kit) {
         for (UUID id : queued.values().stream().filter(e -> e.kit() == kit).map(Entry::id).toList()) leave(id);
     }
@@ -125,6 +164,7 @@ public final class QueueManager {
         queued.keySet().removeIf(id -> Bukkit.getPlayer(id) == null);
         Set<String> seen = new HashSet<>();
         for (Entry e : new ArrayList<>(queued.values())) {
+            if (e.type() == Type.HOST) continue;
             if (seen.add(e.type() + ":" + e.kit().id)) match(e.kit(), e.type());
         }
     }
@@ -143,7 +183,7 @@ public final class QueueManager {
             if (type == Type.UNRANKED) {
                 b = pool.get(1);
             } else if (type == Type.TEST) {
-                // a tier test is always against someone one tier above, one below or the same
+                // a tier test is always
                 int tierA = plugin.stats().get(a.getUniqueId()).tierIndex(kit.id);
                 int bestDiff = Integer.MAX_VALUE;
                 for (int i = 1; i < pool.size(); i++) {
@@ -162,7 +202,7 @@ public final class QueueManager {
                     int diff = Math.abs(tierA - plugin.stats().get(c.getUniqueId()).tierIndex(kit.id));
                     Entry ea = queued.get(a.getUniqueId()), ec = queued.get(c.getUniqueId());
                     int allowed = Math.max(window(ea), window(ec));
-                    if (isElite(ea) || isElite(ec)) allowed = Math.min(allowed, eliteCap()); // elite players only face close tiers
+                    if (isElite(ea) || isElite(ec)) allowed = Math.min(allowed, eliteCap()); // elite players only face close
                     if (diff <= allowed && diff < bestDiff) {
                         b = c;
                         bestDiff = diff;

@@ -334,7 +334,7 @@ public final class ArenaManager {
         return "stadium".equals(a.theme);
     }
 
-    /** kits that always play in the stadium */
+    /** kits that always play in */
     public boolean isStadiumKit(String kitId) {
         return kitId != null && plugin.getConfig().getStringList("arena-generator.stadium-kits").contains(kitId.toLowerCase(Locale.ROOT));
     }
@@ -344,7 +344,7 @@ public final class ArenaManager {
         return randomFree(ranked, null);
     }
 
-    /** free arena for a kit: stadium kits get the stadium, everyone else never does */
+    /** free arena for a kit */
     public Optional<Arena> randomFree(boolean ranked, String kitId) {
         List<Arena> free;
         if (isStadiumKit(kitId) && arenas.values().stream().anyMatch(ArenaManager::stadium)) {

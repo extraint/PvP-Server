@@ -66,7 +66,7 @@ public final class ScoreboardManager {
         var q = plugin.queue().entryOf(id);
         if (q != null && !plugin.combat().isTagged(id)) {
             long sec = (System.currentTimeMillis() - q.since()) / 1000;
-            Component bar = t.text("queued · " + (q.type() == dev.mintpvp.managers.QueueManager.Type.RANKED ? "ranked · " : q.type() == dev.mintpvp.managers.QueueManager.Type.TEST ? "tier test · " : "")
+            Component bar = t.text((q.type() == dev.mintpvp.managers.QueueManager.Type.HOST ? "hosting · " : "queued · ") + (q.type() == dev.mintpvp.managers.QueueManager.Type.RANKED ? "ranked · " : q.type() == dev.mintpvp.managers.QueueManager.Type.TEST ? "tier test · " : "")
                     + q.kit().display + " · ", t.secondary())
                     .append(Component.text(String.format("%d:%02d", sec / 60, sec % 60), t.accent()));
             if (q.type() == dev.mintpvp.managers.QueueManager.Type.RANKED) {
@@ -87,7 +87,7 @@ public final class ScoreboardManager {
      */
     private void tagPlayers(Scoreboard board, DuelManager.Duel match) {
         boolean teams = match != null && match.mode == DuelManager.Mode.PARTY;
-        String kitId = match != null ? match.kit.id : null;
+        String kitId = match != null ? match.statKitId() : null;
         int crown = dev.mintpvp.util.Tier.values().length - 1;
         java.util.Set<String> online = new java.util.HashSet<>();
         for (Player o : Bukkit.getOnlinePlayers()) {
@@ -135,7 +135,7 @@ public final class ScoreboardManager {
 
     private static final java.time.format.DateTimeFormatter DATE = java.time.format.DateTimeFormatter.ofPattern("MM/dd/yyyy");
 
-    /** match sidebar: opponent, score and ping, then arena, game id and date */
+    /** match sidebar */
     private List<Component> duelLines(Player p, DuelManager.Duel d, Theme t) {
         var cfg = plugin.getConfig();
         var icon = t.secondary();
@@ -188,7 +188,7 @@ public final class ScoreboardManager {
         if (match == null) match = plugin.duels().spectatedDuel(p.getUniqueId());
         boolean floating = plugin.aboveTags() != null && plugin.aboveTags().above();
         boolean needTeams = !floating || (match != null && match.mode == DuelManager.Mode.PARTY);
-        if (needTeams && plugin.getConfig().getBoolean("tags.teams", true)) { // also with TAB: covers worlds where TAB is disabled
+        if (needTeams && plugin.getConfig().getBoolean("tags.teams", true)) { // also with TAB
             try {
                 tagPlayers(board, match);
             } catch (RuntimeException e) {

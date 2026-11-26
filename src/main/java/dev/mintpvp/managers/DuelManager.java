@@ -46,10 +46,10 @@ public final class DuelManager {
         public State state = State.COUNTDOWN;
         /** rounds to win */
         public int firstTo = 1;
-        /** an instant tier test, not a ranked match */
+        /** an instant tier test */
         public boolean test;
         public int round = 1;
-        /** last time one player hurt another, ms */
+        /** last time one player hurt */
         public long lastHit = System.currentTimeMillis();
         /** round score */
         public final int[] score = new int[2];
@@ -78,6 +78,28 @@ public final class DuelManager {
 
         public int teamOf(Player p) {
             return team.getOrDefault(p.getUniqueId(), -1);
+        }
+
+        /** a different kit for each */
+        public Kit[] teamKits;
+
+        public Kit kitFor(Player p) {
+            int t = teamOf(p);
+            return teamKits != null && t >= 0 && t < teamKits.length && teamKits[t] != null ? teamKits[t] : kit;
+        }
+
+        /** kit whose tiers count for */
+        public String statKitId() {
+            if (teamKits != null || kit.custom()) return null;
+            return kit.id;
+        }
+
+        /** kit name for messages */
+        public String kitLabel() {
+            if (teamKits != null && teamKits.length == 2 && teamKits[0] != null && teamKits[1] != null && teamKits[0] != teamKits[1]) {
+                return teamKits[0].display + " vs " + teamKits[1].display;
+            }
+            return kit.display;
         }
 
         public boolean sameTeam(Player a, Player b) {
@@ -132,7 +154,7 @@ public final class DuelManager {
 
     private record SpecSaved(Location loc, GameMode mode) {}
 
-    /** a map ban between two elite players before a ranked match */
+    /** a map ban between two */
     private static final class Veto {
         final Player a, b;
         final Kit kit;
@@ -150,7 +172,7 @@ public final class DuelManager {
 
     private record LastMatch(UUID opponent, String kit, boolean ranked, int rounds, long expires) {}
 
-    private record Request(UUID from, String kit, String arena, long expires, boolean ranked, boolean party, int rounds, boolean test) {}
+    private record Request(UUID from, String kit, String arena, long expires, boolean ranked, boolean party, int rounds, boolean test, String kitB) {}
 
     private static final int[][] OFFSETS = spawnOffsets();
 
@@ -177,7 +199,7 @@ public final class DuelManager {
         idleTask = Bukkit.getScheduler().runTaskTimer(plugin, this::idleCheck, 100L, 20L);
     }
 
-    /** pull fighters to the middle when nobody has landed a hit in a while */
+    /** pull fighters to the middle */
     private void idleCheck() {
         long limit = plugin.getConfig().getInt("duel.idle-teleport-seconds", 120) * 1000L;
         if (limit <= 0) return;
@@ -320,7 +342,7 @@ public final class DuelManager {
         request(from, to, kitId, arenaName, ranked, rounds, false);
     }
 
-    /** challenge a player to an instant tier test in a kit */
+    /** challenge a player to an */
     public void requestTest(Player from, Player to, String kitId) {
         request(from, to, kitId, null, true, 1, true);
     }
@@ -332,6 +354,8 @@ public final class DuelManager {
         Theme t = plugin.theme();
         Kit kit = kitId == null ? plugin.kits().defaultKit() : plugin.kits().get(kitId);
         if (kit == null) { from.sendMessage(t.error("that kit doesn't exist.")); return; }
+        if (plugin.kits().isCustom(kit) && (ranked || test)) { from.sendMessage(t.error("custom kits can't be ranked or used for tier tests.")); return; }
+        if (plugin.kits().isCustom(kit) && !kit.owner.equals(from.getUniqueId()) && !kit.owner.equals(to.getUniqueId())) { from.sendMessage(t.error("that custom kit belongs to someone else.")); return; }
         if (plugin.parties().blocks(from, "start a 1v1 duel")) return;
         if (plugin.parties().inParty(to.getUniqueId())) { from.sendMessage(t.error("that player is in a party.")); return; }
         if (plugin.queue().isQueued(from.getUniqueId())) { from.sendMessage(t.error("leave the queue first (/queue leave).")); return; }
@@ -371,7 +395,7 @@ public final class DuelManager {
         }
 
         int expire = plugin.getConfig().getInt("duel.request-expire-seconds", 30);
-        requests.put(to.getUniqueId(), new Request(from.getUniqueId(), kit.id, chosen, System.currentTimeMillis() + expire * 1000L, ranked, false, rounds, test));
+        requests.put(to.getUniqueId(), new Request(from.getUniqueId(), kit.id, chosen, System.currentTimeMillis() + expire * 1000L, ranked, false, rounds, test, null));
 
         from.sendMessage(t.info(t.text("duel request sent to ", t.accent()).append(t.raw(to.getName(), t.primary()))
                 .append(t.text(" (" + (test ? "tier test " : ranked ? "ranked " : "") + kit.display + (rounds > 1 ? ", first to " + rounds : "") + ")", t.muted()))));
@@ -386,6 +410,11 @@ public final class DuelManager {
 
     /** party challenge */
     public void requestParty(Player leader, Player targetMember, String kitId) {
+        requestParty(leader, targetMember, kitId, null);
+    }
+
+    /** party duel */
+    public void requestParty(Player leader, Player targetMember, String kitId, String kitIdB) {
         Theme t = plugin.theme();
         var mine = plugin.parties().partyOf(leader.getUniqueId());
         var theirs = plugin.parties().partyOf(targetMember.getUniqueId());
@@ -395,6 +424,13 @@ public final class DuelManager {
         if (theirs == mine) { leader.sendMessage(t.error("that's your own party.")); return; }
         Kit kit = kitId == null ? plugin.kits().defaultKit() : plugin.kits().get(kitId);
         if (kit == null) { leader.sendMessage(t.error("that kit doesn't exist.")); return; }
+        Kit kitB = kitIdB == null ? null : plugin.kits().get(kitIdB);
+        if (kitIdB != null && kitB == null) { leader.sendMessage(t.error("that kit doesn't exist.")); return; }
+        Set<UUID> both = new HashSet<>(mine.members);
+        both.addAll(theirs.members);
+        for (Kit k : new Kit[] {kit, kitB}) {
+            if (k != null && k.custom() && !both.contains(k.owner)) { leader.sendMessage(t.error("the owner of " + k.display + " isn't in either party.")); return; }
+        }
         if (!plugin.getConfig().getBoolean("party.allow-uneven-teams", true) && mine.members.size() != theirs.members.size()) {
             leader.sendMessage(t.error("the parties must be the same size (" + mine.members.size() + " vs " + theirs.members.size() + ")."));
             return;
@@ -412,24 +448,34 @@ public final class DuelManager {
         }
 
         int expire = plugin.getConfig().getInt("duel.request-expire-seconds", 30);
-        requests.put(theirLeader.getUniqueId(), new Request(leader.getUniqueId(), kit.id, null, System.currentTimeMillis() + expire * 1000L, false, true, 1, false));
+        requests.put(theirLeader.getUniqueId(), new Request(leader.getUniqueId(), kit.id, null, System.currentTimeMillis() + expire * 1000L, false, true, 1, false, kitB != null && kitB != kit ? kitB.id : null));
         leader.sendMessage(t.info(t.text("party duel request sent to ", t.accent()).append(t.raw(theirLeader.getName() + "'s party", t.primary()))
-                .append(t.text(" (" + mine.members.size() + "v" + theirs.members.size() + ", " + kit.display + ")", t.muted()))));
+                .append(t.text(" (" + mine.members.size() + "v" + theirs.members.size() + ", " + (kitB != null && kitB != kit ? kit.display + " vs " + kitB.display : kit.display) + ")", t.muted()))));
         Component accept = t.text("[accept]", t.primary()).clickEvent(ClickEvent.runCommand("/duel accept " + leader.getName()));
         Component deny = t.text("[deny]", t.muted()).clickEvent(ClickEvent.runCommand("/duel deny " + leader.getName()));
         theirLeader.sendMessage(t.info(t.raw(leader.getName() + "'s party", t.primary())
-                .append(t.text(" challenged your party to a " + mine.members.size() + "v" + theirs.members.size() + " " + kit.display + " duel! ", t.accent()))
+                .append(t.text(" challenged your party to a " + mine.members.size() + "v" + theirs.members.size() + " " + (kitB != null && kitB != kit ? kit.display + " vs " + kitB.display : kit.display) + " duel! ", t.accent()))
                 .append(accept).append(Component.text(" ")).append(deny)));
     }
 
     /** custom teams */
     public void startScrim(Player leader, List<Player> red, List<Player> blue, String kitId) {
+        startScrim(leader, red, blue, kitId, null);
+    }
+
+    /** custom teams */
+    public void startScrim(Player leader, List<Player> red, List<Player> blue, String kitId, String kitIdBlue) {
         Theme t = plugin.theme();
         var party = plugin.parties().partyOf(leader.getUniqueId());
         if (party == null || !party.leader.equals(leader.getUniqueId())) { leader.sendMessage(t.error("only the party leader can start a custom match.")); return; }
         if (red.isEmpty() || blue.isEmpty()) { leader.sendMessage(t.error("both teams need at least one player.")); return; }
         Kit kit = kitId == null ? plugin.kits().defaultKit() : plugin.kits().get(kitId);
         if (kit == null) { leader.sendMessage(t.error("that kit doesn't exist.")); return; }
+        Kit kitB = kitIdBlue == null ? null : plugin.kits().get(kitIdBlue);
+        if (kitIdBlue != null && kitB == null) { leader.sendMessage(t.error("that kit doesn't exist.")); return; }
+        for (Kit k : new Kit[] {kit, kitB}) {
+            if (k != null && k.custom() && !party.members.contains(k.owner)) { leader.sendMessage(t.error("the owner of " + k.display + " isn't in your party.")); return; }
+        }
         Set<UUID> inParty = new HashSet<>(party.members);
         for (Player p : red) if (!inParty.contains(p.getUniqueId())) { leader.sendMessage(t.error("the party changed - open the team menu again.")); return; }
         for (Player p : blue) if (!inParty.contains(p.getUniqueId())) { leader.sendMessage(t.error("the party changed - open the team menu again.")); return; }
@@ -443,7 +489,8 @@ public final class DuelManager {
             leader.sendMessage(t.error(noArenaReason()));
             return;
         }
-        start(Mode.PARTY, List.of(red, blue), List.of("red team", "blue team"), arena, kit, false);
+        start(Mode.PARTY, List.of(red, blue), List.of("red team", "blue team"), arena, kit, false, 1,
+                kitB == null || kitB == kit ? null : new Kit[] {kit, kitB});
     }
 
     private boolean partyNeedsLarge(int totalPlayers) {
@@ -495,7 +542,7 @@ public final class DuelManager {
             return;
         }
         if (r.party()) {
-            acceptParty(from, target, kit);
+            acceptParty(from, target, kit, r.kitB() == null ? null : plugin.kits().get(r.kitB()));
             return;
         }
         if (plugin.parties().blocks(target, "accept a 1v1 duel")) return;
@@ -536,7 +583,7 @@ public final class DuelManager {
         if (r.ranked()) recordRankedPair(from.getUniqueId(), target.getUniqueId());
     }
 
-    private void acceptParty(Player challengerLeader, Player targetLeader, Kit kit) {
+    private void acceptParty(Player challengerLeader, Player targetLeader, Kit kit, Kit kitB) {
         Theme t = plugin.theme();
         var mine = plugin.parties().partyOf(challengerLeader.getUniqueId());
         var theirs = plugin.parties().partyOf(targetLeader.getUniqueId());
@@ -567,7 +614,8 @@ public final class DuelManager {
         List<Player> a = new ArrayList<>(), b = new ArrayList<>();
         for (UUID id : mine.members) a.add(Bukkit.getPlayer(id));
         for (UUID id : theirs.members) b.add(Bukkit.getPlayer(id));
-        start(Mode.PARTY, List.of(a, b), List.of(challengerLeader.getName() + "'s party", targetLeader.getName() + "'s party"), arena, kit, false);
+        start(Mode.PARTY, List.of(a, b), List.of(challengerLeader.getName() + "'s party", targetLeader.getName() + "'s party"), arena, kit, false, 1,
+                kitB == null ? null : new Kit[] {kit, kitB});
     }
 
     private boolean vetoApplies(Player a, Player b, Kit kit) {
@@ -576,7 +624,7 @@ public final class DuelManager {
         return plugin.stats().get(a.getUniqueId()).tierIndex(kit.id) >= elite && plugin.stats().get(b.getUniqueId()).tierIndex(kit.id) >= elite;
     }
 
-    /** map themes with a free ranked arena, a few of them; null when there aren't enough to choose from */
+    /** map themes with a free */
     private List<dev.mintpvp.arenagen.ArenaTheme> vetoOptions() {
         List<dev.mintpvp.arenagen.ArenaTheme> themes = new ArrayList<>();
         for (Arena ar : plugin.arenas().all()) {
@@ -613,7 +661,7 @@ public final class DuelManager {
         new dev.mintpvp.gui.VetoGui(plugin, p, v.options).open(p);
     }
 
-    /** ban a map ("" = ban nothing) */
+    /** ban a map */
     public void vetoBan(Player p, String themeId) {
         Veto v = vetoes.get(p.getUniqueId());
         Theme t = plugin.theme();
@@ -656,7 +704,7 @@ public final class DuelManager {
         start(v.a, v.b, arena, v.kit, true, rankedRounds());
     }
 
-    /** a player left during the ban: cancel it and put the other back in the queue */
+    /** a player left during the */
     public void cancelVeto(Player quitter) {
         Veto v = vetoes.get(quitter.getUniqueId());
         if (v == null) return;
@@ -670,7 +718,7 @@ public final class DuelManager {
         }
     }
 
-    /** in a party team match every piece of armor gets a Silence trim in the team colour: red or blue */
+    /** in a party team match */
     private void trimForTeam(Duel d, Player p) {
         if (d.mode != Mode.PARTY || d.teamOf(p) < 0) return;
         var material = d.teamOf(p) == 1 ? org.bukkit.inventory.meta.trim.TrimMaterial.LAPIS : org.bukkit.inventory.meta.trim.TrimMaterial.REDSTONE;
@@ -685,7 +733,7 @@ public final class DuelManager {
         p.getInventory().setArmorContents(armor);
     }
 
-    /** an instant tier test: first to a few rounds, no ranked progress involved */
+    /** an instant tier test */
     public boolean startTest(Player a, Player b, Kit kit) {
         Arena arena = plugin.arenas().randomFree(true, kit.id).orElse(null);
         if (arena == null) {
@@ -710,7 +758,7 @@ public final class DuelManager {
         return true;
     }
 
-    /** the result of an instant tier test */
+    /** the result of an instant */
     private void testResult(Duel duel, Player winner) {
         Player loser = duel.opponentOf(winner);
         int wt = duel.teamOf(winner);
@@ -766,6 +814,7 @@ public final class DuelManager {
         if (party.members.size() < min) { leader.sendMessage(t.error("a free-for-all needs at least " + min + " players in the party.")); return; }
         Kit kit = kitId == null ? plugin.kits().defaultKit() : plugin.kits().get(kitId);
         if (kit == null) { leader.sendMessage(t.error("that kit doesn't exist.")); return; }
+        if (kit.custom() && !party.members.contains(kit.owner)) { leader.sendMessage(t.error("the owner of " + kit.display + " isn't in your party.")); return; }
         String why = partyBusy(party);
         if (why != null) { leader.sendMessage(t.error("your party can't play right now: " + why)); return; }
         boolean large = party.members.size() >= plugin.getConfig().getInt("party.ffa-large-arena-min-players", 5);
@@ -818,10 +867,13 @@ public final class DuelManager {
 
     /** start match */
     private void start(Mode mode, List<List<Player>> teams, List<String> names, Arena arena, Kit kit, boolean ranked, int rounds) {
+        start(mode, teams, names, arena, kit, ranked, rounds, null);
+    }
+    private void start(Mode mode, List<List<Player>> teams, List<String> names, Arena arena, Kit kit, boolean ranked, int rounds, Kit[] teamKits) {
         List<Player> all = new ArrayList<>();
         teams.forEach(all::addAll);
         try {
-            begin(mode, teams, names, arena, kit, ranked, rounds);
+            begin(mode, teams, names, arena, kit, ranked, rounds, teamKits);
         } catch (RuntimeException ex) {
             plugin.getLogger().log(java.util.logging.Level.SEVERE, "Match failed to start on arena " + arena.name, ex);
             Duel d = all.isEmpty() ? null : byPlayer.get(all.get(0).getUniqueId());
@@ -843,8 +895,9 @@ public final class DuelManager {
         for (Player p : duel.players) p.sendMessage(plugin.theme().error("the match hit an error and was cancelled."));
     }
 
-    private void begin(Mode mode, List<List<Player>> teams, List<String> names, Arena arena, Kit kit, boolean ranked, int rounds) {
+    private void begin(Mode mode, List<List<Player>> teams, List<String> names, Arena arena, Kit kit, boolean ranked, int rounds, Kit[] teamKits) {
         Duel duel = new Duel(arena, kit, ranked, mode);
+        duel.teamKits = teamKits;
         if (mode == Mode.DUEL) duel.firstTo = Math.max(1, rounds);
         duel.teamNames.addAll(names);
         for (int i = 0; i < teams.size(); i++) {
@@ -875,7 +928,7 @@ public final class DuelManager {
             p.setFireTicks(0);
             p.setLevel(0);
             p.setExp(0);
-            plugin.kits().give(p, kit);
+            plugin.kits().give(p, duel.kitFor(p));
             trimForTeam(duel, p);
         }
         for (Player p : duel.players) {
@@ -897,7 +950,7 @@ public final class DuelManager {
             Theme t = plugin.theme();
             String label = switch (mode) {
                 case FFA -> "party free-for-all (" + duel.players.size() + " players, " + kit.display + ")";
-                case PARTY -> "party duel " + teams.get(0).size() + "v" + teams.get(1).size() + " (" + kit.display + ")";
+                case PARTY -> "party duel " + teams.get(0).size() + "v" + teams.get(1).size() + " (" + duel.kitLabel() + ")";
                 default -> (ranked ? "ranked " : "") + kit.display + " duel" + (duel.firstTo > 1 ? ", first to " + duel.firstTo : "");
             };
             Bukkit.broadcast(t.info(t.raw(mode == Mode.FFA ? "a " : duel.title(), t.primary())
@@ -1213,7 +1266,7 @@ public final class DuelManager {
             p.setFireTicks(0);
             p.setFallDistance(0);
             p.setVelocity(new org.bukkit.util.Vector(0, 0, 0));
-            plugin.kits().give(p, d.kit);
+            plugin.kits().give(p, d.kitFor(p));
             trimForTeam(d, p);
             p.teleport(d.spawnOf(p));
         }
@@ -1363,7 +1416,7 @@ public final class DuelManager {
         return m;
     }
 
-    /** challenge the last opponent again (accepts their rematch request if they sent one) */
+    /** challenge the last opponent again */
     public void rematch(Player p) {
         LastMatch m = lastFor(p);
         if (m == null) return;
@@ -1377,7 +1430,7 @@ public final class DuelManager {
         request(p, opp, m.kit, null, m.ranked, m.rounds);
     }
 
-    /** join the queue for the last match's kit and type */
+    /** join the queue for the */
     public void queueAgain(Player p) {
         LastMatch m = lastFor(p);
         if (m == null) return;
@@ -1412,7 +1465,7 @@ public final class DuelManager {
         announceElite(second, duel.kit.display, c[1]);
     }
 
-    /** tell everyone when someone reaches an elite tier */
+    /** tell everyone when someone reaches */
     private void announceElite(Player p, String kitName, StatsManager.TierChange c) {
         if (c.newTier() <= c.oldTier() || c.newTier() < plugin.stats().eliteFrom()) return;
         Theme t = plugin.theme();

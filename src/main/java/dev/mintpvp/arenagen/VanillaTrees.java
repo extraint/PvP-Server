@@ -41,7 +41,7 @@ final class VanillaTrees {
         this.oz = oz;
     }
 
-    /** grow one tree at tx, tz */
+    /** grow one tree at tx */
     static void grow(Map<Long, BlockData> out, BiPredicate<Integer, Integer> allow, IntBinaryOperator surf,
                      String trunkKey, String leafKey, int tx, int tz) {
         long seed = (tx * 73856093L) ^ (tz * 19349663L) ^ (trunkKey.hashCode() * 83492791L);
@@ -72,7 +72,7 @@ final class VanillaTrees {
         tops.merge(((long) x << 32) ^ (z & 0xFFFFFFFFL), y, Math::max);
     }
 
-    /** a thin layer of snow on the top of most leaf stacks, like a spruce after a snowfall */
+    /** a thin layer of snow */
     private void snowCaps() {
         for (var en : tops.entrySet()) {
             if (r.nextInt(100) >= 78) continue;
@@ -93,7 +93,7 @@ final class VanillaTrees {
         for (int y = from; y <= to; y++) trunk(x, y, z);
     }
 
-    /** a square ring of leaves; each corner is kept with the given chance */
+    /** a square ring of leaves */
     private void square(int cx, int y, int cz, int rad, double cornerKeep) {
         for (int dx = -rad; dx <= rad; dx++) {
             for (int dz = -rad; dz <= rad; dz++) {
@@ -104,7 +104,7 @@ final class VanillaTrees {
         }
     }
 
-    /** a round disc of leaves; the rim is thinned by edgeDrop */
+    /** a round disc of leaves */
     private void disc(int cx, int y, int cz, double rad, double edgeDrop) {
         int ri = (int) Math.ceil(rad);
         for (int dx = -ri; dx <= ri; dx++) {
@@ -134,12 +134,12 @@ final class VanillaTrees {
     private int[] dir() {
         int[][] d = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
         int[] p = d[r.nextInt(4)];
-        return new int[] {p[0] * mx, p[1] * mz}; // mirrored copies lean the mirrored way
+        return new int[] {p[0] * mx, p[1] * mz}; // mirrored copies lean the mirrored
     }
 
     // kinds
 
-    /** oak: 4-6 tall with a rounded crown; now and then a big branching oak */
+    /** oak: 4-6 tall with a */
     private void oak() {
         if (r.nextInt(10) == 0) {
             bigOak();
@@ -172,7 +172,7 @@ final class VanillaTrees {
         }
     }
 
-    /** spruce: a narrow cone of layered rings */
+    /** spruce */
     private void spruce() {
         int h = 6 + r.nextInt(5);
         int maxR = 2 + r.nextInt(2);
@@ -191,7 +191,7 @@ final class VanillaTrees {
         stem(0, 0, 1, h);
     }
 
-    /** jungle: a tall trunk under a small crown, or sometimes a huge 2x2 giant */
+    /** jungle */
     private void jungle() {
         if (r.nextInt(100) < 35) {
             int h = 14 + r.nextInt(9);
@@ -220,7 +220,7 @@ final class VanillaTrees {
         stem(0, 0, 1, h);
     }
 
-    /** acacia: a trunk that bends, a flat umbrella on top and sometimes a second smaller one */
+    /** acacia */
     private void acacia() {
         int bend = 2 + r.nextInt(3);
         stem(0, 0, 1, bend);
@@ -259,7 +259,7 @@ final class VanillaTrees {
         }
     }
 
-    /** cherry: a bent trunk with branches under wide, airy crowns */
+    /** cherry */
     private void cherry() {
         int h = 7 + r.nextInt(3);
         stem(0, 0, 1, h);
@@ -293,7 +293,7 @@ final class VanillaTrees {
         }
     }
 
-    /** poplar: a tall slim tree with an oval crown */
+    /** poplar */
     private void poplar() {
         int h = 9 + r.nextInt(5);
         stem(0, 0, 1, h);
@@ -310,7 +310,7 @@ final class VanillaTrees {
         }
     }
 
-    /** huge crimson fungus: a stem with a flat wart hat, glowing shroomlight and drooping edges */
+    /** huge crimson fungus */
     private void fungus() {
         int h = 5 + r.nextInt(8);
         stem(0, 0, 1, h);

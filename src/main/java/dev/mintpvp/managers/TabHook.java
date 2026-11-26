@@ -49,13 +49,13 @@ public final class TabHook {
         task = null;
     }
 
-    /** put the tier tag into every nametag and tab entry through TAB */
+    /** put the tier tag into */
     private void startPrefixes() {
         if (task != null) task.cancel();
         if (!plugin.getConfig().getBoolean("tags.tab-prefix", true)) return;
         task = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
             for (var p : Bukkit.getOnlinePlayers()) applyPrefix(p.getUniqueId());
-        }, 20L, 200L); // slow safety sweep; changes are pushed by events
+        }, 20L, 200L); // slow safety sweep
     }
 
     public void refresh(UUID id) {
@@ -89,7 +89,7 @@ public final class TabHook {
     private volatile String status = "not run yet";
     private volatile String lastPush = "";
 
-    /** true when TAB's nametag feature is on and carries our tag */
+    /** true when TAB's nametag feature */
     public boolean nametagActive() {
         return hooked && nametagActive;
     }
@@ -111,7 +111,7 @@ public final class TabHook {
         Method orig = find(c, "getOriginalRawPrefix", tpClass);
         Method set = find(c, "setPrefix", tpClass, String.class);
         if (set == null) return;
-        if (!nametag) { // the tab list stays clean: drop any tag we set earlier
+        if (!nametag) { // the tab list stays clean
             Object cur = get == null ? null : get.invoke(mgr, tp);
             if (cur != null) set.invoke(mgr, tp, (String) null);
             return;
@@ -182,7 +182,7 @@ public final class TabHook {
         }
     }
 
-    /** TAB forgets plugin placeholders on /tab reload, so register them again whenever TAB loads */
+    /** TAB forgets plugin placeholders on */
     private void listenForReloads() {
         try {
             Class<?> apiClass = Class.forName("me.neznamy.tab.api.TabAPI");
@@ -216,13 +216,14 @@ public final class TabHook {
         }
     }
 
-    /** the tier shown for a player: in a match, their tier in that kit; otherwise their best tier */
+    /** the tier shown for a */
     private int tierIndex(UUID id) {
         if (id == null) return -1;
         var st = plugin.stats().peek(id);
         if (st == null) return -1;
         var duel = plugin.duels().duelOf(id);
-        return duel != null ? st.tierIndex(duel.kit.id) : st.bestTier();
+        String kid = duel == null ? null : duel.statKitId();
+        return kid != null ? st.tierIndex(kid) : st.bestTier();
     }
 
     private String tag(UUID id) {

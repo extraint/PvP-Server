@@ -24,11 +24,21 @@ public final class Guis {
 
     private Guis() {}
 
+    @FunctionalInterface
+    private interface PickKit {
+        void run(MintPvP plugin, Player p, String title, Runnable back,
+                 java.util.function.Function<Kit, List<Component>> detail, Consumer<Kit> onPick);
+    }
+
     /** kit icon */
     public static ItemStack kitIcon(MintPvP plugin, Kit kit, List<Component> extra) {
         Theme t = plugin.theme();
         List<Component> lore = new ArrayList<>();
         lore.add(t.text("✦ " + kit.itemCount() + " items", t.muted()));
+        if (kit.custom()) {
+            String owner = Bukkit.getOfflinePlayer(kit.owner).getName();
+            lore.add(t.text("custom kit" + (owner == null ? "" : " by " + owner), t.secondary()));
+        }
         lore.addAll(extra);
         return Items.of(kit.icon).name(t.text(kit.display, t.primary())).lore(lore).build();
     }
@@ -36,11 +46,26 @@ public final class Guis {
     /** kit list */
     public static void pickKit(MintPvP plugin, Player p, String title, Runnable back,
                                java.util.function.Function<Kit, List<Component>> detail, Consumer<Kit> onPick) {
-        List<PagedGui.Entry> entries = new ArrayList<>();
-        for (Kit kit : plugin.kits().all()) {
+        pickKit(plugin, p, title, back, detail, onPick, List.copyOf(plugin.kits().all()), List.of());
+    }
+
+    /** kit list with chosen kits */
+    public static void pickKit(MintPvP plugin, Player p, String title, Runnable back,
+                               java.util.function.Function<Kit, List<Component>> detail, Consumer<Kit> onPick,
+                               List<Kit> kits, List<PagedGui.Entry> extra) {
+        List<PagedGui.Entry> entries = new ArrayList<>(extra);
+        for (Kit kit : kits) {
             entries.add(new PagedGui.Entry(kitIcon(plugin, kit, detail.apply(kit)), e -> onPick.accept(kit)));
         }
         new PagedGui(plugin, plugin.theme().title(title), entries, back, "no kits yet").open(p);
+    }
+
+    /** official kits plus your own */
+    public static void pickKitWithMine(MintPvP plugin, Player p, String title, Runnable back,
+                                       java.util.function.Function<Kit, List<Component>> detail, Consumer<Kit> onPick) {
+        List<Kit> kits = new ArrayList<>(plugin.kits().all());
+        kits.addAll(plugin.kits().customOf(p.getUniqueId()));
+        pickKit(plugin, p, title, back, detail, onPick, kits, List.of());
     }
 
     /** player list */
@@ -94,6 +119,14 @@ public final class Guis {
             p.sendMessage(t.error("ranked is disabled right now."));
             return;
         }
+        List<PagedGui.Entry> extra = new ArrayList<>();
+        if (type == QueueManager.Type.UNRANKED) {
+            extra.add(new PagedGui.Entry(Items.of(Material.CRAFTING_TABLE).name(t.text("✦ custom kits", t.primary()))
+                    .lore(t.text("host your own kit or join someone's", t.accent()),
+                            t.text(plugin.queue().hosts().size() + " hosting now", t.muted()),
+                            Component.empty(), t.text("click to open", t.secondary())).glow().build(),
+                    e -> CustomKits.lobby(plugin, p, () -> queueKits(plugin, p, type, back))));
+        }
         pickKit(plugin, p, test ? "tier test" : ranked ? "ranked queue" : "queue", back, kit -> {
             QueueManager q = plugin.queue();
             List<Component> lore = new ArrayList<>();
@@ -124,10 +157,10 @@ public final class Guis {
                 if (mine != null) plugin.queue().leave(p.getUniqueId());
                 plugin.queue().join(p, kit, type);
             }
-        });
+        }, List.copyOf(plugin.kits().all()), extra);
     }
 
-    /** one challenge flow: player, then ranked or friendly, then kit (and rounds) */
+    /** one challenge flow */
     public static void challenge(MintPvP plugin, Player p, Runnable back) {
         pickPlayer(plugin, p, "challenge", back, target -> challengeMode(plugin, p, target, () -> challenge(plugin, p, back)));
     }
@@ -175,7 +208,7 @@ public final class Guis {
         });
     }
 
-    /** ranked section: queue and instant tier test */
+    /** ranked section */
     public static void ranked(MintPvP plugin, Player p, Runnable back) {
         Theme t = plugin.theme();
         var st = plugin.stats().get(p.getUniqueId());
@@ -203,7 +236,8 @@ public final class Guis {
     }
 
     public static void kitAndRounds(MintPvP plugin, Player p, Player target, boolean ranked, Runnable back) {
-        pickKit(plugin, p, "choose kit", back,
+        PickKit picker = ranked ? Guis::pickKit : Guis::pickKitWithMine;
+        picker.run(plugin, p, "choose kit", back,
                 kit -> List.of(plugin.theme().text(ranked ? "first to " + plugin.duels().rankedRounds() + " · click to send" : "click to pick the rounds", plugin.theme().secondary())),
                 kit -> {
                     if (ranked) {
@@ -226,6 +260,25 @@ public final class Guis {
     }
 
     /** layout kit picker */
+    /** official layouts or custom kits */
+    public static void editKits(MintPvP plugin, Player p, Runnable back) {
+        Theme t = plugin.theme();
+        Gui g = new Gui(plugin, 3, t.title("edit kits"));
+        g.frame(true);
+        g.set(11, Items.of(Material.ENDER_CHEST).name(t.text("✦ kit layouts", t.primary()))
+                .lore(t.text("arrange the official kits", t.accent()), t.text("how you like them", t.accent()),
+                        Component.empty(), t.text("click to edit", t.secondary())).build(),
+                e -> layoutKits(plugin, p, () -> editKits(plugin, p, back)));
+        int mine = plugin.kits().customOf(p.getUniqueId()).size();
+        g.set(15, Items.of(Material.CRAFTING_TABLE).name(t.text("✦ custom kits", t.primary()))
+                .lore(t.text("make your own kits from any item", t.accent()), t.text("duel friends or host casual games", t.accent()),
+                        t.text("not ranked", t.muted()), t.line("yours", mine + " / " + plugin.kits().maxCustom()),
+                        Component.empty(), t.text("click to open", t.secondary())).glow().build(),
+                e -> CustomKits.menu(plugin, p, () -> editKits(plugin, p, back)));
+        g.set(18, Items.of(Material.SPECTRAL_ARROW).name(t.text("« back", t.secondary())).build(), e -> { if (back != null) back.run(); else p.closeInventory(); });
+        g.open(p);
+    }
+
     public static void layoutKits(MintPvP plugin, Player p, Runnable back) {
         Theme t = plugin.theme();
         pickKit(plugin, p, "kit layout", back, kit -> List.of(

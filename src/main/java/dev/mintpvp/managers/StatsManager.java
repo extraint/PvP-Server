@@ -16,11 +16,11 @@ public final class StatsManager {
         public final Map<String, Integer> kitTier = new HashMap<>();
         /** promotion progress */
         public final Map<String, Integer> kitProgress = new HashMap<>();
-        /** last ranked match per kit (ms) */
+        /** last ranked match per kit */
         public final Map<String, Long> kitLast = new HashMap<>();
         /** highest tier reached per kit */
         public final Map<String, Integer> kitPeak = new HashMap<>();
-        /** last tier test per kit (ms) */
+        /** last tier test per kit */
         public final Map<String, Long> kitTest = new HashMap<>();
         /** ranked streak */
         public int rankedStreak;
@@ -160,7 +160,7 @@ public final class StatsManager {
         if (plugin.tab() != null) plugin.tab().refresh(id);
     }
 
-    /** start the shared database (storage.type: mysql) */
+    /** start the shared database */
     public void start() {
         var cfg = plugin.getConfig();
         if (!cfg.getString("storage.type", "yaml").equalsIgnoreCase("mysql")) return;
@@ -230,7 +230,7 @@ public final class StatsManager {
         }
     }
 
-    /** pull recent changes from the database (async), then apply them on the main thread */
+    /** pull recent changes from the */
     private void pull() {
         StatsDb d = db;
         if (d == null) return;
@@ -244,7 +244,7 @@ public final class StatsManager {
         }
     }
 
-    /** write changed players to the database; sync = on this thread */
+    /** write changed players to the */
     private void flush(boolean sync) {
         StatsDb d = db;
         if (d == null || dirty.isEmpty()) return;
@@ -270,7 +270,7 @@ public final class StatsManager {
         else plugin.getServer().getScheduler().runTaskAsynchronously(plugin, write);
     }
 
-    /** load one player's latest stats when they join (the other server may have just saved them) */
+    /** load one player's latest stats */
     public void syncJoin(UUID id) {
         StatsDb d = db;
         if (d == null) return;
@@ -305,7 +305,7 @@ public final class StatsManager {
         return out;
     }
 
-    /** save a leaving player right away so the other server sees it */
+    /** save a leaving player right */
     public void flushPlayer(UUID id) {
         StatsDb d = db;
         if (d == null) return;
@@ -324,7 +324,7 @@ public final class StatsManager {
         db = null;
     }
 
-    /** read only: the stats if known, without creating an entry (safe from other threads) */
+    /** read only */
     public Stats peek(UUID id) {
         return stats.get(id);
     }
@@ -378,10 +378,10 @@ public final class StatsManager {
     }
 
     /** tier change */
-    /** progress is counted in half wins */
+    /** progress is counted in half */
     public static final int UNITS = RankedRules.UNITS;
 
-    /** "1.5 / 2" for progress units out of a number of wins. */
+    /** "1.5 / 2" for progress */
     public static String progressText(int units, int wins) {
         double v = Math.abs(units) / (double) UNITS;
         return (v == Math.floor(v) ? String.valueOf((int) v) : String.valueOf(v)) + " / " + wins;
@@ -405,17 +405,17 @@ public final class StatsManager {
         return tierByName(plugin.getConfig().getString("ranked.elite-from", "ht3"), 5);
     }
 
-    /** wins needed to leave a tier */
+    /** wins needed to leave a */
     public int promoteWinsFor(int tier) {
         return RankedRules.promoteNeed(rankedCfg(), tier) / UNITS;
     }
 
-    /** losses that drop you from a tier */
+    /** losses that drop you from */
     public int demoteLossesFor(int tier) {
         return RankedRules.demoteNeed(rankedCfg(), tier) / UNITS;
     }
 
-    /** apply ranked result; winnerRounds/loserRounds are the round scores of a finished match */
+    /** apply ranked result */
     public TierChange[] recordRanked(UUID winner, UUID loser, boolean draw, String kitId, int winnerRounds, int loserRounds, int firstTo) {
         touch(winner);
         touch(loser);
@@ -448,7 +448,7 @@ public final class StatsManager {
             sw.kitTier.put(kitId, 0);
             sw.kitProgress.put(kitId, 0);
         } else if (tw == top - 1 && tl == top) {
-            // beating the HT1 holder takes the crown: there is only one HT1 per kit
+            // beating the HT1 holder takes
             sw.kitTier.put(kitId, top);
             sw.kitProgress.put(kitId, 0);
             sl.kitTier.put(kitId, top - 1);
@@ -461,10 +461,10 @@ public final class StatsManager {
             noteW = g.note();
             int prog = sw.kitProgress.getOrDefault(kitId, 0) + g.units();
             int tier = tw;
-            while (tier < top && prog >= RankedRules.promoteNeed(cfg, tier)) { // extra progress carries into the next tier
+            while (tier < top && prog >= RankedRules.promoteNeed(cfg, tier)) { // extra progress carries into the
                 if (tier == top - 1) {
                     UUID king = crownHolder(kitId);
-                    if (king != null && !king.equals(winner)) { // HT1 is taken: beat the holder instead
+                    if (king != null && !king.equals(winner)) { // HT1 is taken
                         prog = Math.min(prog, RankedRules.promoteNeed(cfg, tier) - 1);
                         noteW = "HT1 is held by " + nameOf(king) + ", beat them to take it";
                         break;
@@ -499,14 +499,14 @@ public final class StatsManager {
                 new TierChange(kitId, tl, sl.tierIndex(kitId), sl.kitProgress.getOrDefault(kitId, 0), sl.score() - scoreL, sl.score(), placeL, noteL)};
     }
 
-    /** who holds HT1 in a kit, or null (there is only ever one) */
+    /** who holds HT1 in a */
     public UUID crownHolder(String kitId) {
         int top = dev.mintpvp.util.Tier.values().length - 1;
         for (var en : stats.entrySet()) if (en.getValue().tierIndex(kitId) == top) return en.getKey();
         return null;
     }
 
-    /** minutes until this player can take another tier test in a kit (0 = now) */
+    /** minutes until this player can */
     public long testCooldownMinutes(UUID id, String kitId) {
         Long last = get(id).kitTest.get(kitId);
         if (last == null) return 0;
@@ -550,12 +550,12 @@ public final class StatsManager {
                 new TierChange(kitId, tl, sl.tierIndex(kitId), sl.kitProgress.getOrDefault(kitId, 0), sl.score() - scoreL, sl.score(), false, o.loserNote())};
     }
 
-    /** peak tier in a kit (at least the current one) */
+    /** peak tier in a kit */
     public int peakTier(Stats s, String kitId) {
         return Math.max(s.kitPeak.getOrDefault(kitId, -1), s.tierIndex(kitId));
     }
 
-    /** days until an elite tier decays, or -1 if it can't */
+    /** days until an elite tier */
     public long daysUntilDecay(Stats s, String kitId) {
         int idx = s.tierIndex(kitId);
         Long last = s.kitLast.get(kitId);
@@ -565,7 +565,7 @@ public final class StatsManager {
         return Math.max(0, grace - (System.currentTimeMillis() - last) / 86_400_000L);
     }
 
-    /** decay for everyone, so inactive players don't keep elite tiers; online players are told */
+    /** decay for everyone */
     public void decayAll() {
         for (UUID id : new ArrayList<>(stats.keySet())) {
             var msgs = applyDecay(id);
@@ -574,7 +574,7 @@ public final class StatsManager {
         }
     }
 
-    /** inactivity decay for elite tiers; returns messages for the player */
+    /** inactivity decay for elite tiers */
     public List<String> applyDecay(UUID id) {
         List<String> out = new ArrayList<>();
         var c = plugin.getConfig();
@@ -590,7 +590,7 @@ public final class StatsManager {
             int idx = en.getValue();
             if (idx < elite) continue;
             Long last = s.kitLast.get(kit);
-            if (last == null) { // first time we see this kit: start the clock
+            if (last == null) { // first time we see this
                 s.kitLast.put(kit, now);
                 touch(id);
                 continue;
@@ -619,7 +619,7 @@ public final class StatsManager {
         if (tierIndex < 0) s.kitTier.remove(kitId);
         else {
             int top = dev.mintpvp.util.Tier.values().length - 1;
-            if (tierIndex >= top) { // the old HT1 holder steps down
+            if (tierIndex >= top) { // the old HT1 holder steps
                 UUID king = crownHolder(kitId);
                 if (king != null && !king.equals(id)) {
                     get(king).kitTier.put(kitId, top - 1);

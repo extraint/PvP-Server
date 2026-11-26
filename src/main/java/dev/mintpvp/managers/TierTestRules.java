@@ -1,9 +1,9 @@
 package dev.mintpvp.managers;
 
-/** instant tier test rules, kept free of server code so they can be tested alone */
+/** instant tier test rules */
 final class TierTestRules {
 
-    /** who holds the HT1 crown in the kit, seen from the winner */
+    /** who holds the HT1 crown */
     enum Crown { NONE, WINNER, LOSER, OTHER }
 
     record Outcome(boolean passed, int winnerTier, int loserTier, String winnerNote, String loserNote) {}

@@ -25,6 +25,12 @@ public final class KitManager {
         public String display;
         public Material icon;
         public ItemStack[] contents;
+        /** owner of a custom kit */
+        public UUID owner;
+
+        public boolean custom() {
+            return owner != null;
+        }
 
         Kit(String id, String display, Material icon, ItemStack[] contents) {
             this.id = id;
@@ -52,13 +58,18 @@ public final class KitManager {
     private final File kitFile, layoutFile;
     private final Map<String, Kit> kits = new LinkedHashMap<>();
     private final Map<UUID, Map<String, ItemStack[]>> layouts = new HashMap<>();
+    private final File customFile;
+    private final Map<UUID, List<Kit>> customKits = new LinkedHashMap<>();
+    private final Map<String, Kit> customById = new HashMap<>();
 
     public KitManager(MintPvP plugin) {
         this.plugin = plugin;
         this.kitFile = new File(plugin.getDataFolder(), "kits.yml");
         this.layoutFile = new File(plugin.getDataFolder(), "layouts.yml");
+        this.customFile = new File(plugin.getDataFolder(), "customkits.yml");
         loadKits();
         loadLayouts();
+        loadCustom();
         if (kits.isEmpty()) {
             Kit classic = new Kit("classic", "classic", Material.IRON_SWORD, defaultContents());
             kits.put(classic.id, classic);
@@ -155,7 +166,125 @@ public final class KitManager {
     }
 
     public Kit get(String id) {
-        return id == null ? null : kits.get(id.toLowerCase(Locale.ROOT));
+        if (id == null) return null;
+        String k = id.toLowerCase(Locale.ROOT);
+        Kit official = kits.get(k);
+        return official != null ? official : customById.get(k);
+    }
+
+    // custom kits
+
+    public int maxCustom() {
+        return Math.max(1, plugin.getConfig().getInt("custom-kits.max", 5));
+    }
+
+    public boolean isCustom(Kit kit) {
+        return kit != null && kit.custom();
+    }
+
+    public List<Kit> customOf(UUID owner) {
+        return Collections.unmodifiableList(customKits.getOrDefault(owner, List.of()));
+    }
+
+    /** a kit by id */
+    public Kit resolve(Player p, String name) {
+        if (name == null) return null;
+        for (Kit k : customOf(p.getUniqueId())) if (k.display.equalsIgnoreCase(name) || k.display.replace(' ', '_').equalsIgnoreCase(name)) return k;
+        Kit k = get(name);
+        return k != null && k.custom() && !k.owner.equals(p.getUniqueId()) ? null : k;
+    }
+
+    public static boolean validName(String name) {
+        return name != null && name.matches("[A-Za-z0-9 _-]{1,16}") && !name.isBlank();
+    }
+
+    public String nameProblem(UUID owner, String name, Kit except) {
+        if (!validName(name)) return "names are 1-16 letters, numbers, spaces, _ or -.";
+        for (Kit k : customOf(owner)) if (k != except && k.display.equalsIgnoreCase(name.trim())) return "you already have a kit with that name.";
+        return null;
+    }
+
+    /** new empty custom kit */
+    public Kit createCustom(UUID owner, String name) {
+        List<Kit> mine = customKits.computeIfAbsent(owner, k -> new ArrayList<>());
+        if (mine.size() >= maxCustom() || nameProblem(owner, name, null) != null) return null;
+        String id;
+        do {
+            id = "custom-" + owner.toString().substring(0, 8) + "-" + Integer.toHexString(new Random().nextInt(0x10000));
+        } while (customById.containsKey(id));
+        Kit k = new Kit(id, name.trim(), Material.CHEST, new ItemStack[SIZE]);
+        k.owner = owner;
+        mine.add(k);
+        customById.put(id, k);
+        saveCustom();
+        return k;
+    }
+
+    public boolean renameCustom(Kit kit, String name) {
+        if (!kit.custom() || nameProblem(kit.owner, name, kit) != null) return false;
+        kit.display = name.trim();
+        saveCustom();
+        return true;
+    }
+
+    public void deleteCustom(Kit kit) {
+        if (!kit.custom()) return;
+        List<Kit> mine = customKits.get(kit.owner);
+        if (mine != null) mine.remove(kit);
+        customById.remove(kit.id);
+        layouts.values().forEach(m -> m.remove(kit.id));
+        plugin.queue().leaveKit(kit);
+        saveCustom();
+        saveLayouts();
+    }
+
+    /** store edited contents and refresh */
+    public void updateCustom(Kit kit, ItemStack[] contents) {
+        if (!kit.custom()) return;
+        kit.contents = normalize(contents);
+        kit.icon = guessIcon(kit.contents);
+        layouts.values().forEach(m -> m.remove(kit.id)); // old arrangements no longer match
+        saveCustom();
+        saveLayouts();
+    }
+
+    private void loadCustom() {
+        if (!customFile.exists()) return;
+        ConfigurationSection sec = YamlConfiguration.loadConfiguration(customFile).getConfigurationSection("players");
+        if (sec == null) return;
+        for (String uid : sec.getKeys(false)) {
+            try {
+                UUID owner = UUID.fromString(uid);
+                ConfigurationSection mine = sec.getConfigurationSection(uid);
+                if (mine == null) continue;
+                for (String key : mine.getKeys(false)) {
+                    String id = mine.getString(key + ".id", "");
+                    if (id.isEmpty()) continue;
+                    Material icon = Material.matchMaterial(mine.getString(key + ".icon", "CHEST"));
+                    Kit k = new Kit(id, mine.getString(key + ".display", "kit"), icon == null ? Material.CHEST : icon, decode(mine.getString(key + ".data", "")));
+                    k.owner = owner;
+                    customKits.computeIfAbsent(owner, x -> new ArrayList<>()).add(k);
+                    customById.put(id, k);
+                }
+            } catch (RuntimeException e) {
+                plugin.getLogger().warning("Skipping unreadable custom kits for " + uid + ": " + e.getMessage());
+            }
+        }
+    }
+
+    public void saveCustom() {
+        YamlConfiguration y = new YamlConfiguration();
+        customKits.forEach((owner, list) -> {
+            int n = 0;
+            for (Kit k : list) {
+                String base = "players." + owner + "." + (n++);
+                y.set(base + ".id", k.id);
+                y.set(base + ".display", k.display);
+                y.set(base + ".icon", k.icon.name());
+                y.set(base + ".data", encode(k.contents));
+            }
+        });
+        write(y, customFile);
     }
 
     public Collection<Kit> all() {

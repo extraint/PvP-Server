@@ -20,7 +20,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 
-/** tier line floating above the nametag, riding the player */
+/** tier line floating above the */
 public final class AboveTags {
 
     private final MintPvP plugin;
@@ -34,12 +34,12 @@ public final class AboveTags {
         this.MARK = new org.bukkit.NamespacedKey(plugin, "tiertag");
     }
 
-    /** true when the tag is the floating line instead of a prefix */
+    /** true when the tag is */
     public boolean above() {
         return plugin.getConfig().getString("tags.mode", "above").equalsIgnoreCase("above");
     }
 
-    /** no polling: tags change on tier, match, join, teleport and respawn events */
+    /** no polling */
     public void start() {
         stop();
         for (var w : Bukkit.getWorlds()) { // leftovers from a reload
@@ -49,7 +49,7 @@ public final class AboveTags {
         }
         if (!above()) return;
         for (Player p : Bukkit.getOnlinePlayers()) refresh(p.getUniqueId());
-        // slow repair pass for anything an event missed
+        // slow repair pass for anything
         sweep = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
             for (Player p : Bukkit.getOnlinePlayers()) update(p);
         }, 100L, 100L);
@@ -63,7 +63,7 @@ public final class AboveTags {
         keys.clear();
     }
 
-    /** bring one player's tag up to date (safe from any thread) */
+    /** bring one player's tag up */
     public void refresh(UUID id) {
         if (!plugin.isEnabled() || !above()) return;
         if (Bukkit.isPrimaryThread()) {
@@ -74,13 +74,13 @@ public final class AboveTags {
         }
     }
 
-    /** one tick later, after the event that changed things has finished */
+    /** one tick later */
     public void refreshSoon(UUID id) {
         if (!plugin.isEnabled() || !above()) return;
         Bukkit.getScheduler().runTask(plugin, () -> refresh(id));
     }
 
-    /** dim the tag while sneaking, like a vanilla nametag */
+    /** dim the tag while sneaking */
     public void fade(Player p) {
         TextDisplay d = shown.get(p.getUniqueId());
         if (d != null && d.isValid()) d.setTextOpacity(p.isSneaking() ? (byte) 90 : (byte) -1);
@@ -92,7 +92,7 @@ public final class AboveTags {
         if (d != null && d.isValid()) d.remove();
     }
 
-    /** put a dropped tag back on its player: after a teleport it is left behind */
+    /** put a dropped tag back */
     private void reattach(Player p, TextDisplay d) {
         if (!d.getWorld().equals(p.getWorld())) {
             forget(p.getUniqueId());
@@ -121,13 +121,13 @@ public final class AboveTags {
         }
         int key = tierIndex(id);
         if (d == null) {
-            for (var rider : new java.util.ArrayList<>(p.getPassengers())) { // never two tags on one player
+            for (var rider : new java.util.ArrayList<>(p.getPassengers())) { // never two tags on one
                 if (rider instanceof TextDisplay old && old.getPersistentDataContainer().has(MARK)) old.remove();
             }
             Component text = tag(key);
             d = p.getWorld().spawn(p.getLocation(), TextDisplay.class, e -> {
                 e.setPersistent(false);
-                e.setVisibleByDefault(false); // no flash at the feet before it rides
+                e.setVisibleByDefault(false); // no flash at the feet
                 e.setBrightness(new Display.Brightness(15, 15));
                 e.setAlignment(TextDisplay.TextAlignment.CENTER);
                 e.getPersistentDataContainer().set(MARK, org.bukkit.persistence.PersistentDataType.BYTE, (byte) 1);
@@ -155,12 +155,13 @@ public final class AboveTags {
         }
     }
 
-    /** tier in the kit they are playing, else their best tier; -1 = unranked */
+    /** tier in the kit they */
     private int tierIndex(UUID id) {
         var st = plugin.stats().peek(id);
         if (st == null) return -1;
         var duel = plugin.duels().duelOf(id);
-        return duel != null ? st.tierIndex(duel.kit.id) : st.bestTier();
+        String kid = duel == null ? null : duel.statKitId();
+        return kid != null ? st.tierIndex(kid) : st.bestTier();
     }
 
     private Component tag(int idx) {

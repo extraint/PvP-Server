@@ -1,9 +1,9 @@
 package dev.mintpvp.managers;
 
-/** ranked progression rules, kept free of server code so they can be tested alone */
+/** ranked progression rules */
 final class RankedRules {
 
-    /** progress is counted in half wins; a full win is UNITS */
+    /** progress is counted in half */
     static final int UNITS = 2;
     private static final long DAY = 86_400_000L;
 
@@ -17,21 +17,21 @@ final class RankedRules {
         return tier >= c.eliteFrom();
     }
 
-    /** units of progress needed to leave a tier; every elite tier costs one more win than the last */
+    /** units of progress needed to */
     static int promoteNeed(Cfg c, int tier) {
         int wins = c.promoteWins();
         if (c.scaling() && elite(c, tier)) wins += tier - c.eliteFrom() + 1;
         return wins * UNITS;
     }
 
-    /** units of losses that drop you from a tier; elite tiers are less forgiving */
+    /** units of losses that drop */
     static int demoteNeed(Cfg c, int tier) {
         int losses = c.demoteLosses();
         if (c.scaling() && elite(c, tier)) losses = Math.max(1, losses - 1);
         return losses * UNITS;
     }
 
-    /** progress for a win: tw = your tier, tl = the loser's tier (-1 = unranked) */
+    /** progress for a win */
     static Gain winGain(Cfg c, int tw, int tl, int streak, boolean flawless) {
         int base;
         String note = "";
@@ -61,7 +61,7 @@ final class RankedRules {
         return new Gain(base, note);
     }
 
-    /** progress lost for a loss: tw = the winner's tier, tl = your tier */
+    /** progress lost for a loss */
     static Gain lossPenalty(Cfg c, int tw, int tl, boolean close) {
         if (tw > tl) return new Gain(0, "");
         if (elite(c, tl) && tl - tw >= 2) return new Gain(2 * UNITS, "upset loss");

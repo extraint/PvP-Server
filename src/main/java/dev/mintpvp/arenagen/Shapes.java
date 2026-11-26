@@ -75,7 +75,7 @@ final class Shapes {
         }
     }
 
-    /** tree: shaped by its kind, with its own random height and bends (r and h are no longer used) */
+    /** tree: shaped by its kind */
     static void tree(Map<Long, BlockData> out, BiPredicate<Integer, Integer> allow, IntBinaryOperator surf,
                      String trunk, String leaves, int r, int h, int tx, int tz) {
         VanillaTrees.grow(out, allow, surf, trunk, leaves, tx, tz);
