@@ -227,10 +227,10 @@ public final class TabHook {
 
     private String tag(UUID id) {
         int idx = tierIndex(id);
-        if (idx < 0) return id == null ? "" : "#AAAAAA&lUNRANKED&r ";
+        if (idx < 0) return id == null ? "" : "#AAAAAA&l" + dev.mintpvp.util.SmallCaps.of("unranked") + "&r ";
         Tier t = Tier.at(idx);
         String hex = String.format("#%06X", t.color.value());
-        return hex + "&l" + (idx == Tier.values().length - 1 ? "★" : "") + t.label.toUpperCase(Locale.ROOT) + "&r ";
+        return hex + "&l" + (idx == Tier.values().length - 1 ? "★" : "") + dev.mintpvp.util.SmallCaps.of(t.label) + "&r ";
     }
 
     private String tier(UUID id) {

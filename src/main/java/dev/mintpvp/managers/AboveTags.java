@@ -151,8 +151,8 @@ public final class AboveTags {
     }
 
     private Component tag(int idx) {
-        if (idx < 0) return Component.text("UNRANKED", NamedTextColor.GRAY).decoration(TextDecoration.BOLD, true);
-        String label = (idx == Tier.values().length - 1 ? "★" : "") + Tier.name(idx).toUpperCase(Locale.ROOT);
+        if (idx < 0) return Component.text(dev.mintpvp.util.SmallCaps.of("unranked"), NamedTextColor.GRAY).decoration(TextDecoration.BOLD, true);
+        String label = (idx == Tier.values().length - 1 ? "★" : "") + dev.mintpvp.util.SmallCaps.of(Tier.name(idx));
         return Component.text(label, Tier.at(idx).color).decoration(TextDecoration.BOLD, true);
     }
 }

@@ -108,11 +108,11 @@ public final class ScoreboardManager {
                 if (idx == -2) {
                     // floating tag, no prefix
                 } else if (idx < 0) {
-                    want.prefix(Component.text("UNRANKED ", NamedTextColor.GRAY)
+                    want.prefix(Component.text(dev.mintpvp.util.SmallCaps.of("unranked") + " ", NamedTextColor.GRAY)
                             .decoration(net.kyori.adventure.text.format.TextDecoration.BOLD, true)
                             .decoration(net.kyori.adventure.text.format.TextDecoration.ITALIC, false));
                 } else {
-                    String label = (idx == crown ? "★" : "") + dev.mintpvp.util.Tier.name(idx).toUpperCase(Locale.ROOT);
+                    String label = (idx == crown ? "★" : "") + dev.mintpvp.util.SmallCaps.of(dev.mintpvp.util.Tier.name(idx));
                     want.prefix(Component.text(label + " ", dev.mintpvp.util.Tier.at(idx).color)
                             .decoration(net.kyori.adventure.text.format.TextDecoration.BOLD, true)
                             .decoration(net.kyori.adventure.text.format.TextDecoration.ITALIC, false));
