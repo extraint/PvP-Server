@@ -76,7 +76,7 @@ public final class ArenaGenerator {
     }
 
     /** bump on design change */
-    static final int DESIGN_VERSION = 12;
+    static final int DESIGN_VERSION = 11;
 
     /** clear stale chunks */
     private void dropStaleTerrain(String worldName) {
@@ -181,8 +181,7 @@ public final class ArenaGenerator {
     /** in lobby area? */
     public boolean inLobbyRegion(Location l) {
         return world != null && l.getWorld() != null && l.getWorld().equals(world)
-                && l.getX() >= LOBBY_X + LobbyDesign.MIN_X && l.getX() <= LOBBY_X + LobbyDesign.MAX_X
-                && l.getZ() >= LOBBY_Z + LobbyDesign.MIN_Z && l.getZ() <= LOBBY_Z + LobbyDesign.MAX_Z;
+                && Math.abs(l.getX() - LOBBY_X) <= 90 && Math.abs(l.getZ() - LOBBY_Z) <= 90;
     }
 
     public Location lobbySpawn() {
@@ -191,7 +190,7 @@ public final class ArenaGenerator {
     }
 
     private void registerLobby() {
-        Map<Long, BlockData> out = new HashMap<>(500_000);
+        Map<Long, BlockData> out = new HashMap<>(120_000);
         LobbyDesign.place(out, Blocks::data, LOBBY_X, LOBBY_Z, FLOOR_Y);
         Map<Long, Map<Long, BlockData>> buckets = new HashMap<>();
         for (var e : out.entrySet()) {
