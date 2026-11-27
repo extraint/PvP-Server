@@ -243,7 +243,6 @@ public final class LobbyDesign {
         for (int[] s : new int[][] {{31, 0}, {-31, 0}, {0, 31}}) spire(out, data, cx + s[0], cz + s[1], y0);
 
         for (int[] c : closeDiagonals(balustrade)) out.put(Pack.key(cx + c[0], y0 + level(c[0], c[1]) + 1, cz + c[1]), data.apply(Material.PRISMARINE_WALL));
-        gardenFences(out, data, cx, cz, y0);
         sign(out, data, cx, cz, y0);
         gardens(rel, y0);
         islets(rel, data, y0);
@@ -252,34 +251,6 @@ public final class LobbyDesign {
             out.put(Pack.key(cx + Pack.x(k), Pack.y(k), cz + Pack.z(k)), e.getValue());
         }
         connect(out);
-    }
-
-    private static final Material[] FENCE = {Material.BIRCH_FENCE, Material.CHERRY_FENCE, Material.SPRUCE_FENCE, Material.ACACIA_FENCE};
-
-    /** fence ring round each garden, open towards the plaza */
-    private static void gardenFences(Map<Long, BlockData> out, Function<Material, BlockData> data, int cx, int cz, int y0) {
-        for (int i = 0; i < GARDENS.length; i++) {
-            int gx = GARDENS[i][0], gz = GARDENS[i][1];
-            java.util.List<int[]> cells = new java.util.ArrayList<>();
-            for (int dx = gx - 12; dx <= gx + 12; dx++) {
-                for (int dz = gz - 12; dz <= gz + 12; dz++) {
-                    double dg = gardenDistance(i, dx, dz);
-                    if (dg <= GARDEN_R || dg > GARDEN_R + 0.9) continue;
-                    double toCentre = Math.atan2(-gz, -gx), here = Math.atan2(dz - gz, dx - gx);
-                    double diff = Math.abs(Math.atan2(Math.sin(toCentre - here), Math.cos(toCentre - here)));
-                    if (diff < Math.toRadians(32)) continue;
-                    cells.add(new int[] {dx, dz});
-                }
-            }
-            int n = 0;
-            for (int[] c : closeDiagonals(cells)) {
-                out.put(Pack.key(cx + c[0], y0 + 1, cz + c[1]), data.apply(FENCE[i]));
-                if (n++ % 9 == 0) {
-                    out.put(Pack.key(cx + c[0], y0 + 2, cz + c[1]), data.apply(FENCE[i]));
-                    out.put(Pack.key(cx + c[0], y0 + 3, cz + c[1]), data.apply(Material.LANTERN));
-                }
-            }
-        }
     }
 
     /** add a cell wherever two cells only touch at a corner */
