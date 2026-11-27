@@ -18,6 +18,28 @@ public final class PlayerListener implements Listener {
         this.plugin = plugin;
     }
 
+    /** place every joining player in the lobby */
+    @EventHandler
+    public void onSpawnLocation(io.papermc.paper.event.player.AsyncPlayerSpawnLocationEvent e) {
+        if (!plugin.getConfig().getBoolean("spawn.teleport-on-join", true) || !plugin.spawn().isSet()) return;
+        e.setSpawnLocation(plugin.spawn().get());
+    }
+
+    /** retry while the lobby world is still loading */
+    private void sendToSpawn(Player p, int tries) {
+        if (!p.isOnline()) return;
+        if (plugin.spawn().isSet()) {
+            org.bukkit.Location spot = plugin.spawn().get();
+            if (!p.getWorld().equals(spot.getWorld()) || p.getLocation().distanceSquared(spot) > 4) p.teleport(spot);
+            return;
+        }
+        if (tries >= 30) {
+            plugin.getLogger().warning("No lobby spawn is available, so " + p.getName() + " was left at the world spawn. Run /setspawn in the lobby.");
+            return;
+        }
+        org.bukkit.Bukkit.getScheduler().runTaskLater(plugin, () -> sendToSpawn(p, tries + 1), 10L);
+    }
+
     @EventHandler
     public void onJoin(PlayerJoinEvent e) {
         Player p = e.getPlayer();
@@ -37,9 +59,7 @@ public final class PlayerListener implements Listener {
                 t.text(t.serverName(), t.primary()),
                 t.text("fight fresh.", t.secondary())));
 
-        if (plugin.getConfig().getBoolean("spawn.teleport-on-join", true) && plugin.spawn().isSet()) {
-            p.teleport(plugin.spawn().get());
-        }
+        if (plugin.getConfig().getBoolean("spawn.teleport-on-join", true)) sendToSpawn(p, 0);
         plugin.lobby().give(p);
         if (plugin.getConfig().getBoolean("kit.give-on-join", false)) {
             plugin.kits().give(p);
