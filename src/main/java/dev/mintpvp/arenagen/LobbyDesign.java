@@ -2,9 +2,12 @@ package dev.mintpvp.arenagen;
 
 import org.bukkit.Axis;
 import org.bukkit.Material;
+import org.bukkit.Tag;
 import org.bukkit.block.BlockFace;
 import org.bukkit.block.data.BlockData;
+import org.bukkit.block.data.type.Fence;
 import org.bukkit.block.data.type.Stairs;
+import org.bukkit.block.data.type.Wall;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -104,6 +107,7 @@ public final class LobbyDesign {
 
     public static void place(Map<Long, BlockData> out, Function<Material, BlockData> data, int cx, int cz, int y0) {
         Map<Long, BlockData> rel = new HashMap<>();
+        java.util.List<int[]> balustrade = new java.util.ArrayList<>();
         BlockData pillar = Blocks.axis(Material.QUARTZ_PILLAR, Axis.Y);
         int yc = y0 + DAIS;
 
@@ -150,7 +154,8 @@ public final class LobbyDesign {
                     Material body = garden && top != Material.LIME_CONCRETE ? Material.DIRT : Material.QUARTZ_BLOCK;
                     for (int y = y0 - 1; y < ytop; y++) out.put(Pack.key(x, y, z), data.apply(y == y0 - 1 || lvl == 0 ? body : Material.QUARTZ_BLOCK));
                     out.put(Pack.key(x, y0 - 2, z), data.apply(Material.SMOOTH_QUARTZ));
-                    if (d > 4.5 && d <= 6) out.put(Pack.key(x, ytop + 1, z), data.apply(Material.QUARTZ_SLAB));
+                    if (d > 4.5 && d <= 5.1) out.put(Pack.key(x, ytop + 1, z), data.apply(Material.QUARTZ_SLAB));
+                    if (d > 5.1 && d <= 6 && Math.abs(Math.sin(2 * ang)) >= 0.3) balustrade.add(new int[] {dx, dz});
                 }
 
                 // floating underside
@@ -193,9 +198,15 @@ public final class LobbyDesign {
             for (int y = yc + 1; y <= yc + 9; y++) out.put(Pack.key(cx + c[0], y, cz + c[1]), pillar);
             out.put(Pack.key(cx + c[0], yc + 10, cz + c[1]), data.apply(Material.SEA_LANTERN));
         }
+        BlockData flow = Blocks.parse("minecraft:water[level=1]");
+        BlockData fall = Blocks.parse("minecraft:water[level=8]");
         for (int[] j : new int[][] {{3, 0}, {-3, 0}, {0, 3}, {0, -3}}) {
             for (int y = yc - 1; y <= yc + 1; y++) out.put(Pack.key(cx + j[0], y, cz + j[1]), pillar);
-            out.put(Pack.key(cx + j[0], yc + 2, cz + j[1]), data.apply(Material.SEA_LANTERN));
+            out.put(Pack.key(cx + j[0], yc + 2, cz + j[1]), data.apply(Material.WATER));
+            for (int[] o : new int[][] {{1, 0}, {-1, 0}, {0, 1}, {0, -1}}) {
+                out.put(Pack.key(cx + j[0] + o[0], yc + 2, cz + j[1] + o[1]), flow);
+                out.put(Pack.key(cx + j[0] + o[0], yc + 1, cz + j[1] + o[1]), fall);
+            }
         }
 
         // lamp posts
@@ -204,7 +215,7 @@ public final class LobbyDesign {
                 double a = Math.toRadians(15 + k * 30);
                 int lx = (int) Math.round(ring * Math.cos(a)), lz = (int) Math.round(ring * Math.sin(a));
                 if (inAnyGarden(lx, lz, 2) || (Math.abs(lx) <= 25 && lz < -22)) continue;
-                for (int y = 1; y <= 3; y++) out.put(Pack.key(cx + lx, y0 + y, cz + lz), pillar);
+                for (int y = 1; y <= 3; y++) out.put(Pack.key(cx + lx, y0 + y, cz + lz), data.apply(Material.PRISMARINE_WALL));
                 out.put(Pack.key(cx + lx, y0 + 4, cz + lz), data.apply(Material.SEA_LANTERN));
             }
         }
@@ -231,6 +242,8 @@ public final class LobbyDesign {
         // crystal spires
         for (int[] s : new int[][] {{31, 0}, {-31, 0}, {0, 31}}) spire(out, data, cx + s[0], cz + s[1], y0);
 
+        for (int[] c : closeDiagonals(balustrade)) out.put(Pack.key(cx + c[0], y0 + level(c[0], c[1]) + 1, cz + c[1]), data.apply(Material.PRISMARINE_WALL));
+        gardenFences(out, data, cx, cz, y0);
         sign(out, data, cx, cz, y0);
         gardens(rel, y0);
         islets(rel, data, y0);
@@ -238,6 +251,96 @@ public final class LobbyDesign {
             long k = e.getKey();
             out.put(Pack.key(cx + Pack.x(k), Pack.y(k), cz + Pack.z(k)), e.getValue());
         }
+        connect(out);
+    }
+
+    private static final Material[] FENCE = {Material.BIRCH_FENCE, Material.CHERRY_FENCE, Material.SPRUCE_FENCE, Material.ACACIA_FENCE};
+
+    /** fence ring round each garden, open towards the plaza */
+    private static void gardenFences(Map<Long, BlockData> out, Function<Material, BlockData> data, int cx, int cz, int y0) {
+        for (int i = 0; i < GARDENS.length; i++) {
+            int gx = GARDENS[i][0], gz = GARDENS[i][1];
+            java.util.List<int[]> cells = new java.util.ArrayList<>();
+            for (int dx = gx - 12; dx <= gx + 12; dx++) {
+                for (int dz = gz - 12; dz <= gz + 12; dz++) {
+                    double dg = gardenDistance(i, dx, dz);
+                    if (dg <= GARDEN_R || dg > GARDEN_R + 0.9) continue;
+                    double toCentre = Math.atan2(-gz, -gx), here = Math.atan2(dz - gz, dx - gx);
+                    double diff = Math.abs(Math.atan2(Math.sin(toCentre - here), Math.cos(toCentre - here)));
+                    if (diff < Math.toRadians(32)) continue;
+                    cells.add(new int[] {dx, dz});
+                }
+            }
+            int n = 0;
+            for (int[] c : closeDiagonals(cells)) {
+                out.put(Pack.key(cx + c[0], y0 + 1, cz + c[1]), data.apply(FENCE[i]));
+                if (n++ % 9 == 0) {
+                    out.put(Pack.key(cx + c[0], y0 + 2, cz + c[1]), data.apply(FENCE[i]));
+                    out.put(Pack.key(cx + c[0], y0 + 3, cz + c[1]), data.apply(Material.LANTERN));
+                }
+            }
+        }
+    }
+
+    /** add a cell wherever two cells only touch at a corner */
+    private static java.util.List<int[]> closeDiagonals(java.util.List<int[]> cells) {
+        java.util.Set<Long> set = new java.util.HashSet<>();
+        for (int[] c : cells) set.add(((long) c[0] << 32) | (c[1] & 0xffffffffL));
+        java.util.List<int[]> out = new java.util.ArrayList<>(cells);
+        for (int[] c : cells) {
+            for (int[] o : new int[][] {{1, 1}, {1, -1}}) {
+                boolean diag = set.contains(((long) (c[0] + o[0]) << 32) | ((c[1] + o[1]) & 0xffffffffL));
+                boolean a = set.contains(((long) (c[0] + o[0]) << 32) | (c[1] & 0xffffffffL));
+                boolean b = set.contains(((long) c[0] << 32) | ((c[1] + o[1]) & 0xffffffffL));
+                if (diag && !a && !b) {
+                    out.add(new int[] {c[0] + o[0], c[1]});
+                    set.add(((long) (c[0] + o[0]) << 32) | (c[1] & 0xffffffffL));
+                }
+            }
+        }
+        return out;
+    }
+
+    /** join fences, walls and panes to their neighbours */
+    private static void connect(Map<Long, BlockData> out) {
+        BlockFace[] faces = {BlockFace.NORTH, BlockFace.EAST, BlockFace.SOUTH, BlockFace.WEST};
+        for (var e : out.entrySet()) {
+            BlockData d = e.getValue();
+            boolean fence = d instanceof Fence;
+            boolean wall = d instanceof Wall;
+            if (!fence && !wall) continue;
+            long k = e.getKey();
+            int x = Pack.x(k), y = Pack.y(k), z = Pack.z(k);
+            BlockData c = d.clone();
+            boolean[] on = new boolean[4];
+            for (int i = 0; i < 4; i++) {
+                BlockFace f = faces[i];
+                BlockData n = out.get(Pack.key(x + f.getModX(), y, z + f.getModZ()));
+                on[i] = n != null && (fence ? joinsFence(d, n) : joinsWall(n));
+                if (fence) ((Fence) c).setFace(f, on[i]);
+                else ((Wall) c).setHeight(f, on[i] ? Wall.Height.LOW : Wall.Height.NONE);
+            }
+            if (wall) {
+                boolean straight = (on[0] && on[2] && !on[1] && !on[3]) || (on[1] && on[3] && !on[0] && !on[2]);
+                BlockData above = out.get(Pack.key(x, y + 1, z));
+                ((Wall) c).setUp(!straight || (above != null && !above.getMaterial().isAir()));
+            }
+            e.setValue(c);
+        }
+    }
+
+    private static boolean solid(BlockData n) {
+        Material m = n.getMaterial();
+        return m.isOccluding() && m != Material.BARRIER;
+    }
+
+    private static boolean joinsFence(BlockData self, BlockData n) {
+        if (n instanceof Fence) return Tag.WOODEN_FENCES.isTagged(n.getMaterial()) == Tag.WOODEN_FENCES.isTagged(self.getMaterial());
+        return solid(n);
+    }
+
+    private static boolean joinsWall(BlockData n) {
+        return n instanceof Wall || solid(n);
     }
 
     private static void planter(Map<Long, BlockData> out, Function<Material, BlockData> data, int x0, int z0, int y0, int seed) {
